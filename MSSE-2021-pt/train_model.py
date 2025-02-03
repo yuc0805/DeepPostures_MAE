@@ -153,7 +153,7 @@ def train(args, bi_lstm_win_size, class_weights, transfer_learning_model_path, t
     # Load model
     model = CNNBiLSTMModel(args.amp_factor, bi_lstm_win_size, args.num_classes)
 
-    if args.transfer_learning_model:
+    if transfer_learning_model_path:
         load_model_weights(model, transfer_learning_model_path, weights_only=False)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -627,7 +627,7 @@ if __name__ == "__main__":
         )
     if not os.path.exists(os.path.join(args.model_checkpoint_path, "checkpoint")):
         os.makedirs(os.path.join(args.model_checkpoint_path, "checkpoint"))
-
+    transfer_learning_model_path = None
     if args.transfer_learning_model:
         if args.transfer_learning_model == "CUSTOM_MODEL":
             custom_transfer_learning_model_config()

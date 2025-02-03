@@ -194,7 +194,7 @@ def train(
         device
     )
 
-    if args.transfer_learning_model:
+    if transfer_learning_model_path:
         load_model_weights(model, transfer_learning_model_path, weights_only=False)
 
     model = DDP(model, device_ids=[rank])
@@ -755,7 +755,8 @@ if __name__ == "__main__":
         )
     if not os.path.exists(os.path.join(args.model_checkpoint_path, "checkpoint")):
         os.makedirs(os.path.join(args.model_checkpoint_path, "checkpoint"))
-
+        
+    transfer_learning_model_path = None
     if args.transfer_learning_model:
         if args.transfer_learning_model == "CUSTOM_MODEL":
             custom_transfer_learning_model_config()
