@@ -33,6 +33,7 @@ from model import CNNBiLSTMModel
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix
+from sklearn.model_selection import KFold
 
 
 # torch imports
@@ -60,6 +61,7 @@ def create_splits(
     validation_data_fraction,
     testing_data_fraction,
     run_test,
+    k_folds = None,
 ):
     """
     Creates train/validation/tets split from split data file or based on data fractions
@@ -80,19 +82,37 @@ def create_splits(
         train_subjects.sort()
         random.shuffle(train_subjects)
 
-        valid_subjects = []
-        if validation_data_fraction:
-            print("Validation data fraction: ", validation_data_fraction)
-            train_subjects, valid_subjects = train_test_split(
-                train_subjects,
-                test_size=validation_data_fraction / 100.0,
-                shuffle=False,
-            )
-        if training_data_fraction < 100:
-            print("Training data fraction: ", training_data_fraction)
-            train_subjects, _ = train_test_split(
-                train_subjects, train_size=training_data_fraction / 100.0, shuffle=False
-            )
+
+        if k_folds:
+            if training_data_fraction < 100:
+                print("Training data fraction: ", training_data_fraction)
+                train_subjects, _ = train_test_split(
+                    train_subjects, train_size=training_data_fraction / 100.0, shuffle=False
+                )
+            train_subjects = np.array(train_subjects)
+            kfold = KFold(n_splits=k_folds, shuffle=False)
+            folds = [(t,v) for (t,v) in kfold.split(train_subjects)]
+            fold_train_subjects = []
+            fold_valid_subjects = []
+            for f in folds:
+                fold_train_subjects.append(train_subjects[f[0]])
+                fold_valid_subjects.append(train_subjects[f[1]])
+            train_subjects = fold_train_subjects
+            valid_subjects = fold_valid_subjects
+        else:
+            valid_subjects = []
+            if validation_data_fraction:
+                print("Validation data fraction: ", validation_data_fraction)
+                train_subjects, valid_subjects = train_test_split(
+                    train_subjects,
+                    test_size=validation_data_fraction / 100.0,
+                    shuffle=False,
+                )
+            if training_data_fraction < 100:
+                print("Training data fraction: ", training_data_fraction)
+                train_subjects, _ = train_test_split(
+                    train_subjects, train_size=training_data_fraction / 100.0, shuffle=False
+                )
 
         test_subjects = []
         missing_test_subjects = []
@@ -148,7 +168,7 @@ def create_splits(
         return train_subjects, valid_subjects, test_subjects
 
 
-def train(args, bi_lstm_win_size, class_weights, transfer_learning_model_path, train_subjects, valid_subjects, test_subjects):
+def train(args, bi_lstm_win_size, class_weights, transfer_learning_model_path, train_subjects, valid_subjects, test_subjects, fold = None):
     
     # Load model
     model = CNNBiLSTMModel(args.amp_factor, bi_lstm_win_size, args.num_classes)
@@ -345,7 +365,8 @@ def train(args, bi_lstm_win_size, class_weights, transfer_learning_model_path, t
                 )
         # Add a new entry for the current epoch
         metrics.append(
-            {
+            {   
+                "fold": 0 if fold==None else fold,
                 "epoch": epoch + 1,
                 "runtime": epoch_duration,
                 "train_loss": epoch_train_loss,
@@ -361,6 +382,7 @@ def train(args, bi_lstm_win_size, class_weights, transfer_learning_model_path, t
             args.model_checkpoint_interval
             and epoch % args.model_checkpoint_interval == 0
         ):
+            checkpoint_name = f"checkpoint_epoch_{fold}_{epoch}.pth" if fold else f"checkpoint_epoch_{epoch}.pth"
             torch.save(
                 {
                     "epoch": epoch,
@@ -370,7 +392,7 @@ def train(args, bi_lstm_win_size, class_weights, transfer_learning_model_path, t
                 },
                 os.path.join(
                     os.path.join(args.model_checkpoint_path, "checkpoint"),
-                    f"checkpoint_epoch_{epoch}.pth",
+                    checkpoint_name,
                 ),
             )
         # Step the scheduler
@@ -379,16 +401,17 @@ def train(args, bi_lstm_win_size, class_weights, transfer_learning_model_path, t
             print(f"Learning rate: {scheduler.get_last_lr()}")
 
     # Log metric values
-    write_metrics_to_csv(metrics, args.output_file)
+    write_metrics_to_csv(metrics, args.output_file, write_header=(fold==0))
     # Save model
     if not args.silent:
         print("Training finished.")
 
     if not os.path.exists(args.model_checkpoint_path):
         os.makedirs(args.model_checkpoint_path)
+    saved_model_name = f"CUSTOM_MODEL_{fold}.pth" if fold else "CUSTOM_MODEL.pth"
     torch.save(
         model.state_dict(),
-        os.path.join(args.model_checkpoint_path, "CUSTOM_MODEL.pth"),
+        os.path.join(args.model_checkpoint_path, saved_model_name),
     )
     print("Model saved in path: {}".format(args.model_checkpoint_path))
 
@@ -399,7 +422,7 @@ def train(args, bi_lstm_win_size, class_weights, transfer_learning_model_path, t
         model = CNNBiLSTMModel(args.amp_factor, bi_lstm_win_size, args.num_classes)
         load_model_weights(
             model,
-            os.path.join(args.model_checkpoint_path, "CUSTOM_MODEL.pth"),
+            os.path.join(args.model_checkpoint_path, saved_model_name),
             weights_only=True,
         )
         model.to(device)
@@ -445,6 +468,8 @@ def train(args, bi_lstm_win_size, class_weights, transfer_learning_model_path, t
             print(
                 f"Test Accuracy: {test_accuracy:.2%} Balanced Test Accuracy: {test_balanced_accuracy:.2%}"
             )
+    # make sure to offload model
+    del model
 
 if __name__ == "__main__":
     main_start_time = time.time()
@@ -613,6 +638,12 @@ if __name__ == "__main__":
         required=False,
         choices=["linear"],
     )
+    optional_arguments.add_argument(
+        "--k-folds",
+        default=None,
+        required=False,
+        type=int,
+    )
 
     parser._action_groups.append(optional_arguments)
     args = parser.parse_args()
@@ -664,7 +695,6 @@ if __name__ == "__main__":
         for fname in os.listdir(os.path.join(args.pre_processed_dir, "FV"))
     ]
     subject_ids = list(set(subject_ids))
-
     print("Subject IDs: ", subject_ids)
     train_subjects, valid_subjects, test_subjects = create_splits(
         subject_ids,
@@ -673,20 +703,8 @@ if __name__ == "__main__":
         args.validation_data_fraction,
         args.testing_data_fraction,
         args.run_test,
+        args.k_folds
     )
-
-    train_subjects = [x + "BL" for x in train_subjects] + [
-        x + "FV" for x in train_subjects
-    ]
-    valid_subjects = [x + "BL" for x in valid_subjects] + [
-        x + "FV" for x in valid_subjects
-    ]
-    test_subjects = [x + "BL" for x in test_subjects] + [
-        x + "FV" for x in test_subjects
-    ]
-    random.shuffle(train_subjects)
-    random.shuffle(valid_subjects)
-    random.shuffle(test_subjects)
 
     output_shapes = (
         (
@@ -710,15 +728,58 @@ if __name__ == "__main__":
             "Validation on {} subjects: {}".format(len(valid_subjects), valid_subjects)
         )
         print("Testing on {} subjects: {}".format(len(test_subjects), test_subjects))
+    
+    if args.k_folds:
+        for i in tqdm(range(len(train_subjects))):
+            print("Fold ", i)
+            train_subs = train_subjects[i]
+            val_subs = valid_subjects[i]
+            train_subs = [x + "BL" for x in train_subs] + [
+                x + "FV" for x in train_subs
+            ]
+            val_subs = [x + "BL" for x in val_subs] + [
+                x + "FV" for x in val_subs
+            ]
+            test_subs = [x + "BL" for x in test_subjects] + [
+                x + "FV" for x in test_subjects
+            ]
+            random.shuffle(train_subs)
+            random.shuffle(val_subs)
+            random.shuffle(test_subs)
 
-    train(
-        args,
-        bi_lstm_win_size,
-        class_weights,
-        transfer_learning_model_path,
-        train_subjects,
-        valid_subjects,
-        test_subjects,
-    )
+            train(
+                args,
+                bi_lstm_win_size,
+                class_weights,
+                transfer_learning_model_path,
+                train_subs,
+                val_subs,
+                test_subs,
+                fold=i
+                )
+    else:
+
+        train_subjects = [x + "BL" for x in train_subjects] + [
+            x + "FV" for x in train_subjects
+        ]
+        valid_subjects = [x + "BL" for x in valid_subjects] + [
+            x + "FV" for x in valid_subjects
+        ]
+        test_subjects = [x + "BL" for x in test_subjects] + [
+            x + "FV" for x in test_subjects
+        ]
+        random.shuffle(train_subjects)
+        random.shuffle(valid_subjects)
+        random.shuffle(test_subjects)
+
+        train(
+            args,
+            bi_lstm_win_size,
+            class_weights,
+            transfer_learning_model_path,
+            train_subjects,
+            valid_subjects,
+            test_subjects,
+            )
     main_end_time = time.time()
     print(f"Done!!\nTotal time taken: {main_end_time - main_start_time:.2f} seconds")
