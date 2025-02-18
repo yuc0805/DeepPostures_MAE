@@ -655,15 +655,7 @@ if __name__ == "__main__":
                 )
             )
 
-    subject_ids = [
-        fname.split(".")[0][:-2]
-        for fname in os.listdir(os.path.join(args.pre_processed_dir, "BL"))
-    ]
-    subject_ids += [
-        fname.split(".")[0][:-2]
-        for fname in os.listdir(os.path.join(args.pre_processed_dir, "FV"))
-    ]
-    subject_ids = list(set(subject_ids))
+    subject_ids = sorted(list(set([fname for fname in os.listdir(args.pre_processed_dir)])))
 
     print("Subject IDs: ", subject_ids)
     train_subjects, valid_subjects, test_subjects = create_splits(
@@ -675,15 +667,6 @@ if __name__ == "__main__":
         args.run_test,
     )
 
-    train_subjects = [x + "BL" for x in train_subjects] + [
-        x + "FV" for x in train_subjects
-    ]
-    valid_subjects = [x + "BL" for x in valid_subjects] + [
-        x + "FV" for x in valid_subjects
-    ]
-    test_subjects = [x + "BL" for x in test_subjects] + [
-        x + "FV" for x in test_subjects
-    ]
     random.shuffle(train_subjects)
     random.shuffle(valid_subjects)
     random.shuffle(test_subjects)

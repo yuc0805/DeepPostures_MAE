@@ -153,11 +153,10 @@ def window_generator(data_root, win_size_10s, subject_ids):
     """
 
     for subject_id in tqdm(subject_ids):
-        new_data_root = os.path.join(data_root, "BL" if "BL" in subject_id else "FV")
-        subject_dir = os.path.join(new_data_root, subject_id)
+        subject_dir = os.path.join(data_root, subject_id)
         if os.path.isdir(subject_dir):
             for x_seq, _, y_seq in input_iterator(
-                new_data_root, subject_id, train=True
+                data_root, subject_id, train=True
             ):
                 x_window = []
                 y_window = []
