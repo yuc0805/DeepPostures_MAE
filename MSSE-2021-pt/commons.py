@@ -83,6 +83,18 @@ class IterDataset(torch.utils.data.IterableDataset):
     def __iter__(self):
         return iter(self.generator(self.data_root, self.win_size_10s, self.subject_ids))
 
+class IterDatasetSubject(torch.utils.data.IterableDataset):
+    """
+    PyTorch IterableDataset created from a generator
+    """
+
+    def __init__(self, generator, subject_data=[]):
+        self.generator = generator
+        self.subject_data = subject_data
+
+    def __iter__(self):
+        return iter(self.generator(self.subject_data))
+
 
 def input_iterator(data_root, subject_id, train=False):
     """
@@ -170,7 +182,7 @@ def get_subject_dataloader(test_subjects_data, batch_size):
         for item in lst:
             yield item
 
-    subject_data = IterDataset(list_generator(test_subjects_data))
+    subject_data = IterDatasetSubject(list_generator, test_subjects_data)
     subject_dataloader = DataLoader(
         subject_data, batch_size=batch_size, pin_memory=True
     )

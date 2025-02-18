@@ -90,15 +90,13 @@ def generate_predictions(pre_processed_data_dir, output_dir, model, segment, out
             x, timestamps, labels = [d[0].reshape(-1, int(1/downsample_window * cnn_window_size),
                                         int(gt3x_frequency*downsample_window), 1) for d in data], [d[1] for d in data], [d[2] for d in data]
             fout = open(os.path.join(output_dir, "{}".format(model_name), "{}.csv".format(subject_id)), 'w')
-
             if segment:
                 fout.write('segment,')
             fout.write('timestamp')
             if output_label:
                 fout.write(',label')
     
-            fout.write(',prediction\n')
-
+            fout.write(',prediction\n')    
             for n in range(len(x)):
                 border = x[n].shape[0] % bi_lstm_win_size
                 wrapped = False
@@ -137,6 +135,9 @@ def generate_predictions(pre_processed_data_dir, output_dir, model, segment, out
                         labels[n] = np.hstack((labels[n], labels_padded))
 
                 # Reshape data to the dimensions of first layer
+                if len(x[n]) == 0:
+                    continue
+                
                 subject_data = x[n].squeeze()
                 reshaped_subject_data = np.split(subject_data, subject_data.shape[0]//bi_lstm_win_size)
 

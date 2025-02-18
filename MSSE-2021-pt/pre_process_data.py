@@ -66,7 +66,10 @@ def write_data_to_file(pre_process_data_output_dir, subject_id, start_date, valu
     h5f_out.close()
 
 
-def map_function(gt3x_file, concurrent_wear_dict, sleep_logs_dict, non_wear_dict, pre_process_data_output_dir, subject_id, ap_df, label_map):
+def map_function(gt3x_file, concurrent_wear_dict, sleep_logs_dict, wear_logs_dict, non_wear_dict, pre_process_data_output_dir, subject_id, ap_df, label_map):
+    """
+    wear_logs_dict: this is complement of sleep_logs_dict, Essentially this determines when subject is not sleeping
+    """
     RESOLUTION = 1/float(args.down_sample_frequency)  # seconds
     GT3X_FREQUENCY = args.gt3x_frequency  # Hz
     CNN_WINDOW_SIZE = args.window_size  # seconds
@@ -87,6 +90,11 @@ def map_function(gt3x_file, concurrent_wear_dict, sleep_logs_dict, non_wear_dict
                 if sleep_interval[0] <= check_time <= sleep_interval[1]:
                     return 1
             return 0
+        elif id in wear_logs_dict: # complement of sleep logs
+            for wear_interval in wear_logs_dict[id]:
+                if wear_interval[0] <= check_time <= wear_interval[1]:
+                    return 0
+            return 1
         else:
             return 0
 
@@ -168,12 +176,13 @@ def fn(
     non_wear_dict,
     args,
     sleep_logs_dict,
+    wear_logs_dict,
     activpal_events_csv_dir_root,
     concurrent_wear_dict,
     pre_process_data_output_dir,
     gt3x_30Hz_csv_dir_root,
     gzipped,
-    ext
+    ext,
 ):
     def fn_file(fin):
         if len(non_wear_dict) > 0 and subject_id not in non_wear_dict and not args.silent:
@@ -193,7 +202,7 @@ def fn(
         else:
             ap_df = None
 
-        map_function(fin, concurrent_wear_dict, sleep_logs_dict, non_wear_dict,
+        map_function(fin, concurrent_wear_dict, sleep_logs_dict, wear_logs_dict, non_wear_dict,
                      pre_process_data_output_dir, subject_id, ap_df, label_map)
         if not args.silent:
             logger.info(
@@ -236,8 +245,8 @@ def get_date_string(string):
     
     return ""
 
-def generate_pre_processed_data(gt3x_30Hz_csv_dir_root, valid_days_file, label_map, sleep_logs_file=None, non_wear_times_file=None, activpal_events_csv_dir_root=None,
-                                n_start_ID=None, n_end_ID=None, expression_after_ID=None, pre_process_data_output_dir='./pre-processed', mp=None, gzipped=False):
+def generate_pre_processed_data(gt3x_30Hz_csv_dir_root, valid_days_file, label_map, sleep_logs_file=None, wear_logs_file=None, non_wear_times_file=None, activpal_events_csv_dir_root=None,
+                                n_start_ID=None, n_end_ID=None, expression_after_ID=None, pre_process_data_output_dir='./pre-processed', mp=None, gzipped=False, loc=None):
     """
     Utility function to generate pre-processed files from input data files that can be fed to the ML models.
     :param gt3x_30Hz_csv_dir_root: Path to the directory containing 30Hz GT3X CSV data.
@@ -286,7 +295,7 @@ def generate_pre_processed_data(gt3x_30Hz_csv_dir_root, valid_days_file, label_m
             lines = f.readlines()
             header = lines[0].lower().split(",")[:2]
             header = [head.replace("\"",'') for head in header]
-            if header[0].strip().lower() != "id" or header[1].strip() != "date.valid.day":
+            if header[0].strip().lower() != "id" or (header[1].strip() != "date.valid.day" and header[1].strip() != "valid_days"):
                 raise Exception(
                     'valid_days_file should have two header columns (ID, Date.valid.day).')
 
@@ -389,7 +398,54 @@ def generate_pre_processed_data(gt3x_30Hz_csv_dir_root, valid_days_file, label_m
                         'sleep_logs_file should have three/five header columns. Found: {}'.format(header))
 
 
+    # 3.1 Wear logs file - complement of sleep logs
+    wear_logs_dict = {}
+    if wear_logs_file is not None:
+        if not os.path.isfile(wear_logs_file):
+            raise Exception('file {} does not exist.'.format(wear_logs_file))
 
+        if not wear_logs_file.endswith('.csv'):
+            raise Exception('{} is not a csv file.'.format(wear_logs_file))
+
+        with open(wear_logs_file) as f:
+            lines = f.readlines()
+            header = lines[0].lower().split(",")[:3]
+            header = [head.replace("\"",'') for head in header]
+        
+            if header[0].strip() != "shortid" or header[1].strip() != "startwear" or header[2].strip() != "endwear":
+                raise Exception(
+                    'wear_logs_file should have three header columns (shortid, startwear, endwear).')
+
+            for line in lines[1:]:
+                line = line.strip()
+                if line == "":
+                    continue
+
+                bits = line.split(",")
+                bits = [bit.replace("\"",'') for bit in bits]
+                id = bits[0].strip()
+                if id not in wear_logs_dict:
+                    wear_logs_dict[id] = []
+
+                try:
+                    dt_string = bits[1].strip()
+                    if len(dt_string) == 10:  # Only contains "YYYY-MM-DD"
+                        dt_string += " 00:00:00"
+                    start_time = datetime.strptime(dt_string, "%Y-%m-%d %H:%M:%S")
+                except:
+                    raise Exception(
+                        "In {}, date should be in %Y-%m-%d format and time should be in %H:%M:%S format. Found: {}".format(wear_logs_file, line))
+
+                try:
+                    dt_string = bits[2].strip()
+                    if len(dt_string) == 10:  # Only contains "YYYY-MM-DD"
+                        dt_string += " 00:00:00"
+                    end_time = datetime.strptime(dt_string, "%Y-%m-%d %H:%M:%S")
+                except:
+                    raise Exception(
+                        "In {}, date should be in %Y-%m-%d format and time should be in %H:%M:%S format. Found: {}".format(wear_logs_file, line))
+
+                wear_logs_dict[id].append((start_time, end_time))
 
     # 4. non_wear_times_file
     non_wear_dict = {}
@@ -404,12 +460,16 @@ def generate_pre_processed_data(gt3x_30Hz_csv_dir_root, valid_days_file, label_m
 
         with open(non_wear_times_file) as f:
             lines = f.readlines()
-            header = lines[0].lower().split(",")[:5]
+            header = lines[0].lower().split(",")
             header = [head.replace("\"",'') for head in header]
-            if header[0].strip() != "id" or header[1].strip() != "date.nw.start" or header[2].strip() != "time.nw.start" \
-                    or header[3].strip() != "date.nw.end" or header[4].strip() != "time.nw.end":
+            # if header[0].strip() != "id" or header[1].strip() != "date.nw.start" or header[2].strip() != "time.nw.start" \
+            #         or header[3].strip() != "date.nw.end" or header[4].strip() != "time.nw.end":
+            #     raise Exception(
+            #         'non_wear_times_file should have five header columns (ID, Date.nw.start, Time.nw.start, Date.nw.end, Time.nw.end).')
+            if header[0].strip() != "id" or header[1].strip() != "wearloc" or header[2].strip() != "nw_dt" \
+                    or header[3].strip() != "int.min" or header[4].strip() != "weardate" or header[7].strip()!="loc":
                 raise Exception(
-                    'non_wear_times_file should have five header columns (ID, Date.nw.start, Time.nw.start, Date.nw.end, Time.nw.end).')
+                    'non_wear_times_file should have header columns (ID, wearLoc, NW_DT, int.min, wearDate).')
 
             for line in lines[1:]:
                 line = line.strip()
@@ -417,28 +477,42 @@ def generate_pre_processed_data(gt3x_30Hz_csv_dir_root, valid_days_file, label_m
                     continue
                 bits = line.split(",")
                 bits = [bit.replace("\"",'') for bit in bits]
+
+                # check if location is hip or wrist
+                if bits[7].lower()!=loc:
+                    continue
+
                 id = bits[0].strip()
                 if id not in non_wear_dict:
                     non_wear_dict[id] = []
                 
-                date_string = get_date_string(bits[1].strip())
+                date_string = get_date_string(bits[2].strip())
 
                 try:
+                    dt_string = bits[2].strip()
+                    if len(dt_string) == 10:  # Only contains "YYYY-MM-DD"
+                        dt_string += " 00:00"
+                    else:
+                        dt_string = dt_string[:-3] # Remove :ss from the string
+                    
                     start_time = datetime.strptime(
-                        bits[1].strip() + " " + bits[2].strip(), f"{date_string} %H:%M")
+                        dt_string, f"{date_string} %H:%M")
                 except:
                     raise Exception(
                         "In {}, date should be in {} format and time should be in %H:%M format. Found: {}".format(date_string, non_wear_times_file, line))
 
-                date_string = get_date_string(bits[3].strip())
+                # iWatch does not have a endTime. We calculate endTime as startTime +int.min(minutes)
 
-                try:
-                    end_time = datetime.strptime(
-                        bits[3].strip() + " " + bits[4], f"{date_string} %H:%M")
-                except:
-                    raise Exception(
-                        "In {}, date should be in {} format and time should be in %H:%M format. Found: {}".format(date_string, non_wear_times_file, line))
-
+                # date_string = get_date_string(bits[3].strip())
+                # try:
+                #     end_time = datetime.strptime(
+                #         bits[3].strip() + " " + bits[4], f"{date_string} %H:%M")
+                # except:
+                #     raise Exception(
+                #         "In {}, date should be in {} format and time should be in %H:%M format. Found: {}".format(date_string, non_wear_times_file, line))
+                
+                interval_nw = int(bits[3].strip())
+                end_time = start_time + timedelta(minutes=interval_nw)
                 non_wear_dict[id].append((start_time, end_time))
 
     # 5. n_start_ID
@@ -496,6 +570,7 @@ def generate_pre_processed_data(gt3x_30Hz_csv_dir_root, valid_days_file, label_m
         common_args = [non_wear_dict,
                        args,
                        sleep_logs_dict,
+                       wear_logs_dict,
                        activpal_events_csv_dir_root,
                        concurrent_wear_dict,
                        pre_process_data_output_dir,
@@ -511,6 +586,7 @@ def generate_pre_processed_data(gt3x_30Hz_csv_dir_root, valid_days_file, label_m
         common_args = [non_wear_dict,
                        args,
                        sleep_logs_dict,
+                       wear_logs_dict,
                        activpal_events_csv_dir_root,
                        concurrent_wear_dict,
                        pre_process_data_output_dir,
@@ -537,6 +613,10 @@ if __name__ == "__main__":
         '--valid-days-file', help='Path to the valid days file', required=False)
     optional_arguments.add_argument(
         '--sleep-logs-file', help='Path to the sleep logs file', required=False)
+    optional_arguments.add_argument(
+        '--wear-logs-file', help='Path to the sleep logs file', required=False)
+    optional_arguments.add_argument(
+        '--loc', help='Path to the sleep logs file', choices=["hip", "wrist"], required=False)
     optional_arguments.add_argument(
         '--non-wear-times-file', help='Path to non wear times file', required=False)
     optional_arguments.add_argument(
@@ -570,7 +650,7 @@ if __name__ == "__main__":
         os.makedirs(args.pre_processed_dir)
 
     label_map = json.loads(args.activpal_label_map)
-    generate_pre_processed_data(args.gt3x_dir, args.valid_days_file, label_map, sleep_logs_file=args.sleep_logs_file, non_wear_times_file=args.non_wear_times_file,
+    generate_pre_processed_data(args.gt3x_dir, args.valid_days_file, label_map, sleep_logs_file=args.sleep_logs_file, wear_logs_file=args.wear_logs_file, non_wear_times_file=args.non_wear_times_file,
                                 activpal_events_csv_dir_root=args.activpal_dir,
                                 n_start_ID=args.n_start_id, n_end_ID=args.n_end_id, expression_after_ID=args.expression_after_id,
-                                pre_process_data_output_dir=args.pre_processed_dir, mp=args.mp, gzipped=args.gzipped)
+                                pre_process_data_output_dir=args.pre_processed_dir, mp=args.mp, gzipped=args.gzipped, loc=args.loc)
