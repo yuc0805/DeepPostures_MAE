@@ -28,7 +28,7 @@ import time
 
 from tqdm import tqdm
 from commons import get_dataloaders
-from utils import write_metrics_to_csv, load_model_weights, compute_accuracy_from_confusion_matrix
+from utils import write_metrics_to_csv, load_model_weights, compute_accuracy_from_confusion_matrix, compute_additional_metrics_from_confusion_matrix
 from model import CNNBiLSTMModel
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
@@ -144,7 +144,8 @@ def create_splits(
         n_test_subjects = int(math.ceil(len(subject_ids) * test_frac / 100.0))
         test_subjects = subject_ids[:n_test_subjects]
         valid_subjects = subject_ids[n_test_subjects:]
-
+        if not run_test:
+            test_subjects = []
         return train_subjects, valid_subjects, test_subjects
 
 
@@ -217,7 +218,10 @@ def train(args, bi_lstm_win_size, class_weights, transfer_learning_model_path, t
 
 
             sanity_val_accuracy, sanity_val_balanced_accuracy = compute_accuracy_from_confusion_matrix(cm_sanity_val)
+            sanity_additional_metrics = compute_additional_metrics_from_confusion_matrix(cm_sanity_val)
             print(f"Sanity Validation Accuracy: {sanity_val_accuracy:.2%} Balanced Accuracy: {sanity_val_balanced_accuracy:.2%}")
+            print("Sanity Confusion Matrix", cm_sanity_val)
+            print("Additional Metrics", sanity_additional_metrics)
     
     print("Running Training")
     for epoch in tqdm(range(args.num_epochs)):
@@ -327,11 +331,12 @@ def train(args, bi_lstm_win_size, class_weights, transfer_learning_model_path, t
             compute_accuracy_from_confusion_matrix(cm_train)
         )
         epoch_train_loss = training_loss / n_batches_train
-
+        epoch_additional_metrics = {}
         if valid_dataloader != None:
             epoch_val_accuracy, epoch_val_balanced_accuracy = (
                 compute_accuracy_from_confusion_matrix(cm_val)
             )
+            epoch_val_additional_metrics = compute_additional_metrics_from_confusion_matrix(cm_val)
             epoch_val_loss = val_loss / n_batches_val
 
             if not args.silent:
@@ -344,8 +349,7 @@ def train(args, bi_lstm_win_size, class_weights, transfer_learning_model_path, t
                     f"Epoch [{epoch+1}/{args.num_epochs}], Runtime: {epoch_duration:.2f} seconds, Train Loss: {epoch_train_loss:.4f}, Train Accuracy: {epoch_train_accuracy:.2%}, Train Accuracy: {epoch_train_accuracy:.2%}, Train Balanced Accuracy: {epoch_train_balanced_accuracy:.2%}"
                 )
         # Add a new entry for the current epoch
-        metrics.append(
-            {
+        base_metric = {
                 "epoch": epoch + 1,
                 "runtime": epoch_duration,
                 "train_loss": epoch_train_loss,
@@ -354,7 +358,10 @@ def train(args, bi_lstm_win_size, class_weights, transfer_learning_model_path, t
                 "val_loss": epoch_val_loss,
                 "val_acc": epoch_val_accuracy,
                 "val_balanced_acc": epoch_val_balanced_accuracy,
-            }
+                "val_confusion_matrix": cm_val.tolist()
+            }    
+        metrics.append(
+            {**base_metric, **epoch_val_additional_metrics}
         )
         # Save model checkpoint
         if (
@@ -445,6 +452,9 @@ def train(args, bi_lstm_win_size, class_weights, transfer_learning_model_path, t
             print(
                 f"Test Accuracy: {test_accuracy:.2%} Balanced Test Accuracy: {test_balanced_accuracy:.2%}"
             )
+            test_additional_metrics = compute_additional_metrics_from_confusion_matrix(cm_test)
+            print(f"Sanity Validation Accuracy: {sanity_val_accuracy:.2%} Balanced Accuracy: {sanity_val_balanced_accuracy:.2%}")
+            print("Additional Metrics", test_additional_metrics)
 
 if __name__ == "__main__":
     main_start_time = time.time()

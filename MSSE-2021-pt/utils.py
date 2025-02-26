@@ -29,25 +29,70 @@ def load_model_weights(model, file_path, weights_only=True):
 
 
 def compute_accuracy_from_confusion_matrix(cm):
-    # True Positives (TP), False Positives (FP), True Negatives (TN), False Negatives (FN)
-    true_positive = np.diag(cm)  # Diagonal represents correct predictions
+    # True Positives (TP): Diagonal elements
+    true_positive = np.diag(cm)
 
-    false_positive = cm.sum(axis=0) - true_positive  # FP: sum of columns - TP
-    false_negative = cm.sum(axis=1) - true_positive  # FN: sum of rows - TP
-    true_negative = cm.sum() - (
-        true_positive + false_positive + false_negative
-    )  # TN: total sum - TP - FP - FN
+    # False Positives (FP): Column sum - TP
+    false_positive = cm.sum(axis=0) - true_positive
+
+    # False Negatives (FN): Row sum - TP
+    false_negative = cm.sum(axis=1) - true_positive
+
+    # True Negatives (TN): Total sum - (TP + FP + FN)
+    total = cm.sum()
+    true_negative = total - (true_positive + false_positive + false_negative)
 
     # Accuracy: Total correct predictions / Total samples
-    accuracy = true_positive.sum() / cm.sum()
+    accuracy = true_positive.sum() / total
 
-    # Sensitivity (Recall) = TP / (TP + FN)
+    # Sensitivity (Recall): TP / (TP + FN)
     sensitivity = true_positive / (true_positive + false_negative)
-
-    # Specificity = TN / (TN + FP)
+    
+    # Specificity: TN / (TN + FP)
     specificity = true_negative / (true_negative + false_positive)
 
-    # Balanced Accuracy: (Sensitivity + Specificity) / 2
-    balanced_accuracy = (sensitivity + specificity) / 2
+    # Balanced Accuracy: Average of Sensitivity and Specificity
+    balanced_accuracy = np.mean((sensitivity + specificity) / 2)
 
-    return accuracy, balanced_accuracy.mean()
+    return accuracy, balanced_accuracy
+
+def compute_additional_metrics_from_confusion_matrix(cm):
+    """
+    Compute specificity, sensitivity, positive predictive value (PPV),
+    and negative predictive value (NPV) from a multi-class confusion matrix.
+
+    :param cm: NumPy array representing the confusion matrix (square matrix).
+    :return: Dictionary containing computed metrics for each class.
+    """
+    # True Positives (TP): Diagonal elements
+    true_positive = np.diag(cm)
+
+    # False Positives (FP): Column sum - TP
+    false_positive = cm.sum(axis=0) - true_positive
+
+    # False Negatives (FN): Row sum - TP
+    false_negative = cm.sum(axis=1) - true_positive
+
+    # True Negatives (TN): Total sum - (TP + FP + FN)
+    total = cm.sum()
+    true_negative = total - (true_positive + false_positive + false_negative)
+
+    # Compute metrics
+    sensitivity = true_positive / (true_positive + false_negative)  # Recall
+    specificity = true_negative / (true_negative + false_positive)
+    ppv = true_positive / (true_positive + false_positive)  # Precision
+    npv = true_negative / (true_negative + false_negative)
+
+    # Handle division by zero
+    sensitivity = np.nan_to_num(sensitivity)
+    specificity = np.nan_to_num(specificity)
+    ppv = np.nan_to_num(ppv)
+    npv = np.nan_to_num(npv)
+
+    # Return metrics for each class
+    return {
+        "sensitivity": sensitivity.tolist(),
+        "specificity": specificity.tolist(),
+        "positive_predictive_value": ppv.tolist(),
+        "negative_predictive_value": npv.tolist()
+    }
