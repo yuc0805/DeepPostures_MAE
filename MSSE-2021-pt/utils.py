@@ -4,7 +4,7 @@ import numpy as np
 
 
 # Function to write metrics to CSV
-def write_metrics_to_csv(metrics, csv_file):
+def write_metrics_to_csv(metrics, csv_file, write_header=True):
     """
     Write training and validation metrics to a CSV file.
 
@@ -14,9 +14,10 @@ def write_metrics_to_csv(metrics, csv_file):
     """
     if not metrics:
         return
-    with open(csv_file, mode="w", newline="") as file:
+    with open(csv_file, mode="a", newline="") as file:
         writer = csv.DictWriter(file, fieldnames=metrics[0].keys())
-        writer.writeheader()
+        if write_header:
+            writer.writeheader()
         writer.writerows(metrics)
 
     print(f"Metrics written to {csv_file}")
