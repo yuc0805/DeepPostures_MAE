@@ -27,46 +27,23 @@ import pandas as pd
 import time
 
 from tqdm import tqdm
-from commons import get_dataloaders_dist
-from utils import (
-    write_metrics_to_csv,
-    load_model_weights,
-    compute_accuracy_from_confusion_matrix,
-)
+from commons import get_dataloaders
+from utils import write_metrics_to_csv, load_model_weights, compute_accuracy_from_confusion_matrix, compute_additional_metrics_from_confusion_matrix
 from model import CNNBiLSTMModel
-from sklearn.metrics import accuracy_score, balanced_accuracy_score
+from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix
+from sklearn.model_selection import KFold
 
 
 # torch imports
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torch.distributed as dist
-import torch.multiprocessing as mp
-from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.utils.data.distributed import DistributedSampler
-
 
 # Set random seeds
 random.seed(2019)
 np.random.seed(2019)
-
-
-def setup_ddp(rank, world_size):
-    os.environ["MASTER_ADDR"] = "localhost"  # The address of the master node
-    os.environ["MASTER_PORT"] = "12355"  # A free port for communication
-
-    dist.init_process_group(
-        backend="nccl",  # Backend, 'nccl' works well with GPUs
-        rank=rank,
-        world_size=world_size,
-    )
-
-
-def cleanup_ddp():
-    dist.destroy_process_group()
 
 
 def custom_transfer_learning_model_config(args):
@@ -79,153 +56,83 @@ def custom_transfer_learning_model_config(args):
 
 def create_splits(
     subject_ids,
-    split_data_file,
-    training_data_fraction,
-    validation_data_fraction,
-    testing_data_fraction,
     run_test,
+    k_folds = None,
 ):
-    """
-    Creates train/validation/tets split from split data file or based on data fractions
-    """
-    if split_data_file:
-        # Read data from split data file
-        df = pd.read_csv(split_data_file)
-        train_subjects = (
-            df[df["type"].str.contains("train", na=False)]["study_id"]
-            .astype(str)
-            .to_list()
-        )
-        print("P2 random Train subjects: ", len(train_subjects))
-        # remove missing elements
-        missing_train_subjects = set(train_subjects) - set(subject_ids)
-        train_subjects = list(set(train_subjects) - set(missing_train_subjects))
-        # Retain state of randomization later
-        train_subjects.sort()
-        random.shuffle(train_subjects)
 
-        valid_subjects = []
-        if validation_data_fraction:
-            print("Validation data fraction: ", validation_data_fraction)
-            train_subjects, valid_subjects = train_test_split(
-                train_subjects,
-                test_size=validation_data_fraction / 100.0,
-                shuffle=False,
-            )
-        if training_data_fraction < 100:
-            print("Training data fraction: ", training_data_fraction)
-            train_subjects, _ = train_test_split(
-                train_subjects, train_size=training_data_fraction / 100.0, shuffle=False
-            )
+    random.shuffle(subject_ids)  # Shuffle subjects before splitting
 
-        test_subjects = []
-        missing_test_subjects = []
+    outer_kfold = KFold(n_splits=k_folds, shuffle=False)
+    
+    outer_train_subjects = []
+    outer_valid_subjects = []
+    outer_test_subjects = []
+
+    for outer_train_idx, test_idx in outer_kfold.split(subject_ids):
+        # Outer train and test split
+        outer_train = [subject_ids[i] for i in outer_train_idx]
+        test_subjects = [subject_ids[i] for i in test_idx]
+
+        # Inner k-fold cross-validation on outer train set
+        inner_kfold = KFold(n_splits=k_folds, shuffle=True, random_state=42)
+        
+        fold_train_subjects = []
+        fold_valid_subjects = []
+
+        train_subjects_split = outer_train
+        
+        for train_idx, valid_idx in inner_kfold.split(train_subjects_split):
+            train_subjects = [train_subjects_split[i] for i in train_idx]
+            valid_subjects = [train_subjects_split[i] for i in valid_idx]
+
+            fold_train_subjects.append(train_subjects)
+            fold_valid_subjects.append(valid_subjects)
+
+        # Store outer fold data
+        outer_train_subjects.append(fold_train_subjects)
+        outer_valid_subjects.append(fold_valid_subjects)
+
+        # Include test subjects if required
         if run_test:
-            test_subjects = (
-                df[df["type"].str.contains("test", na=False)]["study_id"]
-                .astype(str)
-                .to_list()
-            )
-            print("P2 random Test subjects: ", len(test_subjects))
-            missing_test_subjects = set(test_subjects) - set(subject_ids)
-            test_subjects = list(set(test_subjects) - set(missing_test_subjects))
-        # Retain state of randomization later
-        test_subjects.sort()
-        if missing_train_subjects or missing_test_subjects:
-            print(
-                f"""Following subjects are missing from preprocessed directory and will be skipped:
-                  Train subject: {missing_train_subjects}
-                  Test Subjects: {missing_test_subjects}"""
-            )
-        print(
-            "Splits created: Train subjects: ",
-            len(train_subjects),
-            "Valid subjects: ",
-            len(valid_subjects),
-            "Test subjects: ",
-            len(test_subjects),
-        )
-
-        return train_subjects, valid_subjects, test_subjects
-    else:
-        assert (
-            args.training_data_fraction
-            + args.validation_data_fraction
-            + args.testing_data_fraction
-        ) == 100, "Train, validation,test split fractions should add up to 100%"
-
-        random.shuffle(subject_ids)
-        n_train_subjects = int(
-            math.ceil(len(subject_ids) * training_data_fraction / 100.0)
-        )
-        train_subjects = subject_ids[:n_train_subjects]
-        subject_ids = subject_ids[n_train_subjects:]
-
-        if (100.0 - training_data_fraction) > 0:
-            test_frac = testing_data_fraction / (100.0 - training_data_fraction) * 100
+            outer_test_subjects.append(test_subjects)
         else:
-            test_frac = 0.0
-        n_test_subjects = int(math.ceil(len(subject_ids) * test_frac / 100.0))
-        test_subjects = subject_ids[:n_test_subjects]
-        valid_subjects = subject_ids[n_test_subjects:]
+            outer_test_subjects.append([])
 
-        return train_subjects, valid_subjects, test_subjects
+    return outer_train_subjects, outer_valid_subjects, outer_test_subjects
 
 
-def train(
-    rank,
-    world_size,
-    args,
-    bi_lstm_win_size,
-    class_weights,
-    transfer_learning_model_path,
-    train_subjects,
-    valid_subjects,
-    test_subjects,
-):
-    # setup
-    setup_ddp(rank, world_size)
-
-    print(f"Setup done for rank {rank}")
-    device = torch.device(f"cuda:{rank}")
-
+def train(args, bi_lstm_win_size, class_weights, transfer_learning_model_path, train_subjects, valid_subjects, test_subjects, outer_fold = None, fold = None):
+    
     # Load model
-    model = CNNBiLSTMModel(args.amp_factor, bi_lstm_win_size, args.num_classes).to(
-        device
-    )
+    model = CNNBiLSTMModel(args.amp_factor, bi_lstm_win_size, args.num_classes)
 
     if transfer_learning_model_path:
         load_model_weights(model, transfer_learning_model_path, weights_only=False)
 
-    model = DDP(model, device_ids=[rank])
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
 
     # Set optimizer and Loss function
     criterion = nn.BCEWithLogitsLoss(weight=class_weights)
-    optimizer = optim.Adam(
-        model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay
-    )
+    optimizer = optim.Adam(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
     scheduler = None
-    if args.lr_scheduler == "linear":
-        scheduler = torch.optim.lr_scheduler.LinearLR(
-            optimizer, start_factor=1.0, end_factor=0.1, total_iters=args.num_epochs
-        )
+    if args.lr_scheduler:
+        if args.lr_scheduler == "linear":
+            scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=1.0, end_factor=0.1, total_iters=args.num_epochs)
     metrics = []
 
     # Load dataloaders
-    train_dataloader, valid_dataloader, test_dataloader = get_dataloaders_dist(
+    train_dataloader, valid_dataloader, test_dataloader = get_dataloaders(
         pre_processed_dir=args.pre_processed_dir,
         bi_lstm_win_size=bi_lstm_win_size,
         batch_size=args.batch_size,
         train_subjects=train_subjects,
         valid_subjects=valid_subjects,
         test_subjects=test_subjects if test_subjects else None,
-        rank=rank,
-        world_size=world_size,
     )
 
     if args.run_sanity_validation:
-        print(f"Running sanity validation in rank - {rank}")
-
+        print("Running sanity validation")
         # Validation loop
         model.eval()
         # Initialize confusion matrix for the current epoch
@@ -254,48 +161,34 @@ def train(
                     )
                     labels = labels_one_hot.view(-1, args.num_classes)
                     labels = torch.argmax(labels, dim=1).to(torch.float32)
-
                     # Calulate accuracy
                     preds = torch.round(torch.sigmoid(outputs))
-
+                    
                     # Compute confusion matrix for the batch
-                    batch_cm = confusion_matrix(
-                        labels.cpu().numpy(),
-                        preds.cpu().numpy(),
-                        labels=np.arange(args.num_classes),
-                    )
+                    batch_cm = confusion_matrix(labels.cpu().numpy(), preds.cpu().numpy(), labels=np.arange(args.num_classes))
                     cm_sanity_val += batch_cm
 
-            # Reduce confusion matrix across all processes
-            cm_sanity_val_tensor = torch.tensor(cm_sanity_val, device=rank)
-            dist.reduce(
-                cm_sanity_val_tensor, dst=0, op=dist.ReduceOp.SUM
-            )  # Aggregate on rank 0
 
-            if rank == 0:
-                # Compute accuracy on rank 0
-                cm_sanity_val = cm_sanity_val_tensor.cpu().numpy()
-                sanity_val_accuracy, sanity_val_balanced_accuracy = (
-                    compute_accuracy_from_confusion_matrix(cm_sanity_val)
-                )
-                print(
-                    f"Sanity Validation Accuracy: {sanity_val_accuracy:.2%} Balanced Accuracy: {sanity_val_balanced_accuracy:.2%}"
-                )
+            sanity_val_accuracy, sanity_val_balanced_accuracy = compute_accuracy_from_confusion_matrix(cm_sanity_val)
+            sanity_additional_metrics = compute_additional_metrics_from_confusion_matrix(cm_sanity_val)
+            print(f"Sanity Validation Accuracy: {sanity_val_accuracy:.2%} Balanced Accuracy: {sanity_val_balanced_accuracy:.2%}")
+            print("Sanity Confusion Matrix", cm_sanity_val)
+            print("Additional Metrics", sanity_additional_metrics)
 
-    print("Running Training in rank - ", rank)
+
+    print("Running Training")
     for epoch in tqdm(range(args.num_epochs)):
         start_time = time.time()  # Start the timer for the epoch
         model.train()
-
         training_loss = 0.0
         n_batches_train = 0
         cm_train = np.zeros((args.num_classes, args.num_classes), dtype=np.int64)
-
         for inputs, labels in train_dataloader:
             inputs, labels = inputs.to(device, dtype=torch.float32), labels.to(
                 device, dtype=torch.float32
             )
             batch_size = labels.shape[0]
+
             inputs = inputs.view(
                 -1, args.cnn_window_size * args.down_sample_frequency, 3, 1
             )
@@ -317,11 +210,7 @@ def train(
             # Calulate accuracy
             preds = torch.round(torch.sigmoid(outputs))
             # Compute confusion matrix for the batch
-            batch_cm = confusion_matrix(
-                labels.cpu().detach().numpy(),
-                preds.cpu().detach().numpy(),
-                labels=np.arange(args.num_classes),
-            )
+            batch_cm = confusion_matrix(labels.cpu().detach().numpy(), preds.cpu().detach().numpy(), labels=np.arange(args.num_classes))
             cm_train += batch_cm
 
             # Convert back to batch size for faster calculation
@@ -329,25 +218,12 @@ def train(
             outputs = outputs.view(batch_size, -1)
             labels = labels.view(batch_size, -1)
 
-            # Calculate loss
+            #Calculate loss
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
             training_loss += loss.item() * outputs.size(0)
             n_batches_train += 1
-
-        # Reduce confusion matrix across all processes
-        cm_train_tensor = torch.tensor(cm_train, device=rank)
-        training_loss_tensor = torch.tensor(training_loss, device=rank)
-        n_batches_train_tensor = torch.tensor(n_batches_train, device=rank)
-
-        dist.reduce(cm_train_tensor, dst=0, op=dist.ReduceOp.SUM)  # Aggregate on rank 0
-        dist.reduce(
-            training_loss_tensor, dst=0, op=dist.ReduceOp.SUM
-        )  # Aggregate on rank 0
-        dist.reduce(
-            n_batches_train_tensor, dst=0, op=dist.ReduceOp.SUM
-        )  # Aggregate on rank 0
 
         # Validation loop
         model.eval()
@@ -367,6 +243,7 @@ def train(
                     )
                     # convert to (N, H, W, C) to (N, C, H, W)
                     inputs = inputs.permute(0, 3, 1, 2)
+                    labels = labels.view(-1, bi_lstm_win_size)
                     # outputs
                     outputs = model(inputs)
                     # convert to 1D tensor
@@ -398,115 +275,101 @@ def train(
                     val_loss += loss.item() * outputs.size(0)
                     n_batches_val += 1
 
-            # Reduce confusion matrix across all processes
-            cm_val_tensor = torch.tensor(cm_val, device=rank)
-            val_loss_tensor = torch.tensor(val_loss, device=rank)
-            n_batches_val_tensor = torch.tensor(n_batches_val, device=rank)
-
-            dist.reduce(
-                cm_val_tensor, dst=0, op=dist.ReduceOp.SUM
-            )  # Aggregate on rank 0
-            dist.reduce(
-                val_loss_tensor, dst=0, op=dist.ReduceOp.SUM
-            )  # Aggregate on rank 0
-            dist.reduce(
-                n_batches_val_tensor, dst=0, op=dist.ReduceOp.SUM
-            )  # Aggregate on rank 0
-
         end_time = time.time()
         epoch_duration = end_time - start_time
 
-        # Metrics and checkpointing for the epoch
-        if rank == 0:
-            cm_train = cm_train_tensor.cpu().numpy()
-            training_loss = training_loss_tensor.cpu().numpy()
-            n_batches_train = n_batches_train_tensor.cpu().numpy()
-            epoch_train_accuracy, epoch_train_balanced_accuracy = (
-                compute_accuracy_from_confusion_matrix(cm_train)
+        # Compute Metrics
+        epoch_train_accuracy, epoch_train_balanced_accuracy = (
+            compute_accuracy_from_confusion_matrix(cm_train)
+        )
+        epoch_train_loss = training_loss / n_batches_train
+        epoch_additional_metrics = {}
+        if valid_dataloader != None:
+            epoch_val_accuracy, epoch_val_balanced_accuracy = (
+                compute_accuracy_from_confusion_matrix(cm_val)
             )
-            epoch_train_loss = training_loss / n_batches_train
+            epoch_val_additional_metrics = compute_additional_metrics_from_confusion_matrix(cm_val)
+            epoch_val_loss = val_loss / n_batches_val
 
-            if valid_dataloader != None:
-                cm_val = cm_val_tensor.cpu().numpy()
-                val_loss = val_loss_tensor.cpu().numpy()
-                n_batches_val = n_batches_val_tensor.cpu().numpy()
-                epoch_val_accuracy, epoch_val_balanced_accuracy = (
-                    compute_accuracy_from_confusion_matrix(cm_val)
-                )
-                epoch_val_loss = val_loss / n_batches_val
-
-                if not args.silent:
+            if not args.silent:
                     print(
                         f"Epoch [{epoch+1}/{args.num_epochs}], Runtime: {epoch_duration:.2f} seconds, Train Loss: {epoch_train_loss:.4f}, Train Accuracy: {epoch_train_accuracy:.2%}, Train Balanced Accuracy: {epoch_train_balanced_accuracy:.2%}, Val Loss: {epoch_val_loss:.4f}, Val Accuracy: {epoch_val_accuracy:.2%}, Balanced Accuracy: {epoch_val_balanced_accuracy:.2%}"
                     )
-            else:
-                if not args.silent:
-                    print(
-                        f"Epoch [{epoch+1}/{args.num_epochs}], Runtime: {epoch_duration:.2f} seconds, Train Loss: {epoch_train_loss:.4f}, Train Accuracy: {epoch_train_accuracy:.2%}, Train Accuracy: {epoch_train_accuracy:.2%}, Train Balanced Accuracy: {epoch_train_balanced_accuracy:.2%}"
-                    )
-            # Add a new entry for the current epoch
-            metrics.append(
-                {
-                    "epoch": epoch + 1,
-                    "runtime": epoch_duration,
-                    "train_loss": epoch_train_loss,
-                    "train_acc": epoch_train_accuracy,
-                    "train_balanced_acc": epoch_train_balanced_accuracy,
-                    "val_loss": epoch_val_loss,
-                    "val_acc": epoch_val_accuracy,
-                    "val_balanced_acc": epoch_val_balanced_accuracy,
-                }
-            )
-            # Save model checkpoint
-            if (
-                args.model_checkpoint_interval
-                and epoch % args.model_checkpoint_interval == 0
-            ):
-                torch.save(
-                    os.path.join(
-                        os.path.join(args.model_checkpoint_path, "checkpoint"),
-                        f"checkpoint_epoch_{epoch}.pth",
-                    ),
-                )
-            # Log metric values
-            write_metrics_to_csv(metrics, args.output_file)
-            # Save model
+        else:
             if not args.silent:
-                print("Training finished.")
-
-            # if the model is wrapped in DDP, unwrap it before saving
-            if isinstance(model, torch.nn.parallel.DistributedDataParallel):
-                # Extract the underlying model
-                model = model.module
-
-            if not os.path.exists(args.model_checkpoint_path):
-                os.makedirs(args.model_checkpoint_path)
+                print(
+                    f"Epoch [{epoch+1}/{args.num_epochs}], Runtime: {epoch_duration:.2f} seconds, Train Loss: {epoch_train_loss:.4f}, Train Accuracy: {epoch_train_accuracy:.2%}, Train Accuracy: {epoch_train_accuracy:.2%}, Train Balanced Accuracy: {epoch_train_balanced_accuracy:.2%}"
+                )
+        # Add a new entry for the current epoch
+        base_metric = {
+                "outer_fold": 0 if outer_fold==None else outer_fold, 
+                "fold": 0 if fold==None else fold,
+                "epoch": epoch + 1,
+                "runtime": epoch_duration,
+                "train_loss": epoch_train_loss,
+                "train_acc": epoch_train_accuracy,
+                "train_balanced_acc": epoch_train_balanced_accuracy,
+                "val_loss": epoch_val_loss,
+                "val_acc": epoch_val_accuracy,
+                "val_balanced_acc": epoch_val_balanced_accuracy,
+                "val_confusion_matrix": cm_val.tolist()
+            }
+        metrics.append(
+            {**base_metric, **epoch_val_additional_metrics}
+        )
+        # Save model checkpoint
+        if (
+            args.model_checkpoint_interval
+            and epoch % args.model_checkpoint_interval == 0
+        ):
+            checkpoint_name = f"checkpoint_epoch_{outer_fold}_{fold}_{epoch}.pth" if fold!=None else f"checkpoint_epoch_{epoch}.pth"
             torch.save(
                 model.state_dict(),
-                os.path.join(args.model_checkpoint_path, "CUSTOM_MODEL.pth"),
+                os.path.join(
+                    os.path.join(args.model_checkpoint_path, "checkpoint"),
+                    checkpoint_name,
+                ),
             )
-            print("Model saved in path: {}".format(args.model_checkpoint_path))
-
         # Step the scheduler
         if scheduler:
             scheduler.step()
             print(f"Learning rate: {scheduler.get_last_lr()}")
 
+    # Log metric values
+    write_metrics_to_csv(metrics, args.output_file_train, write_header=(outer_fold==0 and fold==0))
+    # Save model
+    if not args.silent:
+        print("Training finished.")
+
+    if not os.path.exists(args.model_checkpoint_path):
+        os.makedirs(args.model_checkpoint_path)
+    saved_model_name = f"CUSTOM_MODEL_{outer_fold}_{fold}.pth" if fold!=None else "CUSTOM_MODEL.pth"
+    torch.save(
+        model.state_dict(),
+        os.path.join(args.model_checkpoint_path, saved_model_name),
+    )
+    print("Model saved in path: {}".format(args.model_checkpoint_path))
+    val_bal_acc_epochs = [m['val_balanced_acc'] for m in metrics] 
+    best_epoch = np.argmax(val_bal_acc_epochs)
+    ## Check best epoch and load that model...
+    best_checkpoint_name = f"checkpoint_epoch_{outer_fold}_{fold}_{best_epoch}.pth"
+
     # Testing pipeline
     if test_subjects:
-        print("Running Testing in rank - ", rank)
+        print("Running Testing on best epoch", best_epoch)
         del model
-        model = CNNBiLSTMModel(args.amp_factor, bi_lstm_win_size, args.num_classes).to(device)
+        model = CNNBiLSTMModel(args.amp_factor, bi_lstm_win_size, args.num_classes)
         load_model_weights(
             model,
-            os.path.join(args.model_checkpoint_path, "CUSTOM_MODEL.pth"),
-            weights_only=True,
+            os.path.join(
+                    os.path.join(args.model_checkpoint_path, "checkpoint"),
+                    best_checkpoint_name,
+                ),
+            weights_only=False,
         )
-
-        model = DDP(model, device_ids=[rank])
+        model.to(device)
         model.eval()
 
-        # Initialize confusion matrix for the current epoch
         cm_test = np.zeros((args.num_classes, args.num_classes), dtype=np.int64)
         with torch.no_grad():
             for inputs, labels in test_dataloader:
@@ -541,25 +404,32 @@ def train(
                 )
                 cm_test += batch_cm
 
-            # Reduce confusion matrix across all processes
-            cm_test_tensor = torch.tensor(cm_test, device=rank)
-            dist.reduce(
-                cm_test_tensor, dst=0, op=dist.ReduceOp.SUM
-            )  # Aggregate on rank 0
-
-            if rank == 0:
-                # Compute accuracy on rank 0
-                cm_test = cm_test_tensor.cpu().numpy()
-                test_accuracy, test_balanced_accuracy = (
+            test_accuracy, test_balanced_accuracy = (
                     compute_accuracy_from_confusion_matrix(cm_test)
                 )
-                print(
-                    f"Test Accuracy: {test_accuracy:.2%} Balanced Test Accuracy: {test_balanced_accuracy:.2%}"
-                )
+            print(
+                f"Test Accuracy: {test_accuracy:.2%} Balanced Test Accuracy: {test_balanced_accuracy:.2%}"
+            )
+            test_additional_metrics = compute_additional_metrics_from_confusion_matrix(cm_test)
+            print(f"Test Accuracy: {test_accuracy:.2%} Test Balanced Accuracy: {test_balanced_accuracy:.2%}")
+            print("Additional Metrics", test_additional_metrics)
 
-    # Clean up DDP
-    cleanup_ddp()
+            base_metric_test = {
+                "outer_fold": 0 if outer_fold==None else outer_fold, 
+                "fold": 0 if fold==None else fold,
+                "best_epoch": best_epoch,
+                "test_acc": test_accuracy,
+                "test_balanced_acc": test_balanced_accuracy,
+                "val_confusion_matrix": cm_test.tolist()
+            }
+            test_metrics = []
+            test_metrics.append(
+                {**base_metric_test, **test_additional_metrics}
+            )
+            write_metrics_to_csv(test_metrics, args.output_file_test, write_header=(outer_fold==0 and fold==0))
 
+    # make sure to offload model
+    del model
 
 if __name__ == "__main__":
     main_start_time = time.time()
@@ -592,8 +462,8 @@ if __name__ == "__main__":
         "--weight-decay",
         help="L2 regulatization weight decay",
         type=float,
-        required=False,
         default=0.0,
+        required=False,
     )
     optional_arguments.add_argument(
         "--num-epochs",
@@ -694,9 +564,15 @@ if __name__ == "__main__":
         action="store_true",
     )
     optional_arguments.add_argument(
-        "--output-file",
+        "--output-file-train",
         help="Output file to log training metric",
-        default="./output_metrics.csv",
+        default="./output_metrics_train.csv",
+        required=False,
+    )
+    optional_arguments.add_argument(
+        "--output-file-test",
+        help="Output file to log test metric",
+        default="./output_metrics_test.csv",
         required=False,
     )
     optional_arguments.add_argument(
@@ -719,8 +595,8 @@ if __name__ == "__main__":
     optional_arguments.add_argument(
         "--model-checkpoint-interval",
         default=1,
-        type=int,
         required=False,
+        type=int,
     )
     optional_arguments.add_argument(
         "--lr-scheduler",
@@ -728,18 +604,17 @@ if __name__ == "__main__":
         required=False,
         choices=["linear"],
     )
+    optional_arguments.add_argument(
+        "--k-folds",
+        default=None,
+        required=False,
+        type=int,
+    )
 
     parser._action_groups.append(optional_arguments)
     args = parser.parse_args()
 
-    print(
-        "Using device",
-        (
-            f"cuda devices: {torch.cuda.device_count()}"
-            if torch.cuda.is_available()
-            else "cpu"
-        ),
-    )
+    print("Using device", "cuda" if torch.cuda.is_available() else "cpu")
     print("Arguments: ", args)
 
     # Precheck on directories
@@ -749,7 +624,6 @@ if __name__ == "__main__":
         )
     if not os.path.exists(os.path.join(args.model_checkpoint_path, "checkpoint")):
         os.makedirs(os.path.join(args.model_checkpoint_path, "checkpoint"))
-        
     transfer_learning_model_path = None
     if args.transfer_learning_model:
         if args.transfer_learning_model == "CUSTOM_MODEL":
@@ -778,38 +652,15 @@ if __name__ == "__main__":
                 )
             )
 
-    subject_ids = [
-        fname.split(".")[0][:-2]
-        for fname in os.listdir(os.path.join(args.pre_processed_dir, "BL"))
-    ]
-    subject_ids += [
-        fname.split(".")[0][:-2]
-        for fname in os.listdir(os.path.join(args.pre_processed_dir, "FV"))
-    ]
-    subject_ids = list(set(subject_ids))
-
+    subject_ids = sorted(list(set([fname for fname in os.listdir(args.pre_processed_dir)])))
     print("Subject IDs: ", subject_ids)
     train_subjects, valid_subjects, test_subjects = create_splits(
         subject_ids,
-        args.split_data_file,
-        args.training_data_fraction,
-        args.validation_data_fraction,
-        args.testing_data_fraction,
         args.run_test,
+        args.k_folds
     )
 
-    train_subjects = [x + "BL" for x in train_subjects] + [
-        x + "FV" for x in train_subjects
-    ]
-    valid_subjects = [x + "BL" for x in valid_subjects] + [
-        x + "FV" for x in valid_subjects
-    ]
-    test_subjects = [x + "BL" for x in test_subjects] + [
-        x + "FV" for x in test_subjects
-    ]
-    random.shuffle(train_subjects)
-    random.shuffle(valid_subjects)
-    random.shuffle(test_subjects)
+    print(len(train_subjects), len(valid_subjects), len(test_subjects))
 
     output_shapes = (
         (
@@ -833,16 +684,36 @@ if __name__ == "__main__":
             "Validation on {} subjects: {}".format(len(valid_subjects), valid_subjects)
         )
         print("Testing on {} subjects: {}".format(len(test_subjects), test_subjects))
+    
+    if args.k_folds:
+        for i in tqdm(range(len(train_subjects))):
+            print("Outer Fold", i)
+            test_subs = test_subjects[i]
+            random.shuffle(test_subs)
+            for j in tqdm(range(len(train_subjects[i]))):
+                print("Inner Fold ", j)
+                train_subs = train_subjects[i][j]
+                val_subs = valid_subjects[i][j]
+                random.shuffle(train_subs)
+                random.shuffle(val_subs)
 
-    # DDP setup
-    os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = "12355"
-    world_size = torch.cuda.device_count()
+                train(
+                    args,
+                    bi_lstm_win_size,
+                    class_weights,
+                    transfer_learning_model_path,
+                    train_subs,
+                    val_subs,
+                    test_subs,
+                    outer_fold=i,
+                    fold=j
+                    )
+    else:
+        random.shuffle(train_subjects)
+        random.shuffle(valid_subjects)
+        random.shuffle(test_subjects)
 
-    mp.spawn(
-        train,
-        args=(
-            world_size,
+        train(
             args,
             bi_lstm_win_size,
             class_weights,
@@ -850,9 +721,6 @@ if __name__ == "__main__":
             train_subjects,
             valid_subjects,
             test_subjects,
-        ),
-        nprocs=world_size,
-    )
-
+            )
     main_end_time = time.time()
     print(f"Done!!\nTotal time taken: {main_end_time - main_start_time:.2f} seconds")

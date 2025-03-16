@@ -424,14 +424,9 @@ def train(args, bi_lstm_win_size, class_weights, transfer_learning_model_path, t
             args.model_checkpoint_interval
             and epoch % args.model_checkpoint_interval == 0
         ):
-            checkpoint_name = f"checkpoint_epoch_{fold}_{epoch}.pth" if fold else f"checkpoint_epoch_{epoch}.pth"
+            checkpoint_name = f"checkpoint_epoch_{fold}_{epoch}.pth" if fold!=None else f"checkpoint_epoch_{epoch}.pth"
             torch.save(
-                {
-                    "epoch": epoch,
-                    "model_state_dict": model.state_dict(),
-                    "optimizer_state_dict": optimizer.state_dict(),
-                    # ... other items you want to save
-                },
+                model.state_dict(),
                 os.path.join(
                     os.path.join(args.model_checkpoint_path, "checkpoint"),
                     checkpoint_name,
@@ -450,7 +445,7 @@ def train(args, bi_lstm_win_size, class_weights, transfer_learning_model_path, t
 
     if not os.path.exists(args.model_checkpoint_path):
         os.makedirs(args.model_checkpoint_path)
-    saved_model_name = f"CUSTOM_MODEL_{fold}.pth" if fold else "CUSTOM_MODEL.pth"
+    saved_model_name = f"CUSTOM_MODEL_{fold}.pth" if fold!=None else "CUSTOM_MODEL.pth"
     torch.save(
         model.state_dict(),
         os.path.join(args.model_checkpoint_path, saved_model_name),
@@ -511,7 +506,7 @@ def train(args, bi_lstm_win_size, class_weights, transfer_learning_model_path, t
                 f"Test Accuracy: {test_accuracy:.2%} Balanced Test Accuracy: {test_balanced_accuracy:.2%}"
             )
             test_additional_metrics = compute_additional_metrics_from_confusion_matrix(cm_test)
-            print(f"Sanity Validation Accuracy: {sanity_val_accuracy:.2%} Balanced Accuracy: {sanity_val_balanced_accuracy:.2%}")
+            print(f"Test Accuracy: {test_accuracy:.2%} Test Balanced Accuracy: {test_balanced_accuracy:.2%}")
             print("Additional Metrics", test_additional_metrics)
 
     # make sure to offload model
