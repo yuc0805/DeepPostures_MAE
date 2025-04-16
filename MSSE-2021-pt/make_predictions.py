@@ -38,7 +38,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def generate_predictions(pre_processed_data_dir, output_dir, model, segment, output_label, label_map, downsample_window, bi_lstm_window_sizes, cnn_window_size,
-    gt3x_frequency, amp_factor, num_classes, model_ckpt_path, silent, batch_size, padding="drop"):
+    gt3x_frequency, amp_factor, num_classes, model_ckpt_path, silent, batch_size, padding="drop",test_subject_ids=None):
     """
     Function to generate the activity predictions for pre-precessed data. Predictions will be written out to the given
     output_dir. Predicted value will be one of 0: sedentary or 1: non-sedentary.
@@ -59,7 +59,10 @@ def generate_predictions(pre_processed_data_dir, output_dir, model, segment, out
     if model not in ['CHAP', 'CHAP_A', 'CHAP_B', 'CHAP_C', 'CHAP_ALL_ADULTS', 'CHAP_CHILDREN', 'CHAP_AUSDIAB', 'CUSTOM_MODEL']:
         raise Exception('model should be one of: CHAP, CHAP_A, CHAP_B, CHAP_C, CHAP_ALL_ADULTS, CHAP_CHILDREN, CHAP_AUSDIAB or CUSTOM_MODEL')
 
-    subject_ids = [fname.split('.')[0] for fname in os.listdir(pre_processed_data_dir) if not fname.startswith('.')]
+    if test_subject_ids is None
+        subject_ids = [fname.split('.')[0] for fname in os.listdir(pre_processed_data_dir) if not fname.startswith('.')]
+    else:
+        subject_ids = test_subject_ids
 
     perform_ensemble = False
     if model == 'CHAP':
@@ -261,6 +264,7 @@ if __name__ == "__main__":
     optional_arguments.add_argument('--no-segment', help='Do not output segment number', default=False, required=False, action='store_true')
     optional_arguments.add_argument('--output-label', help='Whether to output the actual label', default=False, required=False, action='store_true')
 
+    optional_arguments.add_argument('--test_split_path', help='Path where stored train_test_split', default=None, required=False)
     optional_arguments.add_argument('--model-checkpoint-path', help='Path where the custom trained model checkpoint is located', default=None, required=False)
     optional_arguments.add_argument('--cnn-window-size', help='CNN window size of the model in seconds on which the predictions to be made (default: 10).', default=10, type=int, required=False)
     optional_arguments.add_argument('--bi-lstm-window-size', help='BiLSTM window size in minutes (default: 7).', default=None, required=False, type=int)
@@ -321,7 +325,27 @@ if __name__ == "__main__":
     else:
         args.model_checkpoint_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'pre-trained-models-pt')
 
+    if args.test_split_path is not None:
+        train_test_split = pd.read_csv(args.test_split_path)
+        mask = (
+        (train_test_split['type'] == 'test_set') &
+        (train_test_split['note'].isna())
+        )
+        subject_ids = train_test_split.loc[mask, 'ID'].tolist()
+    else:
+        subject_ids = None
+
     generate_predictions(args.pre_processed_dir, output_dir=args.predictions_dir, model=args.model, segment=not args.no_segment, output_label=args.output_label,
         label_map=label_map, downsample_window=1.0/args.down_sample_frequency, bi_lstm_window_sizes=bi_lstm_window_sizes,
         cnn_window_size=args.cnn_window_size, gt3x_frequency=args.gt3x_frequency, amp_factor = args.amp_factor, num_classes = args.num_classes,
-        model_ckpt_path=args.model_checkpoint_path, silent = args.silent, batch_size = args.batch_size, padding=args.padding,)
+        model_ckpt_path=args.model_checkpoint_path, silent = args.silent, batch_size = args.batch_size, padding=args.padding,test_subject_ids=subject_ids)
+
+
+'''
+python -m make_predictions \
+--pre-processed-dir "/niddk-data-central/iWatch/pre_processed_pt/H" \
+--predictions-dir "/niddk-data-central/leo_workspace/chap_result/predictions" \
+--test_split_path "/niddk-data-central/iWatch/support_files/iWatch_randomization.csv"
+
+
+'''
