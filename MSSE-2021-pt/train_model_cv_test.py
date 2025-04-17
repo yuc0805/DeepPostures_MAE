@@ -15,7 +15,7 @@
 
 import os
 import sys
-
+import pickle
 sys.path.append("./")
 
 import random
@@ -25,6 +25,7 @@ import json
 import numpy as np
 import pandas as pd
 import time
+from datetime import datetime
 
 from tqdm import tqdm
 from commons import get_dataloaders
@@ -58,6 +59,7 @@ def create_splits(
     subject_ids,
     run_test,
     k_folds = None,
+    train_val_test = None
 ):
 
     random.shuffle(subject_ids)  # Shuffle subjects before splitting
@@ -576,7 +578,7 @@ if __name__ == "__main__":
         required=False,
     )
     optional_arguments.add_argument(
-        "--split-data-file",
+        "--split_data_file",
         help="CSV file containing train//test split subject id in separate columns",
         required=False,
     )
@@ -605,7 +607,7 @@ if __name__ == "__main__":
         choices=["linear"],
     )
     optional_arguments.add_argument(
-        "--k-folds",
+        "--k_folds",
         default=None,
         required=False,
         type=int,
@@ -618,6 +620,11 @@ if __name__ == "__main__":
     print("Arguments: ", args)
 
     # Precheck on directories
+    # Get current timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    # Append timestamp to the checkpoint path
+    args.model_checkpoint_path = os.path.join(args.model_checkpoint_path, f"checkpoint_{timestamp}")
+
     if os.path.exists(args.model_checkpoint_path):
         raise Exception(
             "Model checkpoint: {} already exists.".format(args.model_checkpoint_path)
@@ -653,12 +660,22 @@ if __name__ == "__main__":
             )
 
     subject_ids = sorted(list(set([fname for fname in os.listdir(args.pre_processed_dir)])))
+    
     print("Subject IDs: ", subject_ids)
-    train_subjects, valid_subjects, test_subjects = create_splits(
-        subject_ids,
-        args.run_test,
-        args.k_folds
-    )
+    if args.k_folds:
+        train_subjects, valid_subjects, test_subjects = create_splits(
+            subject_ids,
+            args.run_test,
+            args.k_folds
+        )
+    else:
+        with open(args.split_data_file, "rb") as f:
+            split_data = pickle.load(f)
+
+        train_subjects = split_data["train"]
+        valid_subjects = split_data["val"]
+        test_subjects = split_data["test"]
+
 
     print(len(train_subjects), len(valid_subjects), len(test_subjects))
 
@@ -724,3 +741,17 @@ if __name__ == "__main__":
             )
     main_end_time = time.time()
     print(f"Done!!\nTotal time taken: {main_end_time - main_start_time:.2f} seconds")
+
+
+
+"""
+python -m train_model_cv_test \
+    --pre-processed-dir /niddk-data-central/iWatch/pre_processed_pt/H \
+    --transfer-learning-model CHAP_ALL_ADULTS\
+    --weight-decay 1e-4 \
+    --output-file-train "/niddk-data-central/leo_workspace/output_metrics_train.csv" \
+    --output-file-test "/niddk-data-central/leo_workspace/output_metrics_test.csv" \
+    --model-checkpoint-path "/niddk-data-central/leo_workspace/model-checkpoint" \
+    --split_data_file "/niddk-data-central/iWatch/support_files/iwatch_split_dict.pkl"
+    
+"""
