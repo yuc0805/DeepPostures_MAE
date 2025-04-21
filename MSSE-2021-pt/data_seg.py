@@ -6,14 +6,17 @@ from commons import get_dataloaders
 def save_samples_from_loader(dataloader, out_dir):
     """
     Iterate through a DataLoader and save each sample as a pickle.
-    Each file is named 0.pkl, 1.pkl, … and contains {'x', 'y', '.
+    Each file is named 0.pkl, 1.pkl, … and contains {'x', 'y', 'fn'}.
     """
     os.makedirs(out_dir, exist_ok=True)
     idx = 0
     for batch in dataloader:
         # assume batch is (x_batch, y_batch)
         x_batch, y_batch = batch
-        print(f"Batch shape: {x_batch.shape}, {y_batch.shape}")
+        print(f"Batch shape: {x_batch.shape}, {y_batch.shape}") # torch.Size([BS, win_size, 1001, 3]) torch.Size([16, 42]) 
+
+        # x should be 16*42*3*100
+        
 
         # if tensors, move to cpu and convert to numpy
         if torch.is_tensor(x_batch):

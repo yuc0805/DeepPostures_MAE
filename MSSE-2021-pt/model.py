@@ -121,19 +121,24 @@ class CNNBiLSTMModel(nn.Module):
         self.fc_bilstm = nn.Linear(2 * self.hidden_size, 1)
 
     def forward(self, x):
+        '''
+        input: x: BS*window_size, 1, 100,3
+
+        
+        '''
         # CNN forward pass
-        cnn_output = self.cnn_model(x)
+        cnn_output = self.cnn_model(x) # BS,window_size, 512
 
         # Reshape for BiLSTM
         cnn_output = cnn_output.view(-1, self.bi_lstm_win_size, 256 * self.amp_factor)
 
         # BiLSTM forward pass
-        lstm_output, _ = self.bil_lstm(cnn_output)
+        lstm_output, _ = self.bil_lstm(cnn_output) # # BS,window_size, 256
 
         # Concatenate both directions is not needed as pytorch automatically concat them and sends the result
         # Fully connected layer
         fc_output = self.fc_bilstm(lstm_output)
 
         # Reshape to get logits
-        logits = fc_output.view(-1, self.bi_lstm_win_size)
+        logits = fc_output.view(-1, self.bi_lstm_win_size) # Bs, Window_size
         return logits
