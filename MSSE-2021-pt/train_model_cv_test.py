@@ -186,6 +186,8 @@ def train(args, bi_lstm_win_size, class_weights, transfer_learning_model_path, t
         n_batches_train = 0
         cm_train = np.zeros((args.num_classes, args.num_classes), dtype=np.int64)
         for inputs, labels in train_dataloader:
+            print("Training batch shape: ", inputs.shape, labels.shape)
+            eixt(1)
             inputs, labels = inputs.to(device, dtype=torch.float32), labels.to(
                 device, dtype=torch.float32
             )

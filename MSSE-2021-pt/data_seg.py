@@ -6,7 +6,7 @@ from commons import get_dataloaders
 def save_samples_from_loader(dataloader, out_dir):
     """
     Iterate through a DataLoader and save each sample as a pickle.
-    Each file is named 0.pkl, 1.pkl, … and contains {'x', 'y', 'fn'}.
+    Each file is named 0.pkl, 1.pkl, … and contains {'x', 'y', '.
     """
     os.makedirs(out_dir, exist_ok=True)
     idx = 0
