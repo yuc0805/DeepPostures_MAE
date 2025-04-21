@@ -733,7 +733,7 @@ if __name__ == "__main__":
 
         train(
             args,
-            bi_lstm_win_size,
+            bi_lstm_win_size, # CHAP_adult: 42
             class_weights,
             transfer_learning_model_path,
             train_subjects,
