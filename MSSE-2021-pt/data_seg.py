@@ -12,11 +12,11 @@ def save_samples_from_loader(dataloader, out_dir):
     """
     os.makedirs(out_dir, exist_ok=True)
     idx = 0
-    for batch in tqdm(dataloader, desc="Processing batches", total=len(dataloader)):
+    for batch in tqdm(dataloader, desc="Processing batches"):
         # assume batch is (x_batch, y_batch)
         x_batch, y_batch = batch
         print(f"Batch shape: {x_batch.shape}, {y_batch.shape}") # torch.Size([BS, win_size, 100, 3]) torch.Size([16, 42]) 
-        x_batch = rearrange(x_batch, "b t c l -> (bt) c l")
+        x_batch = rearrange(x_batch, "b t c l -> (b t) c l")
         y_batch = y_batch.view(-1)  # flatten y_batch
         
 
@@ -52,7 +52,7 @@ if __name__ == "__main__":
             
     train_dl, valid_dl, test_dl = get_dataloaders(
         pre_processed_dir=pre_processed_dir,
-        bi_lstm_win_size=7, # CHAP_Adult
+        bi_lstm_win_size=42, # CHAP_Adult: 60 // 10 * 7 = 42
         batch_size=16, 
         train_subjects=train_subjects, 
         valid_subjects=valid_subjects, 
@@ -73,3 +73,4 @@ if __name__ == "__main__":
         print(f"Number of files in {split}: {num_files}")
     print('Done!')
    
+# python -m data_seg
