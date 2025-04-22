@@ -277,8 +277,7 @@ if __name__ == '__main__':
 torchrun --nproc_per_node=4 main_pretrain.py \
 --batch_size 512 \
 --world_size 4 \
---remark spectral_mask \
---epochs 400 \
---warmup_epochs 40
+--epochs 100 \
+--warmup_epochs 10
 
 '''
