@@ -47,9 +47,7 @@ def train_one_epoch(model: torch.nn.Module,
         samples = samples.to(device, non_blocking=True)
         #print('input sample shape: ',samples.shape)
         loss, _, _ = model(samples, mask_ratio=args.mask_ratio,
-                           masking_scheme=args.masking_scheme,
-                           max_iter = args.max_iter)#,var_mask_ratio=args.var_mask_ratio,time_mask_ratio=args.time_mask_ratio)
-        loss_value = loss.item()
+                           masking_scheme=args.masking_scheme)
 
         if not math.isfinite(loss_value):
             print("Loss is {}, skipping this batch".format(loss_value))

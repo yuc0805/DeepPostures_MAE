@@ -2,9 +2,20 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 import os
 import numpy as np
-
-
+import pickle
 import torch
+
+
+# Helper function, load numpy that from later version of numpy
+class LegacyNumpyUnpickler(pickle.Unpickler):
+    def find_class(self, module, name):
+        # Redirect deprecated or removed internal numpy modules
+        if module.startswith("numpy._core"):
+            module = module.replace("_core", "core")
+        if module == "numpy.core.multiarray":
+            import numpy.core.multiarray
+            return getattr(numpy.core.multiarray, name)
+        return super().find_class(module, name)
 
 def data_aug(x):
     '''
@@ -83,14 +94,15 @@ class iWatch(Dataset):
 
     def __getitem__(self, idx):
         # load the data
-        fn = os.path.join(self.data_path, f'{str(idx)}.pkl')
-        with open(fn, 'rb') as f:
-            data = pickle.load(f)
+        fn = os.path.join(self.data_path, f"{idx}.pkl")
+        with open(fn, "rb") as f:
+            #data = pickle.load(f)
+            data = LegacyNumpyUnpickler(f).load()
 
         x = data['x']  # np.array shape: (100, 3)
 
         # Normalization
-        x = x.transpose(1, 0).to(torch.float32)
+        x = torch.from_numpy(x.transpose(1, 0)).to(torch.float32)
         x = x / x.abs().mean()  # (3,100)
 
         if self.transform is not None:

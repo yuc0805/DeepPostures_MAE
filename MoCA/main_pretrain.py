@@ -203,7 +203,7 @@ def main(args):
    
     # fix a sample for plot ###########
     tmp_sample,_ = next(iter(data_loader_train))  
-    tmp_sample = tmp_sample[6:7].to(device)
+    tmp_sample = tmp_sample[1:2].to(device)
     ############################################
 
     print(f"Start training for {args.epochs} epochs")
