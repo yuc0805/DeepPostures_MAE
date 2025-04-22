@@ -48,7 +48,7 @@ def train_one_epoch(model: torch.nn.Module,
         #print('input sample shape: ',samples.shape)
         loss, _, _ = model(samples, mask_ratio=args.mask_ratio,
                            masking_scheme=args.masking_scheme)
-
+        loss_value = loss.item()
         if not math.isfinite(loss_value):
             print("Loss is {}, skipping this batch".format(loss_value))
             optimizer.zero_grad()
@@ -134,12 +134,12 @@ def plot_masked_series(mask, predict_series, target_series, variate_labels=None,
     patch_width = predict_series_np.shape[1] // num_patches
 
     # Create subplots: 2 rows, 3 columns
-    fig, axs = plt.subplots(2, 3, figsize=(10, 5), constrained_layout=True)
+    fig, axs = plt.subplots(1, 3, figsize=(10, 5), constrained_layout=True)
     axs = axs.flatten()
 
     # Default variate labels if not provided
     if variate_labels is None:
-        variate_labels = ["Gyr_X", "Gyr_Y", "Gyr_Z", "Acc_X", "Acc_Y", "Acc_Z"]
+        variate_labels = ["Acc_X", "Acc_Y", "Acc_Z"]
 
     # Compute global min and max
     global_min = min(np.min(predict_series_np), np.min(target_series_np))
@@ -149,7 +149,7 @@ def plot_masked_series(mask, predict_series, target_series, variate_labels=None,
         global_min, global_max = -1, 1  # Set reasonable defaults
 
     # Plot each of the 6 variates
-    for i in range(6):
+    for i in range(3):
         axs[i].plot(predict_series_np[i, :], label='Predicted Series', color='cornflowerblue', linewidth=3)
         axs[i].plot(target_series_np[i, :], label='Original Series', color='tomato', linewidth=3)
 

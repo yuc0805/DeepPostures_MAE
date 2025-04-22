@@ -15,7 +15,7 @@ import numpy as np
 import os
 import time
 from pathlib import Path
-
+import matplotlib.pyplot as plt
 import torch
 import torch.backends.cudnn as cudnn
 import wandb
