@@ -19,9 +19,6 @@ from timm.models.layers import to_2tuple
 
 from util.pos_embed import get_2d_sincos_pos_embed
 
-from util.covariance import spectral_mask
-from maxcut import max_cut_mask
-
 class MaskedAutoencoderViT(nn.Module):
     """ Masked Autoencoder with VisionTransformer backbone
     """

@@ -1,5 +1,2 @@
-tensorboard
 timm==1.0.7
 torch==2.0.1
-dalle-pytorch
-pytorch_pretrained_vit

@@ -20,24 +20,16 @@ import torch
 import torch.backends.cudnn as cudnn
 import wandb
 
-import torchvision.transforms as transforms
-import torchvision.datasets as datasets
 from util.datasets import iWatch, data_aug
-from util.misc import get_next_run_number
 
 import timm
 import torch.nn as nn
 from functools import partial
-
-assert timm.__version__ == "0.3.2"  # version check
 import timm.optim.optim_factory as optim_factory
 
 import util.misc as misc
 from util.misc import NativeScalerWithGradNormCount as NativeScaler
-
-#from leo_model_mae import MaskedAutoencoderViT
 from models_mae import MaskedAutoencoderViT
-
 from engine_pretrain import train_one_epoch,plot_masked_series
 
 
@@ -259,7 +251,7 @@ if __name__ == '__main__':
     args = get_args_parser()
     args = args.parse_args()
     initial_timestamp = datetime.datetime.now()
-    args.remark = f'ps_{args.patch_size}_mask_{args.mask_ratio}_bs_{args.batch_size}_blr_{args.lr}_epoch_{args.epochs}'
+    args.remark = f'{args.remark}ps_{args.patch_size}_mask_{args.mask_ratio}_bs_{args.batch_size}_blr_{args.lr}_epoch_{args.epochs}'
     print(f'Start Training: {args.remark}')
 
     args.log_dir = os.path.join(args.log_dir,args.remark,f'{initial_timestamp.strftime("%Y-%m-%d_%H-%M")}')
@@ -275,9 +267,11 @@ if __name__ == '__main__':
 '''
 
 torchrun --nproc_per_node=4 main_pretrain.py \
+--data_path /niddk-data-central/iWatch/pre_processed_seg/H \
 --batch_size 512 \
 --world_size 4 \
 --epochs 100 \
---warmup_epochs 10
+--warmup_epochs 10 \
+--remark debug_
 
 '''
