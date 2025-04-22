@@ -18,7 +18,6 @@ from timm.models.vision_transformer import PatchEmbed, Block
 from timm.models.layers import to_2tuple
 
 from util.pos_embed import get_2d_sincos_pos_embed
-from util.learnable_mask import LearnableMask
 
 from util.covariance import spectral_mask
 from maxcut import max_cut_mask
@@ -26,10 +25,10 @@ from maxcut import max_cut_mask
 class MaskedAutoencoderViT(nn.Module):
     """ Masked Autoencoder with VisionTransformer backbone
     """
-    def __init__(self, img_size=[6, 200], patch_size=[1,20], in_chans=1, 
+    def __init__(self, img_size=[3, 100], patch_size=[1,5], in_chans=1, 
                  embed_dim=768, depth=24, num_heads=16,
                  decoder_embed_dim=512, decoder_depth=8, decoder_num_heads=16,
-                 mlp_ratio=4., norm_layer=nn.LayerNorm, learnable_mask = False,
+                 mlp_ratio=4., norm_layer=nn.LayerNorm,
                  is_eval=False,
                  ): # changed - added alt
         super().__init__()
@@ -46,11 +45,6 @@ class MaskedAutoencoderViT(nn.Module):
         self.is_eval=is_eval
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
         self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + 1, embed_dim), requires_grad=False)  # fixed sin-cos embedding
-
-        # Introduce learnable mask, every sample has the same mask.
-        self.learnable_mask = learnable_mask
-        if self.learnable_mask:
-            self.leanrable_masking = LearnableMask(embed_dim)  
         
         self.blocks = nn.ModuleList([
             Block(embed_dim, num_heads, mlp_ratio, qkv_bias=True, norm_layer=norm_layer)
@@ -148,24 +142,22 @@ class MaskedAutoencoderViT(nn.Module):
         N, L, D = x.shape  # batch, length, dim  = [21, 281, 192] = [N, h * w, p[0]*p[1] * self.in_chans]
         len_keep = int(L * (1 - mask_ratio))
         
-        if self.learnable_mask:
-            x_masked, mask, ids_restore = self.leanrable_masking(x,mask_ratio)
-        else:    
-            noise = torch.rand(N, L, device=x.device)  # noise in [0, 1] #x.device
-        
-            # sort noise for each sample
-            ids_shuffle = torch.argsort(noise, dim=1)  # ascend: small is keep, large is remove
-            ids_restore = torch.argsort(ids_shuffle, dim=1)
+  
+        noise = torch.rand(N, L, device=x.device)  # noise in [0, 1] #x.device
+    
+        # sort noise for each sample
+        ids_shuffle = torch.argsort(noise, dim=1)  # ascend: small is keep, large is remove
+        ids_restore = torch.argsort(ids_shuffle, dim=1)
 
-            # keep the first subset
-            ids_keep = ids_shuffle[:, :len_keep]
-            x_masked = torch.gather(x, dim=1, index=ids_keep.unsqueeze(-1).repeat(1, 1, D))
+        # keep the first subset
+        ids_keep = ids_shuffle[:, :len_keep]
+        x_masked = torch.gather(x, dim=1, index=ids_keep.unsqueeze(-1).repeat(1, 1, D))
 
-            # generate the binary mask: 0 is keep, 1 is remove
-            mask = torch.ones([N, L], device=x.device)
-            mask[:, :len_keep] = 0
-            # unshuffle to get the binary mask
-            mask = torch.gather(mask, dim=1, index=ids_restore)
+        # generate the binary mask: 0 is keep, 1 is remove
+        mask = torch.ones([N, L], device=x.device)
+        mask[:, :len_keep] = 0
+        # unshuffle to get the binary mask
+        mask = torch.gather(mask, dim=1, index=ids_restore)
 
             
         return x_masked, mask, ids_restore
@@ -282,8 +274,6 @@ class MaskedAutoencoderViT(nn.Module):
         return x_masked, mask_flat, ids_restore
 
 
-
-
     def random_masking_2d(self, x, mask_c_prob=0, mask_r_prob=0.75):
         """
         2D: CWT_imgs (msking row and column under mask_r_prob and mask_c_prob)
@@ -382,8 +372,7 @@ class MaskedAutoencoderViT(nn.Module):
                         var_mask_ratio=0, time_mask_ratio=0,
                         masking_scheme='None', max_iter = 1000,
                         ):
-        # FIXME               
-        raw_x = self.patchify(x) # bs, num_patch, step_size
+
         # embed patches
         x = self.patch_embed(x) # bs, num_p,  embed_dim
 
@@ -409,26 +398,8 @@ class MaskedAutoencoderViT(nn.Module):
                 x, mask, ids_restore = self.random_masking(x, mask_ratio=mask_ratio)
             ########################################################################################
         else:
-            if masking_scheme == 'stat':
-                N, L, D = x.shape
-                ids_keep, mask, ids_restore = self.correlation_mask(raw_x,mask_ratio) # using raw series to generate mask
-                x = torch.gather(x, dim=1, index=ids_keep.unsqueeze(-1).repeat(1, 1, D)) # apply on embed
-            elif masking_scheme == 'spectral':
-                N,L,D = x.shape
-                ids_keep, mask, ids_restore = spectral_mask(raw_x,mask_ratio)
-                x = torch.gather(x, dim=1, index=ids_keep.unsqueeze(-1).repeat(1, 1, D)) # apply on embed
-            elif masking_scheme == 'raw_maxcut':
-                N,L,D = x.shape
-                ids_keep, mask, ids_restore = max_cut_mask(raw_x,mask_ratio,max_iter)
-                x = torch.gather(x, dim=1, index=ids_keep.unsqueeze(-1).repeat(1,1,D))
-            elif masking_scheme == 'feat_maxcut':
-                N,L,D = x.shape
-                ids_keep, mask, ids_restore = max_cut_mask(x.detach(),mask_ratio,max_iter)
-                x = torch.gather(x, dim=1, index=ids_keep.unsqueeze(-1).repeat(1, 1, D)) # apply on embed
-            else: 
-                x, mask, ids_restore = self.random_masking(x, mask_ratio=mask_ratio)
+            x, mask, ids_restore = self.random_masking(x, mask_ratio=mask_ratio)
         
-        #print(ids_restore.shape)
         # append cls token
         cls_token = self.cls_token + self.pos_embed[:, :1, :]
         cls_tokens = cls_token.expand(x.shape[0], -1, -1)
@@ -438,8 +409,6 @@ class MaskedAutoencoderViT(nn.Module):
         for blk in self.blocks:
             x = blk(x)
         x = self.norm(x)
-
-
 
         return x, mask, ids_restore
     
