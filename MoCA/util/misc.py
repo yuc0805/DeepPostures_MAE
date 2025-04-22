@@ -297,7 +297,7 @@ def save_model(args, epoch, model, model_without_ddp, optimizer, loss_scaler):
     epoch_name = str(epoch)
     #job_id = str(args.job_id) #changed
     if loss_scaler is not None:
-        checkpoint_paths = [output_dir / (f'{args.remark}_checkpoint-{epoch_name}.pth')]
+        checkpoint_paths = [output_dir / (f'checkpoint-{epoch_name}.pth')]
         for checkpoint_path in checkpoint_paths:
             to_save = {
                 'model': model_without_ddp.state_dict(),

@@ -18,7 +18,8 @@ from pathlib import Path
 
 import torch
 import torch.backends.cudnn as cudnn
-from torch.utils.tensorboard import SummaryWriter
+import wandb
+
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 from util.datasets import iWatch, data_aug
@@ -44,7 +45,9 @@ def get_args_parser():
     parser = argparse.ArgumentParser('MAE pre-training', add_help=False)
     parser.add_argument('--batch_size', default=256, type=int,
                         help='Batch size per GPU (effective batch size is batch_size * accum_iter * # gpus' )
-    parser.add_argument('--epochs', default=400, type=int)
+    parser.add_argument('--epochs', default=100, type=int)
+    parser.add_argument('--warmup_epochs', type=int, default=10, metavar='N',
+                        help='epochs to warmup LR')
     parser.add_argument('--accum_iter', default=1, type=int,
                         help='Accumulate gradient iterations (for increasing the effective batch size under memory constraints)')
 
@@ -52,36 +55,17 @@ def get_args_parser():
     parser.add_argument('--model', default='mae_vit_base_patch16', type=str, metavar='MODEL',
                         help='Name of model to train')
     
-    parser.add_argument('--input_size', default=200, type=int,  # changed
+    parser.add_argument('--input_size', default=100, type=int,  # changed
                         help='images input size')
-    parser.add_argument('--patch_size', default=20, type=int,  # changed
+    parser.add_argument('--patch_size', default=5, type=int,  # changed
                         help='images patch size')
-    parser.add_argument('--patch_num', default=10, type=int,  # changed - added
-                        help='number of patches per one row in the image')
-    parser.add_argument('--nvar', default=6, type=int,  # changed - added
+    parser.add_argument('--nvar', default=3, type=int,  # changed - added
                         help='number of channels')
 
     parser.add_argument('--mask_ratio', default=0.75, type=float,
                         help='Masking ratio (percentage of removed patches).')
     parser.add_argument('--masking_scheme', default='None', type=str,
                         help='Masking scheme')
-    parser.add_argument('--max_iter', default=1000, type=int,
-                        help='Max iteration for max-cut')
-    parser.add_argument('--var_mask_ratio', default=0.0, type=float,
-                        help='Masking ratio (percentage of removed patches).')
-    parser.add_argument('--time_mask_ratio', default=0.75, type=float,
-                        help='Masking ratio (percentage of removed patches).')
-
-    parser.add_argument('--bert_pos_embed',default=0,type=int,
-                        help='using bert_pos_embed')
-
-    parser.add_argument('--norm_pix_loss', action='store_true',
-                        help='Use (per-patch) normalized pixels as targets for computing loss')
-    parser.set_defaults(norm_pix_loss=False)
-    parser.add_argument('--normalization',type=int,default=0)
-    
-    parser.add_argument('--loss_type', default='all', type=str,  # changed - added
-                        help='masked only or all loss to use')
 
     # Optimizer parameters
     parser.add_argument('--weight_decay', type=float, default=0.05,
@@ -91,31 +75,21 @@ def get_args_parser():
                         help='learning rate (absolute lr)')
     parser.add_argument('--blr', type=float, default=1e-3, metavar='LR',
                         help='base learning rate: absolute_lr = base_lr * total_batch_size / 256')
-    parser.add_argument('--min_lr', type=float, default=0.00001, metavar='LR',
+    parser.add_argument('--min_lr', type=float, default=1e-5, metavar='LR',
                         help='lower lr bound for cyclic schedulers that hit 0')
-
-    parser.add_argument('--warmup_epochs', type=int, default=40, metavar='N',
-                        help='epochs to warmup LR')
-
+    
     # Dataset parameters
-    parser.add_argument('--data_path', default='data/200', type=str,  # changed
-                        help='dataset path')
-    parser.add_argument('--alt', action='store_true',
-                        help='using [n, c, l, 1] format instead') # changed - added
-    parser.set_defaults(alt=False) # changed - added
+    parser.add_argument('--data_path', default='/niddk-data-central/iWatch/pre_processed_seg/H', type=str, help='dataset path')
 
-    parser.add_argument('--output_dir', default='../persistent-data/leo/optim_mask/ckpt',
+    parser.add_argument('--output_dir', default='/niddk-data-central/leo_workspace/MoCA_result/ckpt',
                         help='path where to save, empty for no saving')
-    parser.add_argument('--log_dir', default='../persistent-data/leo/optim_mask/log',
+    parser.add_argument('--log_dir', default='/niddk-data-central/leo_workspace/MoCA_result/log',
                         help='path where to tensorboard log')
     parser.add_argument('--device', default='cuda', 
                         help='device to use for training / testing')
     parser.add_argument('--seed', default=0, type=int)
-    parser.add_argument('--resume', default='scratch', type=str,
+    parser.add_argument('--resume', default='', type=str,
                         help='resume from checkpoint')
-    parser.add_argument('--learnable_mask', action='store_true')
-    parser.add_argument('--mix_up',default = 1, type=int)
-    parser.add_argument('--pre_mix_up',default=1, type = int)
     parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
                         help='start epoch')
     parser.add_argument('--num_workers', default=8, type=int)
@@ -171,12 +145,13 @@ def main(args):
     else:
         sampler_train = torch.utils.data.RandomSampler(dataset_train)
     
-    if global_rank == 0 and args.log_dir is not None:   
-        log_writer = SummaryWriter(log_dir=args.log_dir)
-
-        args_dict = vars(args)  # Convert argparse Namespace to dictionary
-        args_text = "\n".join([f"{key}: {value}" for key, value in args_dict.items()])
-        log_writer.add_text("Arguments", args_text)
+    if global_rank == 0 and args.log_dir is not None:
+        wandb.login(key='32b6f9d5c415964d38bfbe33c6d5c407f7c19743')   
+        log_writer = wandb.init(
+            project='iWatch-MoCA',  # Specify your project
+            config= vars(args),
+            dir=args.log_dir,
+            name=args.remark,)
 
     else:
         log_writer = None
@@ -217,7 +192,7 @@ def main(args):
     print("accumulate grad iterations: %d" % args.accum_iter)
     print("effective batch size: %d" % eff_batch_size)
 
-    if args.distributed: #changed - hashed out
+    if args.distributed:
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu], find_unused_parameters=True)
         model_without_ddp = model.module
     
@@ -227,8 +202,8 @@ def main(args):
     print(optimizer)
     loss_scaler = NativeScaler()
 
-    # misc.load_model(args=args, model_without_ddp=model_without_ddp, optimizer=optimizer, loss_scaler=loss_scaler)
-    misc.init_model(args=args, model_without_ddp=model_without_ddp, optimizer=optimizer, loss_scaler=loss_scaler)
+    misc.load_model(args=args, model_without_ddp=model_without_ddp, optimizer=optimizer, loss_scaler=loss_scaler)
+   
     # fix a sample for plot ###########
     tmp_sample,_ = next(iter(data_loader_train))  
     tmp_sample = tmp_sample[6:7].to(device)
@@ -258,7 +233,7 @@ def main(args):
                     with torch.cuda.amp.autocast():
                         tmp_loss, tmp_pred, tmp_mask = model_without_ddp(tmp_sample, 
                                                                          mask_ratio=args.mask_ratio,
-                                                                         masking_scheme = args.masking_scheme,max_iter=args.max_iter,)
+                                                                         masking_scheme = args.masking_scheme)
 
                 tmp_pred = model_without_ddp.unpatchify(tmp_pred) # bs, 1, nvar, L
                 
@@ -289,18 +264,11 @@ if __name__ == '__main__':
     args = get_args_parser()
     args = args.parse_args()
     initial_timestamp = datetime.datetime.now()
+    args.remark = f'ps_{args.patch_size}_mask_{args.mask_ratio}_bs_{args.batch_size}_blr_{args.lr}_epoch_{args.epochs}'
     print(f'Start Training: {args.remark}')
-    if args.resume == 'scratch':
-        args.resume = ''
-    elif args.resume =='MoCA_20':
-        args.resume = '/home/jovyan/persistent-data/MAE_Accelerometer/experiments/2971(p200_10_alt_0.0005_both)/checkpoint-19.pth'
-    else:
-        print('check your resume path!')
-        exit(1)
 
-    args.log_dir = os.path.join(args.log_dir,f'{args.remark}_{initial_timestamp.strftime("%Y-%m-%d_%H-%M")}')
-    args.output_dir = os.path.join(args.output_dir,f'{args.remark}_{initial_timestamp.strftime("%Y-%m-%d_%H-%M")}')
-
+    args.log_dir = os.path.join(args.log_dir,args.remark,f'{initial_timestamp.strftime("%Y-%m-%d_%H-%M")}')
+    args.output_dir = os.path.join(args.output_dir,args.remark,f'{initial_timestamp.strftime("%Y-%m-%d_%H-%M")}')
     if args.output_dir:
         Path(args.output_dir).mkdir(parents=True, exist_ok=True)
         Path(args.log_dir).mkdir(parents=True, exist_ok=True)
@@ -317,6 +285,5 @@ torchrun --nproc_per_node=4 main_pretrain.py \
 --remark spectral_mask \
 --epochs 400 \
 --warmup_epochs 40
---resume 
 
 '''
