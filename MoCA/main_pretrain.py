@@ -50,6 +50,8 @@ def get_args_parser():
                         help='epochs to warmup LR')
     parser.add_argument('--accum_iter', default=1, type=int,
                         help='Accumulate gradient iterations (for increasing the effective batch size under memory constraints)')
+    parser.add_argument('--save_freq', default=5, type=int,
+                        help='save frequency, default 5 epochs')
 
     # Model parameters
     parser.add_argument('--model', default='mae_vit_base_patch16', type=str, metavar='MODEL',
@@ -164,17 +166,10 @@ def main(args):
         drop_last=True,
     )
     
-    # ViT Base
-    # model = MaskedAutoencoderViT(ts_len=args.input_size,patch_size=args.patch_size,
-    #                               embed_dim=768, depth=12, num_heads=12,
-    #     decoder_embed_dim=512, decoder_depth=8, decoder_num_heads=16,
-    #     mlp_ratio=4, norm_layer=partial(nn.LayerNorm, eps=1e-6),bert_pos_embed=args.bert_pos_embed)
-    
     model = MaskedAutoencoderViT(img_size=[args.nvar,args.input_size],patch_size=[1,args.patch_size],
-                                 in_chans=1,embed_dim=768, depth=12, num_heads=12,
-        decoder_embed_dim=512, decoder_depth=8, decoder_num_heads=16,
-        mlp_ratio=4, norm_layer=partial(nn.LayerNorm, eps=1e-6),
-        learnable_mask = args.learnable_mask)
+                                in_chans=1,embed_dim=768, depth=12, num_heads=12,
+                                decoder_embed_dim=512, decoder_depth=8, decoder_num_heads=16,
+                                mlp_ratio=4, norm_layer=partial(nn.LayerNorm, eps=1e-6),)
     
     model.to(device)
 
@@ -222,7 +217,7 @@ def main(args):
             args=args)
         
         
-        if args.output_dir and (epoch % 50 == 0 or epoch + 1 == args.epochs): # changed - adjusted save_model frequency
+        if args.output_dir and (epoch % args.save_freq == 0 or epoch + 1 == args.epochs): # changed - adjusted save_model frequency
             misc.save_model(
                 args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                 loss_scaler=loss_scaler, epoch=epoch)
@@ -242,16 +237,16 @@ def main(args):
                                             title=f'epoch_{epoch}_loss = {tmp_loss}')
 
                 # Log the figure to TensorBoard
-                log_writer.add_figure("Time Series/Figure", fig, epoch)
-                log_writer.close()
+                log_writer.log({f"Reconstruction": wandb.Image(fig)},step=epoch)
+                plt.close(fig)
 
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
                         'epoch': epoch,}
                         
 
         if args.output_dir and misc.is_main_process():
-            if log_writer is not None:
-                log_writer.flush()
+            # if log_writer is not None:
+            #     log_writer.flush()
             with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
                 f.write(json.dumps(log_stats) + "\n")
 
