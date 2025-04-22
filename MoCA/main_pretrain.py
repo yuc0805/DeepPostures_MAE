@@ -25,7 +25,7 @@ from util.datasets import iWatch, data_aug
 import timm
 import torch.nn as nn
 from functools import partial
-import timm.optim.optim_factory as optim_factory
+from timm.optim import create_optimizer_v2
 
 import util.misc as misc
 from util.misc import NativeScalerWithGradNormCount as NativeScaler
@@ -123,7 +123,7 @@ def main(args):
 
     cudnn.benchmark =  True
 
-    dataset_train = iWatch(data_path=args.data_path,
+    dataset_train = iWatch(root=args.data_path,
                             set_type='train',
                             transform=data_aug)
 
@@ -184,8 +184,18 @@ def main(args):
         model_without_ddp = model.module
     
     # following re: set wd as 0 for bias and norm layers
-    param_groups = optim_factory.add_weight_decay(model_without_ddp, args.weight_decay)
-    optimizer = torch.optim.AdamW(param_groups, lr=args.lr, betas=(0.9, 0.95))
+    # param_groups = optim_factory.add_weight_decay(model_without_ddp, args.weight_decay)
+    # optimizer = torch.optim.AdamW(param_groups, lr=args.lr, betas=(0.9, 0.95))
+
+    # new version timm
+    optimizer = create_optimizer_v2(
+    model_without_ddp,
+    opt='adamw',
+    lr=args.lr,
+    weight_decay=args.weight_decay,
+    betas=(0.9, 0.95)
+    )
+
     print(optimizer)
     loss_scaler = NativeScaler()
 
@@ -274,4 +284,12 @@ torchrun --nproc_per_node=4 main_pretrain.py \
 --warmup_epochs 10 \
 --remark debug_
 
+
+python main_pretrain.py \
+--data_path /niddk-data-central/iWatch/pre_processed_seg/H \
+--batch_size 5 \
+--world_size 4 \
+--epochs 100 \
+--warmup_epochs 10 \
+--remark debug_
 '''
