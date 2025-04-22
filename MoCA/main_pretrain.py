@@ -21,7 +21,7 @@ import torch.backends.cudnn as cudnn
 from torch.utils.tensorboard import SummaryWriter
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
-from util.datasets import UCIHAR
+from util.datasets import iWatch, data_aug
 from util.misc import get_next_run_number
 
 import timm
@@ -118,7 +118,7 @@ def get_args_parser():
     parser.add_argument('--pre_mix_up',default=1, type = int)
     parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
                         help='start epoch')
-    parser.add_argument('--num_workers', default=4, type=int)
+    parser.add_argument('--num_workers', default=8, type=int)
     parser.add_argument('--pin_mem', action='store_true',
                         help='Pin CPU memory in DataLoader for more efficient (sometimes) transfer to GPU.')
     parser.add_argument('--no_pin_mem', action='store_false', dest='pin_mem')
@@ -155,8 +155,10 @@ def main(args):
 
     cudnn.benchmark =  True
 
-    # FIXME: This will use only use both augmentation
-    dataset_train = UCIHAR(data_path=args.data_path, is_test=False, normalization=args.normalization,mix_up=args.mix_up,pre_mix_up=args.pre_mix_up)
+    dataset_train = iWatch(data_path=args.data_path,
+                            set_type='train',
+                            transform=data_aug)
+
     print('training sample: ',len(dataset_train))
 
     if True:
@@ -287,7 +289,6 @@ if __name__ == '__main__':
     args = get_args_parser()
     args = args.parse_args()
     initial_timestamp = datetime.datetime.now()
-    args.remark = args.remark + f'{args.masking_scheme}_{args.max_iter}iter_init_{args.resume}'
     print(f'Start Training: {args.remark}')
     if args.resume == 'scratch':
         args.resume = ''
@@ -308,56 +309,14 @@ if __name__ == '__main__':
 
 
 
-# torchrun --nproc_per_node=2 main_pretrain.py --batch_size 256 --masking_scheme stat --world_size 2 --remark covariance_raw_reverse_mask  --epochs 400 --warmup_epochs 40
-
-# python -m  main_pretrain --masking_scheme stat --batch_size 256 --remark covariance_mask --epochs 600 --warmup_epochs 0
-
 '''
 
 torchrun --nproc_per_node=4 main_pretrain.py \
---batch_size 256 \
---masking_scheme spectral \
+--batch_size 512 \
 --world_size 4 \
 --remark spectral_mask \
 --epochs 400 \
 --warmup_epochs 40
 --resume 
 
-
-torchrun --nproc_per_node=4 main_pretrain.py \
---batch_size 128 \
---masking_scheme maxcut \
---world_size 4 \
---remark maxcut_500iter \
---epochs 800 \
---warmup_epochs 40 \
---max_iter 500
-
-
-# for stage-wise training, initing the model with the pretrained weights by specifying the --resume argument
-
-torchrun --nproc_per_node=2 main_pretrain.py \
---batch_size 512 \
---masking_scheme raw_maxcut \
---world_size 2 \
---epochs 400 \
---max_iter 100 \
---warmup_epochs 40 
-
-# TODO: feat maxcut from scratch
-torchrun --nproc_per_node=4 main_pretrain.py \
---batch_size 256 \
---masking_scheme feat_maxcut \
---world_size 4 \
---epochs 400 \
---max_iter 100 \
---warmup_epochs 40 
-
-torchrun --nproc_per_node=2 main_pretrain.py \
---batch_size 512 \
---masking_scheme feat_maxcut \
---world_size 2 \
---epochs 400 \
---max_iter 100 \
---warmup_epochs 40 
 '''

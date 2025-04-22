@@ -1,283 +1,122 @@
 import torch
 from torch.utils.data import Dataset, DataLoader
 import os
-from torchvision import transforms
-import torch.nn.functional as F
 import numpy as np
 
-class UCIHAR(Dataset):
-    def __init__(self, data_path, is_test=False, pre_mix_up = False,
-                 normalization=False,transform=False,mix_up=True,nb_classes=7):
-        # Set file paths
 
-        # only for off-line mix_up in pretrain stage
-        if pre_mix_up:
-            x_train_dir = os.path.join(data_path, 'X_train_aug_all.pt')
-            self.X = torch.tensor(torch.load(x_train_dir),dtype=torch.float32)
-            # dummy variable
-            self.y = torch.zeros(self.X.shape[0], dtype=torch.long)
+import torch
 
-        else:
-            X_train_dir = os.path.join(data_path, 'X_train_all.pt')
-            y_train_dir = os.path.join(data_path, 'y_train_all_mode.pt')
-            X_test_dir = os.path.join(data_path, 'X_test_all.pt')
-            y_test_dir = os.path.join(data_path, 'y_test_all_mode.pt')
+def data_aug(x):
+    '''
+    input: x: (nvar, L)
 
-            # Load data based on whether it's a test set or training set
-            if is_test:
-                self.X = torch.tensor(torch.load(X_test_dir),dtype=torch.float32).permute(0, 3, 1, 2).squeeze()
-                self.y = torch.tensor(torch.load(y_test_dir), dtype=torch.long)
-            else:
-                self.X = torch.tensor(torch.load(X_train_dir),dtype=torch.float32).permute(0, 3, 1, 2).squeeze()
-                self.y = torch.tensor(torch.load(y_train_dir), dtype=torch.long)
+    Jittering: add small Gaussian noise to each axis to simulate measurement error.
 
-            if nb_classes==6:
-                # Filter out samples with label 0 and adjust labels 1-6 to 0-5
-                mask = self.y != 0
-                self.X = self.X[mask]
-                self.y = self.y[mask] - 1
-                print(self.y)
+    Scaling: multiply the full sequence by a random factor (e.g. between 0.9 and 1.1) to mimic signal‐strength variation.
 
-        self.normalization = normalization
-        self.transform = transform
-        self.mix_up = mix_up
+    Rotation: apply a random rotation in the horizontal plane (x–y axes) to reflect changes in device orientation.
 
-    def __len__(self):
-        return len(self.X)
+    Permutation: split the series into equal‐length segments and shuffle their order to break global dependencies.
 
-    def __getitem__(self, idx):
-        sample_X = self.X[idx]
-        sample_y = self.y[idx]
+    '''
 
-        # Apply normalization if transform is set
-        if self.normalization:
-            sample_X = (sample_X - sample_X.mean(dim=1,keepdim=True)) / sample_X.std(dim=1,keepdim=True)
+    # Jittering: add Gaussian noise with std = 0.02
+    if torch.rand(1).item() < 0.5:
+        x = x + torch.randn_like(x) * 0.02
 
-        if self.mix_up:
-            # Randomly select another sample
-            mix_idx = torch.randint(0, len(self.X), (1,)).item()
-            sample_X2 = self.X[mix_idx]
-            sample_X = self.mix_time_series(sample_X, sample_X2)
+    # Scaling: multiply by a random factor in [0.9, 1.1]
+    if torch.rand(1).item() < 0.5:
+        factor = torch.rand(1).item() * 0.2 + 0.9
+        x = x * factor
 
-
-        # only for vit_base line
-        if self.transform:
-            sample_X = sample_X.unsqueeze(0).unsqueeze(0)
-            sample_X = F.interpolate(sample_X, size=(224, 224), mode='bilinear', align_corners=False).squeeze(0).repeat(1, 3, 1, 1).squeeze() 
-        else:
-            sample_X = sample_X.unsqueeze(0) # C,H,W [1,6,200],
-
-        return sample_X, sample_y
-
-    def mix_time_series(self, sample1, sample2):
-        # Squeeze to remove singleton dimensions
-        sample1 = sample1.squeeze()
-        sample2 = sample2.squeeze()
-
-        ts_len = sample1.shape[1]
-        lambada = torch.distributions.Uniform(0, 0.5).sample().item()
-        sample1_size = int(ts_len * lambada)
-        sample2_size = ts_len - sample1_size 
-
-        chunk1 = sample1[:, :sample1_size]  
-        chunk2 = sample2[:, sample1_size:]  
-        result = torch.cat((chunk1, chunk2), dim=1)
-
-        return result
-
-
-class WISDM(Dataset):
-    def __init__(self, data_path='data/200', is_test=False,transform=False):
-        if is_test:
-            #file_path = os.path.join(data_path, 'WISDM_normalize_test.pt')
-            file_path = os.path.join(data_path, 'WISDM_nooverlap_test.pt')
-        else:
-            #file_path = os.path.join(data_path, 'WISDM_normalize_train.pt')
-            file_path = os.path.join(data_path, 'WISDM_nooverlap_train.pt')
-
-        # Load the data
-        data = torch.load(file_path)
-
-        # Ensure that data['X'] and data['y'] are numeric arrays
-        if isinstance(data['X'], np.ndarray) and data['X'].dtype == np.object_:
-            data['X'] = np.array(data['X'], dtype=np.float32)
-        if isinstance(data['y'], np.ndarray) and data['y'].dtype == np.object_:
-            data['y'] = np.array(data['y'], dtype=np.int64)
-
-        self.X = torch.tensor(data['X'], dtype=torch.float32).permute(0, 2, 1).unsqueeze(1) # bs, 1, nvar, L
-        self.y = torch.tensor(data['y'], dtype=torch.long)
-        self.transform = transform
-    def __len__(self):
-        return len(self.X)
-
-    def __getitem__(self, idx):
-        sample_X = self.X[idx]
-        sample_y = self.y[idx]
-
-        if self.transform:
-            sample_X = sample_X.unsqueeze(0)
-            sample_X = F.interpolate(sample_X, size=(224, 224), mode='bilinear', align_corners=False).squeeze(0).repeat(1, 3, 1, 1).squeeze() 
-        
-        else:
-            new_length = int(sample_X.shape[-1] * 50 / 20)  
-            sample_X = F.interpolate(sample_X, size=new_length, mode='linear', align_corners=True)
-        # #sample_X = sample_X.squeeze()
-
-        return sample_X, sample_y
-
-class IMWSHA(Dataset):
-    def __init__(self, data_path='data/200', is_test=False,transform=False):
-        if is_test:
-            file_path = os.path.join(data_path, 'IMWSHA_nooverlap_test.pt')
-        else:
-            file_path = os.path.join(data_path, 'IMWSHA_nooverlap_train.pt')
-
-        # Load the data
-        data = torch.load(file_path)
-
-        # Ensure that data['X'] and data['y'] are numeric arrays
-        if isinstance(data['X'], np.ndarray) and data['X'].dtype == np.object_:
-            data['X'] = np.array(data['X'], dtype=np.float32)
-        if isinstance(data['y'], np.ndarray) and data['y'].dtype == np.object_:
-            data['y'] = np.array(data['y'], dtype=np.int64)
-
-        self.X = torch.tensor(data['X'], dtype=torch.float32).permute(0, 2, 1).unsqueeze(1) # bs, 1, nvar, L
-        self.y = torch.tensor(data['y'], dtype=torch.long)
-        self.transform = transform
-    def __len__(self):
-        return len(self.X)
-
-    def __getitem__(self, idx):
-        sample_X = self.X[idx] # 1, 6, 400
-        sample_y = self.y[idx]
-        #print(sample_X.shape)
-        
-        if self.transform:
-            # ViT Resample
-            sample_X = sample_X.unsqueeze(0) 
-            sample_X = F.interpolate(sample_X, size=(224, 224), 
-                                     mode='bilinear', 
-                                     align_corners=False).squeeze(0).repeat(1, 3, 1, 1).squeeze() 
-        else:
-            # Rsample to sampling rate 50Hz
-            new_length = int(sample_X.shape[-1] * 50 / 100)  
-            sample_X = F.interpolate(sample_X, size=new_length, mode='linear', align_corners=True)
-
-        return sample_X, sample_y
-
-
-class Oppo(Dataset):
-    def __init__(self, data_path='data/200', is_test=False,transform=False):
-        self.sample_rate = 30
-        if is_test:
-            x_path = os.path.join(data_path, 'oppo_30hz_w10','test_x.npy')
-            y_path = os.path.join(data_path, 'oppo_30hz_w10','test_y.npy')
-        else:
-            x_path = os.path.join(data_path, 'oppo_30hz_w10','train_x.npy')
-            y_path = os.path.join(data_path, 'oppo_30hz_w10','train_y.npy')
-
-        x = np.load(x_path) # bs, 300, 3
-        y = np.load(y_path) # list of labels
-        y = y-1 # make labels start from 0
-
-        self.X = torch.tensor(x, dtype=torch.float32).permute(0, 2, 1).unsqueeze(1) # bs, 1, nvar, L
-        self.y = torch.tensor(y, dtype=torch.long)
-        self.transform = transform
-    def __len__(self):
-        return len(self.X)
-
-    def __getitem__(self, idx):
-        sample_X = self.X[idx] # 1, 3, 300
-        sample_y = self.y[idx]
-        #print(sample_X.shape)
-        
-        if self.transform:
-            # ViT Resample
-            sample_X = sample_X.unsqueeze(0) 
-            sample_X = F.interpolate(sample_X, size=(224, 224), 
-                                     mode='bilinear', 
-                                     align_corners=False).squeeze(0).repeat(1, 3, 1, 1).squeeze() 
-        else:
-            # Rsample to sampling rate 50Hz
-            new_length = int(sample_X.shape[-1] * 50 / self.sample_rate)  
-            sample_X = F.interpolate(sample_X, size=new_length, mode='linear', align_corners=True)
-
-        return sample_X, sample_y
+    # Rotation: rotate x–y axes of both accel and gyro
+    if x.size(0) >= 3 and torch.rand(1).item() < 0.5:
+        theta = torch.rand(1) * (torch.pi/2) - (torch.pi/4)
+        cos_t, sin_t = torch.cos(theta), torch.sin(theta)
+        x_rot = x.clone()
+        # accelerate channels 0,1
+        x0, x1 = x[0], x[1]
+        x_rot[0] = cos_t * x0 - sin_t * x1
+        x_rot[1] = sin_t * x0 + cos_t * x1
     
-import pickle
-class Capture24(Dataset):
-    def __init__(self, data_path='data/200', nb_classes=4,
-                 is_test=False, transform=False):
-        self.sample_rate = 100
-        self.transform = transform
+        # if x.size(0) >= 6:
+        #     # gyroscope channels 3,4
+        #     g0, g1 = x[3], x[4]
+        #     x_rot[3] = cos_t * g0 - sin_t * g1
+        #     x_rot[4] = sin_t * g0 + cos_t * g1
+        #     x = x_rot
+
+    # Permutation: split into 4 segments and shuffle
+    if torch.rand(1).item() < 0.5:
+        nvar, L = x.shape
+        n_seg = 4
+        seg_len = L // n_seg
+        segments = [x[:, i*seg_len:(i+1)*seg_len] for i in range(n_seg)]
+        perm = torch.randperm(n_seg)
+        x = torch.cat([segments[i] for i in perm], dim=1)
+
+    return x
+
+
+class iWatch(Dataset):
+    def __init__(self, 
+                root='/niddk-data-central/iWatch/pre_processed_seg/H', 
+                set_type='train',
+                transform=None):
         
-        self.x_path = '/home/jovyan/persistent-data/leo/data/capture24/prepared_data/X.npy'
-        self.x = np.load(self.x_path, mmap_mode='r')  # memory-mapped, not fully loaded
-        
-        if nb_classes == 4:
-            y = np.load('/home/jovyan/persistent-data/leo/data/capture24/prepared_data/Y_Walmsley2020.npy')
+        self.root = root
+        self.set_type = set_type
+        # Set file paths
+        if set_type == 'train':
+            self.data_path = os.path.join(self.root, 'train')
+        elif set_type == 'val':
+            self.data_path = os.path.join(self.root, 'val')
+        elif set_type == 'test':
+            self.data_path = os.path.join(self.root, 'test')
         else:
-            y = np.load('/home/jovyan/persistent-data/leo/data/capture24/prepared_data/Y_WillettsSpecific2018.npy')
+            raise ValueError("set_type must be 'train', 'val', or 'test'")
 
-        classes, y = np.unique(y, return_inverse=True)
-
-        with open('/home/jovyan/persistent-data/leo/data/capture24/prepared_data/split.pkl', 'rb') as f:
-            split = pickle.load(f)
-
-        self.indices = np.where(split['test'] if is_test else split['train'])[0]
-        self.y = y[self.indices]
+        self.transform = transform
 
     def __len__(self):
-        return len(self.indices)
+        return len(os.listdir(self.data_path))
 
     def __getitem__(self, idx):
-        i = self.indices[idx]
-        sample_x = self.x[i]  # shape: (1000, 3)
-        sample_y = self.y[idx]
+        # load the data
+        fn = os.path.join(self.data_path, f'{str(idx)}.pkl')
+        with open(fn, 'rb') as f:
+            data = pickle.load(f)
 
-        sample_x = torch.tensor(sample_x, dtype=torch.float32).permute(1, 0).unsqueeze(0)  # (1, 3, 1000)
+        x = data['x']  # np.array shape: (100, 3)
 
-        if self.transform:
-            sample_x = sample_x.unsqueeze(0)
-            sample_x = F.interpolate(sample_x, size=(224, 224), mode='bilinear', align_corners=False)
-            sample_x = sample_x.squeeze(0).repeat(1, 3, 1, 1).squeeze()
-        else:
-            new_length = int(sample_x.shape[-1] * 50 / self.sample_rate)
-            sample_x = F.interpolate(sample_x, size=new_length, mode='linear', align_corners=True)
+        # Normalization
+        x = x.transpose(1, 0).to(torch.float32)
+        x = x / x.abs().mean()  # (3,100)
 
-        return sample_x, sample_y
+        if self.transform is not None:
+            x = self.transform(x) # (3,100) tensor
 
+        sample_y = data['y']  # np.int
+        sample_y = torch.tensor(sample_y, dtype=torch.long)
 
+        sample_X = x.unsqueeze(0)  # (1,3,100)                
 
-
-
-
+        return sample_X, sample_y
 
 
 if __name__ == "__main__":
     print("Starting dataset loading and testing...")
 
     # Parameters
-    data_path = 'data/200'  # Change this to your actual data path
     batch_size = 4
-    normalization = True  # Set this to True if you want to apply normalization
-    nb_classes = 6
 
-    # Verify data path
-    if not os.path.exists(data_path):
-        print(f"Error: Data path '{data_path}' does not exist.")
-    else:
-        print(f"Using data path: {data_path}")
-
-    # Create train and test datasets
-    # train_dataset = UCIHAR(data_path=data_path, is_test=False, normalization=normalization,nb_classes=nb_classes)
-    # test_dataset = UCIHAR(data_path=data_path, is_test=True, normalization=normalization,nb_classes=nb_classes)
-
-    train_dataset = WISDM(data_path=data_path,is_test=False)
-    test_dataset = WISDM(data_path=data_path,is_test=True)
+    train_dataset = iWatch(set_type='train', transform=data_aug)
+    test_dataset = iWatch(set_type='test', transform=None)
+    val_dataset = iWatch(set_type='val', transform=None)
 
     # Print the length of the datasets
     print(f"Train dataset length: {len(train_dataset)}")
+    print(f"Validation dataset length: {len(val_dataset)}")
     print(f"Test dataset length: {len(test_dataset)}")
 
     # Create DataLoaders
