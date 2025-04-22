@@ -239,7 +239,7 @@ def main(args):
                                             title=f'epoch_{epoch}_loss = {tmp_loss}')
 
                 # Log the figure to TensorBoard
-                log_writer.log({f"Reconstruction": wandb.Image(fig)},step=epoch)
+                log_writer.log({f"Reconstruction": wandb.Image(fig)})
                 plt.close(fig)
 
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
@@ -278,11 +278,11 @@ if __name__ == '__main__':
 
 torchrun --nproc_per_node=4 main_pretrain.py \
 --data_path /niddk-data-central/iWatch/pre_processed_seg/H \
---batch_size 512 \
+--batch_size 5 \
 --world_size 4 \
 --epochs 100 \
 --warmup_epochs 10 \
---remark debug_
+--remark Hip_debug_
 
 
 python main_pretrain.py \
@@ -291,5 +291,5 @@ python main_pretrain.py \
 --world_size 4 \
 --epochs 100 \
 --warmup_epochs 10 \
---remark debug_
+--remark iWatch-Hip
 '''

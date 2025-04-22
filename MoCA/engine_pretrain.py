@@ -95,93 +95,87 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 
-def plot_masked_series(mask, predict_series, target_series, variate_labels=None, title=None):
+
+def plot_masked_series(mask, predict_series, target_series,
+                       variate_labels=None, title=None):
     """
-    Plots the unpatched series, original series, and highlights the masked regions.
-    
-    Parameters:
-    - mask (torch.Tensor): The mask tensor of shape (6, 50).
-    - predict_series (torch.Tensor): The predicted series tensor of shape (6, 200).
-    - target_series (torch.Tensor): The original series tensor of shape (6, 200).
-    - variate_labels (list, optional): List of labels for each variate. Default is None.
-    - title (str, optional): Title for the entire plot. Default is None.
-    
-    Returns:
-    - fig: Matplotlib figure object.
+    Plots predicted vs. original series and highlights masked patches,
+    with manual margins to avoid any overlap.
     """
+    # convert tensors to numpy
+    mask_np   = mask.cpu().numpy().squeeze()
+    pred_np   = predict_series.cpu().numpy().squeeze()
+    target_np = target_series.cpu().numpy().squeeze()
 
-    # Convert tensors to numpy arrays
-    mask_np = mask.cpu().numpy().squeeze()
-    predict_series_np = predict_series.cpu().numpy().squeeze()
-    target_series_np = target_series.cpu().numpy().squeeze()
+    # replace infinities and NaNs
+    pred_np   = np.nan_to_num(pred_np,
+                              nan=0.0,
+                              posinf=np.nanmax(pred_np),
+                              neginf=np.nanmin(pred_np))
+    target_np = np.nan_to_num(target_np,
+                              nan=0.0,
+                              posinf=np.nanmax(target_np),
+                              neginf=np.nanmin(target_np))
 
-    # Ensure numerical stability
-    if not np.isfinite(predict_series_np).all():
-        predict_series_np = np.nan_to_num(predict_series_np, nan=0.0, 
-                                          posinf=np.max(predict_series_np[np.isfinite(predict_series_np)]), 
-                                          neginf=np.min(predict_series_np[np.isfinite(predict_series_np)]))
-    if not np.isfinite(target_series_np).all():
-        target_series_np = np.nan_to_num(target_series_np, nan=0.0, 
-                                         posinf=np.max(target_series_np[np.isfinite(target_series_np)]), 
-                                         neginf=np.min(target_series_np[np.isfinite(target_series_np)]))
+    # set up figure with extra height
+    fig, axs = plt.subplots(1, 3,
+                            figsize=(15, 6),
+                            sharey=True)
+    fig.patch.set_facecolor('white')
 
-    # Ensure mask is valid
-    if mask_np.shape[1] == 0 or predict_series_np.shape[1] == 0 or target_series_np.shape[1] == 0:
-        raise ValueError("Input tensors must have non-zero dimensions.")
+    # leave room for title and legend
+    fig.subplots_adjust(left=0.05,
+                        right=0.95,
+                        top=0.90,
+                        bottom=0.20,
+                        wspace=0.3)
 
-    # Patch width
-    num_patches = mask_np.shape[1]  # Number of patches (should be 50)
-    patch_width = predict_series_np.shape[1] // num_patches
-
-    # Create subplots: 2 rows, 3 columns
-    fig, axs = plt.subplots(1, 3, figsize=(10, 5), constrained_layout=True)
-    axs = axs.flatten()
-
-    # Default variate labels if not provided
     if variate_labels is None:
-        variate_labels = ["Acc_X", "Acc_Y", "Acc_Z"]
+        variate_labels = ["Acc X", "Acc Y", "Acc Z"]
 
-    # Compute global min and max
-    global_min = min(np.min(predict_series_np), np.min(target_series_np))
-    global_max = max(np.max(predict_series_np), np.max(target_series_np))
+    # shared y‑limits
+    y_min = min(pred_np.min(), target_np.min())
+    y_max = max(pred_np.max(), target_np.max())
 
-    if not np.isfinite(global_min) or not np.isfinite(global_max):
-        global_min, global_max = -1, 1  # Set reasonable defaults
+    # compute width of each masked patch
+    num_patches = mask_np.shape[1]
+    patch_width = pred_np.shape[1] // num_patches
 
-    # Plot each of the 6 variates
-    for i in range(3):
-        axs[i].plot(predict_series_np[i, :], label='Predicted Series', color='cornflowerblue', linewidth=3)
-        axs[i].plot(target_series_np[i, :], label='Original Series', color='tomato', linewidth=3)
+    for i, ax in enumerate(axs):
+        ax.set_facecolor('white')
+        ax.plot(pred_np[i],   label="Predicted", linewidth=2)
+        ax.plot(target_np[i], label="Original",  linewidth=2)
 
-        # Set the y-axis limits
-        axs[i].set_ylim([global_min, global_max])
-
-        # Highlight masked regions
-        for j, mask_value in enumerate(mask_np[i]):
-            if mask_value > 0:
+        # highlight masked spans
+        for j, m in enumerate(mask_np[i]):
+            if m > 0:
                 start, end = j * patch_width, (j + 1) * patch_width
-                axs[i].fill_betweenx(
-                    [global_min, global_max], 
-                    start, end, 
-                    color='gray', 
-                    alpha=0.5, 
-                    label='Masked Area' if j == 0 else ""
-                )
+                ax.axvspan(start, end, ymin=0, ymax=1,
+                           color='gray', alpha=0.3)
 
-        axs[i].set_title(variate_labels[i], fontsize=14)
-        axs[i].set_xticks([])  # Remove x-axis ticks
-        axs[i].set_yticks([])  # Remove y-axis ticks
+        ax.set_ylim(y_min, y_max)
+        ax.set_title(variate_labels[i], fontsize=14)
+        ax.tick_params(labelsize=10)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.grid(axis='y', linestyle='--', linewidth=0.8, alpha=0.6)
 
-    # Set only one legend outside the plot
+    # shared axis labels
+    fig.text(0.5, 0.10, "Time Step", ha='center', fontsize=12)
+    fig.text(0.07, 0.5, "Signal Value", va='center',
+             rotation='vertical', fontsize=12)
+
+    # legend below the plots
     handles, labels = axs[0].get_legend_handles_labels()
-    by_label = dict(zip(labels, handles))
-    fig.legend(by_label.values(), by_label.keys(), loc='center left', bbox_to_anchor=(1.02, 0.5), fontsize=12)
+    fig.legend(handles, labels,
+               loc='lower center',
+               bbox_to_anchor=(0.5, 0.05),
+               ncol=2,
+               frameon=False,
+               fontsize=11)
 
-    # Set the overall title for the plot
+    # figure title
     if title:
-        fig.suptitle(title, fontsize=16)
-
-    # Adjust layout
-    plt.subplots_adjust(right=0.8)  # Make space for the legend
+        fig.suptitle(title, fontsize=16, y=0.96)
 
     return fig
