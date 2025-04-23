@@ -162,6 +162,18 @@ class iWatch_HDf5(Dataset):
             self.h5_file.close()
 
 
+def collate_fn(batch):
+    clean_batch = []
+    for x, y in batch:
+        if torch.isnan(x).any() or torch.isinf(x).any():
+            continue
+        clean_batch.append((x, y))
+
+    if len(clean_batch) == 0:
+        return None  # or raise an error if needed
+
+    xs, ys = zip(*clean_batch)
+    return torch.stack(xs), torch.tensor(ys)
 
 if __name__ == "__main__":
     print("Starting dataset loading and testing...")

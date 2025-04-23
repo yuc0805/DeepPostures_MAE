@@ -20,7 +20,7 @@ import torch
 import torch.backends.cudnn as cudnn
 import wandb
 
-from util.datasets import iWatch, data_aug,iWatch_HDf5
+from util.datasets import iWatch, data_aug,iWatch_HDf5,collate_fn
 
 import timm
 import torch.nn as nn
@@ -129,7 +129,8 @@ def main(args):
 
     dataset_train = iWatch_HDf5(root=args.data_path,
                                 set_type='train',
-                                transform=data_aug)
+                                transform=data_aug,
+                                collate_fn = collate_fn)
 
     print('training sample: ',len(dataset_train))
 
@@ -226,6 +227,7 @@ def main(args):
 
         # Avoid NCCL Comm error
         if torch.distributed.is_initialized():
+            print('Watiing for all processes to finish')
             torch.distributed.barrier()
         
         if args.output_dir and (epoch % args.save_freq == 0 or epoch + 1 == args.epochs):
