@@ -150,6 +150,10 @@ class iWatch_HDf5(Dataset):
         y = torch.tensor(self.y_data[idx], dtype=torch.long)
         x = x.unsqueeze(0)  # shape: (1, 3, 100)
 
+        # check if x is inf or nan
+        assert not torch.isnan(x).any(), f"x contains NaN values: {x}"
+        assert not torch.isinf(x).any(), f"x contains Inf values: {x}"
+
         return x, y
 
     def __del__(self):

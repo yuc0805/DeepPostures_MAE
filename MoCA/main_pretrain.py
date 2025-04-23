@@ -223,14 +223,19 @@ def main(args):
             optimizer, device, epoch, loss_scaler,
             log_writer=log_writer,
             args=args)
+
+        # Avoid NCCL Comm error
+        if torch.distributed.is_initialized():
+            torch.distributed.barrier()
         
-        
-        if args.output_dir and (epoch % args.save_freq == 0 or epoch + 1 == args.epochs): # changed - adjusted save_model frequency
+        if args.output_dir and (epoch % args.save_freq == 0 or epoch + 1 == args.epochs):
+            print('Saving checkpoint')
             misc.save_model(
                 args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                 loss_scaler=loss_scaler, epoch=epoch)
             ### save a reconstruction plot in tensorboard
             if misc.is_main_process():
+                print('plotting')
                 # Create a matplotlib figure
                 with torch.no_grad():
                     tmp_sample = tmp_sample.detach().clone().to(device, non_blocking=True)
