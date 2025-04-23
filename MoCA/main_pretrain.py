@@ -129,8 +129,7 @@ def main(args):
 
     dataset_train = iWatch_HDf5(root=args.data_path,
                                 set_type='train',
-                                transform=data_aug,
-                                collate_fn = collate_fn)
+                                transform=data_aug,)
 
     print('training sample: ',len(dataset_train))
 
@@ -162,6 +161,7 @@ def main(args):
         pin_memory=args.pin_mem,
         drop_last=True,
         prefetch_factor=2,
+        collate_fn = collate_fn
     )
     
     model = MaskedAutoencoderViT(img_size=[args.nvar,args.input_size],patch_size=[1,args.patch_size],
