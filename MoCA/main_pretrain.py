@@ -20,7 +20,7 @@ import torch
 import torch.backends.cudnn as cudnn
 import wandb
 
-from util.datasets import iWatch, data_aug
+from util.datasets import iWatch, data_aug,iWatch_HDf5
 
 import timm
 import torch.nn as nn
@@ -160,7 +160,7 @@ def main(args):
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
         drop_last=True,
-        prefetch_factor=4,
+        prefetch_factor=2,
     )
     
     model = MaskedAutoencoderViT(img_size=[args.nvar,args.input_size],patch_size=[1,args.patch_size],
@@ -209,6 +209,7 @@ def main(args):
     # fix a sample for plot ###########
     tmp_sample,_ = next(iter(data_loader_train))  
     tmp_sample = tmp_sample[1:2]
+    print('tmp_sample shape: ',tmp_sample.shape)
     ############################################
 
     print(f"Start training for {args.epochs} epochs")
