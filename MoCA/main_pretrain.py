@@ -86,7 +86,7 @@ def get_args_parser():
                         help='resume from checkpoint')
     parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
                         help='start epoch')
-    parser.add_argument('--num_workers', default=8, type=int)
+    parser.add_argument('--num_workers', default=4, type=int)
     parser.add_argument('--pin_mem', action='store_true',
                         help='Pin CPU memory in DataLoader for more efficient (sometimes) transfer to GPU.')
     parser.add_argument('--no_pin_mem', action='store_false', dest='pin_mem')
@@ -156,6 +156,7 @@ def main(args):
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
         drop_last=True,
+        prefetch_factor=2,
     )
     
     model = MaskedAutoencoderViT(img_size=[args.nvar,args.input_size],patch_size=[1,args.patch_size],
@@ -277,19 +278,19 @@ if __name__ == '__main__':
 '''
 
 torchrun --nproc_per_node=4 main_pretrain.py \
---data_path /niddk-data-central/iWatch/pre_processed_seg/H \
---batch_size 5 \
+--data_path /niddk-data-central/iWatch/pre_processed_seg/W \
+--batch_size 256 \
 --world_size 4 \
 --epochs 100 \
 --warmup_epochs 10 \
---remark Hip_debug_
+--remark iWatch-Wrist
 
 
 python main_pretrain.py \
---data_path /niddk-data-central/iWatch/pre_processed_seg/H \
+--data_path /niddk-data-central/iWatch/pre_processed_seg/W \
 --batch_size 5 \
 --world_size 4 \
 --epochs 100 \
 --warmup_epochs 10 \
---remark iWatch-Hip
+--remark iWatch-Wrist
 '''
