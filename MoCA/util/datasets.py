@@ -116,6 +116,49 @@ class iWatch(Dataset):
         return sample_X, sample_y
 
 
+import h5py
+class iWatch_HDf5(Dataset):
+    def __init__(self, 
+                 root='/niddk-data-central/iWatch/pre_processed_seg/H', 
+                 set_type='train',
+                 transform=None):
+        
+        self.set_type = set_type
+        self.transform = transform
+
+        # HDF5 path mapping
+        hdf5_name = f"{set_type}.hdf5"
+        self.file_path = os.path.join(root, hdf5_name)
+
+        # Open HDF5 in read-only mode
+        self.h5_file = h5py.File(self.file_path, 'r')
+        self.x_data = self.h5_file['x']
+        self.y_data = self.h5_file['y']
+
+    def __len__(self):
+        return len(self.x_data)
+
+    def __getitem__(self, idx):
+        # Load and normalize x
+        x = self.x_data[idx]  # shape: (100, 3)
+        x = torch.from_numpy(x.transpose(1, 0)).to(torch.float32)  # shape: (3, 100)
+        x = x / x.abs().mean()
+
+        if self.transform is not None:
+            x = self.transform(x)
+
+        y = torch.tensor(self.y_data[idx], dtype=torch.long)
+        x = x.unsqueeze(0)  # shape: (1, 3, 100)
+
+        return x, y
+
+    def __del__(self):
+        # Ensure file closes properly
+        if hasattr(self, 'h5_file') and self.h5_file:
+            self.h5_file.close()
+
+
+
 if __name__ == "__main__":
     print("Starting dataset loading and testing...")
 

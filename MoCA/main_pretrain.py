@@ -123,9 +123,13 @@ def main(args):
 
     cudnn.benchmark =  True
 
-    dataset_train = iWatch(root=args.data_path,
-                            set_type='train',
-                            transform=data_aug)
+    # dataset_train = iWatch(root=args.data_path,
+    #                         set_type='train',
+    #                         transform=data_aug)
+
+    dataset_train = iWatch_HDf5(root=args.data_path,
+                                set_type='train',
+                                transform=data_aug)
 
     print('training sample: ',len(dataset_train))
 
