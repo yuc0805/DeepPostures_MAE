@@ -90,7 +90,7 @@ class iWatch(Dataset):
         self.transform = transform
 
     def __len__(self):
-        return len(os.listdir(self.data_path)) # H 1733088, W 1785840
+        return 1733088 # H 1733088, W 1785840
 
     def __getitem__(self, idx):
         # load the data

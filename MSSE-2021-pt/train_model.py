@@ -66,7 +66,7 @@ def create_splits(
     """
     if split_data_file:
         # Read data from split data file
-        df = pd.read_csv(split_data_file)
+        df = pd.read_csv(split_data_file).lo
         train_subjects = (
             df[df["type"].str.contains("train", na=False)]["study_id"]
             .astype(str)

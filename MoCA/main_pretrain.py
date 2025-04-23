@@ -156,7 +156,7 @@ def main(args):
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
         drop_last=True,
-        prefetch_factor=2,
+        prefetch_factor=4,
     )
     
     model = MaskedAutoencoderViT(img_size=[args.nvar,args.input_size],patch_size=[1,args.patch_size],
@@ -204,7 +204,7 @@ def main(args):
    
     # fix a sample for plot ###########
     tmp_sample,_ = next(iter(data_loader_train))  
-    tmp_sample = tmp_sample[1:2].to(device)
+    tmp_sample = tmp_sample[1:2]
     ############################################
 
     print(f"Start training for {args.epochs} epochs")
@@ -228,6 +228,7 @@ def main(args):
             if misc.is_main_process():
                 # Create a matplotlib figure
                 with torch.no_grad():
+                    tmp_sample = tmp_sample.detach().clone().to(device, non_blocking=True)
                     with torch.cuda.amp.autocast():
                         tmp_loss, tmp_pred, tmp_mask = model_without_ddp(tmp_sample, 
                                                                          mask_ratio=args.mask_ratio,
@@ -242,6 +243,8 @@ def main(args):
                 # Log the figure to TensorBoard
                 log_writer.log({f"Reconstruction": wandb.Image(fig)})
                 plt.close(fig)
+                
+                torch.cuda.empty_cache()
 
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
                         'epoch': epoch,}
@@ -278,12 +281,12 @@ if __name__ == '__main__':
 '''
 
 torchrun --nproc_per_node=4 main_pretrain.py \
---data_path /niddk-data-central/iWatch/pre_processed_seg/W \
+--data_path /niddk-data-central/iWatch/pre_processed_seg/H \
 --batch_size 256 \
 --world_size 4 \
 --epochs 100 \
 --warmup_epochs 10 \
---remark iWatch-Wrist
+--remark iWatch-Hip
 
 
 python main_pretrain.py \
