@@ -764,12 +764,12 @@ python -m train_model_cv_test \
 
 
 python -m train_model_cv_test \
-    --pre-processed-dir /niddk-data-central/iWatch/pre_processed_pt/W \
+    --pre-processed-dir /niddk-data-central/iWatch/pre_processed_pt/H \
     --transfer-learning-model CHAP_ALL_ADULTS\
     --weight-decay 1e-4 \
-    --output-file-train "/niddk-data-central/leo_workspace/iwatch_W/output_metrics_train.csv" \
-    --output-file-test "/niddk-data-central/leo_workspace/iwatch_W/output_metrics_test.csv" \
-    --model-checkpoint-path "/niddk-data-central/leo_workspace/iwatch_W/chap-finetune" \
+    --output-file-train "/niddk-data-central/leo_workspace/iwatch_H/chap-finetune/output_metrics_train.csv" \
+    --output-file-test "/niddk-data-central/leo_workspace/iwatch_H/chap-finetune/output_metrics_test.csv" \
+    --model-checkpoint-path "/niddk-data-central/leo_workspace/iwatch_H/chap-finetune" \
     --split_data_file "/niddk-data-central/iWatch/support_files/iwatch_split_dict.pkl"
     
 """
