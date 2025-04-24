@@ -424,6 +424,7 @@ def train(args, bi_lstm_win_size, class_weights, transfer_learning_model_path,
                 "best_epoch": best_epoch,
                 "test_acc": test_accuracy,
                 "test_balanced_acc": test_balanced_accuracy,
+                'test_f1': test_additional_metrics['f1'],
                 "val_confusion_matrix": cm_test.tolist()
             }
             test_metrics = []
@@ -768,7 +769,7 @@ python -m train_model_cv_test \
     --weight-decay 1e-4 \
     --output-file-train "/niddk-data-central/leo_workspace/iwatch_W/output_metrics_train.csv" \
     --output-file-test "/niddk-data-central/leo_workspace/iwatch_W/output_metrics_test.csv" \
-    --model-checkpoint-path "/niddk-data-central/leo_workspace/iwatch_W/model-checkpoint" \
+    --model-checkpoint-path "/niddk-data-central/leo_workspace/iwatch_W/chap-finetune" \
     --split_data_file "/niddk-data-central/iWatch/support_files/iwatch_split_dict.pkl"
     
 """

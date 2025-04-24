@@ -83,17 +83,20 @@ def compute_additional_metrics_from_confusion_matrix(cm):
     specificity = true_negative / (true_negative + false_positive)
     ppv = true_positive / (true_positive + false_positive)  # Precision
     npv = true_negative / (true_negative + false_negative)
+    f1_score = 2 * ppv * sensitivity / (ppv + sensitivity)
 
     # Handle division by zero
     sensitivity = np.nan_to_num(sensitivity)
     specificity = np.nan_to_num(specificity)
     ppv = np.nan_to_num(ppv)
     npv = np.nan_to_num(npv)
+    f1_score = np.nan_to_num(f1_score)
 
     # Return metrics for each class
     return {
         "sensitivity": sensitivity.tolist(),
         "specificity": specificity.tolist(),
         "positive_predictive_value": ppv.tolist(),
-        "negative_predictive_value": npv.tolist()
+        "negative_predictive_value": npv.tolist(),
+        "f1_score": f1_score.tolist(),
     }
