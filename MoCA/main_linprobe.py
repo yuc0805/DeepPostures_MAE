@@ -22,7 +22,7 @@ import torch.backends.cudnn as cudnn
 from torch.utils.tensorboard import SummaryWriter
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
-from util.datasets import UCIHAR,WISDM,IMWSHA,Oppo,Capture24
+from util.datasets import iWatch_HDf5
 import timm
 #from util.misc import get_next_run_number
 from config import DATASET_CONFIG
@@ -143,7 +143,7 @@ def get_args_parser():
                         help='Pin CPU memory in DataLoader for more efficient (sometimes) transfer to GPU.')
     parser.add_argument('--no_pin_mem', action='store_false', dest='pin_mem')
     parser.set_defaults(pin_mem=True)
-    parser.add_argument('--ds_name', default='ucihar_7', type=str)
+    parser.add_argument('--ds_name', default='iwatch', type=str)
 
     # distributed training parameters
     parser.add_argument('--world_size', default=1, type=int,
@@ -230,18 +230,8 @@ def main(args):
     if args.ds_name == 'ucihar_6' or args.ds_name == 'ucihar_7':
         dataset_train = UCIHAR(args.data_path, is_test=False,nb_classes=args.nb_classes,mix_up=False)
         dataset_val = UCIHAR(args.data_path,is_test=True,nb_classes=args.nb_classes,mix_up=False)
-    elif args.ds_name == 'wisdm':
-        dataset_train = WISDM(data_path=args.data_path,is_test=False)
-        dataset_val = WISDM(data_path=args.data_path,is_test=True)
-    elif args.ds_name == 'imwsha':
-        dataset_train = IMWSHA(data_path=args.data_path,is_test=False)
-        dataset_val = IMWSHA(data_path=args.data_path,is_test=True)
-    elif args.ds_name == 'oppo':
-        dataset_train = Oppo(data_path=args.data_path,is_test=False)
-        dataset_val = Oppo(data_path=args.data_path,is_test=True)
-    elif args.ds_name == 'capture24_4' or args.ds_name == 'capture24_10':
-        dataset_train = Capture24(data_path=args.data_path,is_test=False,nb_classes=args.nb_classes)
-        dataset_val = Capture24(data_path=args.data_path,is_test=True,nb_classes=args.nb_classes)
+    if args.ds_name == 'iWatch_HDf5':
+        dataset_train = iWatch_HDf5()
     else:
         raise NotImplementedError('The specified dataset is not implemented.')
 
@@ -466,9 +456,6 @@ if __name__ == '__main__':
 
 
 
-# Linear Probing
-
-# python -m main_linprobe --ds_name ucihar_7 --checkpoint "/home/jovyan/persistent-data/leo/optim_mask/ckpt/covariance_raw_mask_2025-02-21_04-56/covariance_raw_mask_checkpoint-399.pth" --remark covariance_raw_mask
 
 '''
 
@@ -477,79 +464,5 @@ python -m main_linprobe \
 --ds_name capture \
 --checkpoint "/home/jovyan/persistent-data/leo/output_dir/moca_aug_checkpoint-200.pth" \
 --remark MoCA_200
-
-CUDA_VISIBLE_DEVICES=0,1 \
-torchrun --nproc_per_node=2 --master_port=29500 \
-    -m main_linprobe \
-    --ds_name capture24_4 \
-    --checkpoint "/home/jovyan/persistent-data/leo/output_dir/moca_aug_checkpoint-200.pth" \
-    --remark MoCA_200
-
-CUDA_VISIBLE_DEVICES=0 \
-python -m main_linprobe \
---ds_name oppo \
---checkpoint "/home/jovyan/persistent-data/leo/optim_mask/ckpt/covariance_raw_split_mask_2025-03-16_16-16/covariance_raw_split_mask_checkpoint-200.pth" \
---remark covariance_split_mask 
-
-
-CUDA_VISIBLE_DEVICES=0 \
-python -m main_linprobe \
---ds_name imwsha \
---checkpoint "/home/jovyan/persistent-data/leo/optim_mask/ckpt/maxcut_2025-03-21_21-07/maxcut_checkpoint-200.pth" \
---remark maxcut_mask_200
-
-python -m main_linprobe \
---ds_name ucihar_7 \
---checkpoint "/home/jovyan/persistent-data/leo/optim_mask/ckpt/maxcut_2025-04-03_21-29/maxcut_checkpoint-400.pth" \
---remark maxcut_mask_400
-
-
-CUDA_VISIBLE_DEVICES=0 \
-python -m main_linprobe \
---ds_name oppo \
---checkpoint "/home/jovyan/persistent-data/MAE_Accelerometer/experiments/2971(p200_10_alt_0.0005_both)/checkpoint-19.pth" \
---remark MoCA_20pth
-
-CUDA_VISIBLE_DEVICES=0 \
-python -m main_linprobe \
---ds_name imwsha \
---checkpoint "/home/jovyan/persistent-data/leo/output_dir/syncmask_8_checkpoint-200.pth" \
---remark SyncMask_200
-
-python -m main_linprobe \
---ds_name imwsha \
---checkpoint "/home/jovyan/persistent-data/MAE_Accelerometer/experiments/28533(p200_10_syn_0.0005_both)/checkpoint-19.pth" \
---remark SyncMask_20
-
-python -m main_linprobe \
---ds_name oppo \
---checkpoint "/home/jovyan/persistent-data/MAE_Accelerometer/experiments/661169(p200_10_alt_0.0005)/checkpoint-3999.pth" \
---remark MoCA_noAug
-
-python -m main_linprobe \
---ds_name oppo \
---checkpoint "/home/jovyan/persistent-data/MAE_Accelerometer/experiments/185(p200_10_syn_0.0005)/checkpoint-3999.pth" \
---remark SyncMask_noAug
-
-python -m main_linprobe \
---ds_name oppo \
---checkpoint "/home/jovyan/persistent-data/MAE_Accelerometer/experiments/185(p200_10_syn_0.0005)/checkpoint-3999.pth" \
---remark random_init
-
-python -m main_linprobe \
---ds_name oppo \
---checkpoint "/home/jovyan/persistent-data/leo/optim_mask/ckpt/feat_maxcut_100iter_init_MoCA_20_2025-04-08_01-47/feat_maxcut_100iter_init_MoCA_20_checkpoint-200.pth" \
---remark feat_maxcut_100iter_init_MoCA_20
-
-python -m main_linprobe \
---ds_name oppo \
---checkpoint "/home/jovyan/persistent-data/leo/optim_mask/ckpt/maxcut_500iter_2025-04-04_00-51/maxcut_500iter_checkpoint-200.pth" \
---remark raw_maxcut_500iter
-
-
-python -m main_linprobe \
---ds_name oppo \
---checkpoint "/home/jovyan/persistent-data/leo/optim_mask/ckpt/feat_maxcut_100iter_init_scratch_2025-04-10_06-26/feat_maxcut_100iter_init_scratch_checkpoint-200.pth" \
---remark feat_maxcut_100iter_init_scratch
 
 '''
