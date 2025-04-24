@@ -49,6 +49,8 @@ def train_one_epoch(model: torch.nn.Module,
         loss, _, _ = model(samples, mask_ratio=args.mask_ratio,
                            masking_scheme=args.masking_scheme)
         loss_value = loss.item()
+
+        # FIXME: This might cause NCCL communication error
         if not math.isfinite(loss_value):
             print("Loss is {}, skipping this batch".format(loss_value))
             optimizer.zero_grad()

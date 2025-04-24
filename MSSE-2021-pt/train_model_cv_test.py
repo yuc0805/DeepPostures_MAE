@@ -103,7 +103,8 @@ def create_splits(
     return outer_train_subjects, outer_valid_subjects, outer_test_subjects
 
 
-def train(args, bi_lstm_win_size, class_weights, transfer_learning_model_path, train_subjects, valid_subjects, test_subjects, outer_fold = None, fold = None):
+def train(args, bi_lstm_win_size, class_weights, transfer_learning_model_path, 
+            train_subjects, valid_subjects, test_subjects, outer_fold = None, fold = None):
     
     # Load model
     model = CNNBiLSTMModel(args.amp_factor, bi_lstm_win_size, args.num_classes)
@@ -675,7 +676,12 @@ if __name__ == "__main__":
 
         train_subjects = split_data["train"]
         valid_subjects = split_data["val"]
-        test_subjects = split_data["test"]
+        
+        # FIXME: should only use for final eval
+        # if False:
+        #     test_subjects = split_data["test"]
+        # else:
+        test_subjects = split_data["val"]
 
 
     print(len(train_subjects), len(valid_subjects), len(test_subjects))
@@ -750,9 +756,9 @@ python -m train_model_cv_test \
     --pre-processed-dir /niddk-data-central/iWatch/pre_processed_pt/H \
     --transfer-learning-model CHAP_ALL_ADULTS\
     --weight-decay 1e-4 \
-    --output-file-train "/niddk-data-central/leo_workspace/output_metrics_train.csv" \
-    --output-file-test "/niddk-data-central/leo_workspace/output_metrics_test.csv" \
-    --model-checkpoint-path "/niddk-data-central/leo_workspace/model-checkpoint" \
+    --output-file-train "/niddk-data-central/leo_workspace/iwatch_H/val_result/output_metrics_train.csv" \
+    --output-file-test "/niddk-data-central/leo_workspace/iwatch_H/val_result/output_metrics_test.csv" \
+    --model-checkpoint-path "/niddk-data-central/leo_workspace/iwatch_H/val_result/model-checkpoint" \
     --split_data_file "/niddk-data-central/iWatch/support_files/iwatch_split_dict.pkl"
 
 
