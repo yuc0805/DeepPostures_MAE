@@ -424,7 +424,7 @@ def train(args, bi_lstm_win_size, class_weights, transfer_learning_model_path,
                 "best_epoch": best_epoch,
                 "test_acc": test_accuracy,
                 "test_balanced_acc": test_balanced_accuracy,
-                'test_f1': test_additional_metrics['f1'],
+                'test_f1': test_additional_metrics['f1_score'],
                 "val_confusion_matrix": cm_test.tolist()
             }
             test_metrics = []
