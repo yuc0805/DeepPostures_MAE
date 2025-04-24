@@ -212,7 +212,7 @@ def main(args):
         msg = model.load_state_dict(checkpoint_model, strict=True)
         model.to(device)
         test_stats = evaluate(data_loader_val, model, device)
-        print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
+        print(f"Balanced Accuracy of the network on the {len(dataset_val)} test images: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
         exit(0)
 
     #freeze weight
@@ -264,6 +264,7 @@ def main(args):
     print(f"Start training for {args.epochs} epochs")
     start_time = time.time()
     max_accuracy = 0.0
+    best_metric = {}
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed: 
             data_loader_train.sampler.set_epoch(epoch)
@@ -280,21 +281,28 @@ def main(args):
                 loss_scaler=loss_scaler, epoch=epoch)
 
         test_stats = evaluate(data_loader_val, model, device)
-        print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
-
+        print(f"Balanced Accuracy of the network on the {len(dataset_val)} test images: {test_stats['bal_acc']:.5f} and F1 score of {test_stats['f1']:.5f}%")
         # save the best epoch
-        if max_accuracy < test_stats["acc1"]:
-            max_accuracy = test_stats["acc1"]
+        if max_accuracy < test_stats["bal_acc"]:
+            max_accuracy = test_stats["bal_acc"]
+
+            best_metric['epoch'] = epoch
+            best_metric['bal_acc'] = test_stats['bal_acc']
+            best_metric['acc1'] = test_stats['acc1']
+            best_metric['bal_acc'] = test_stats['bal_acc']
+            best_metric['f1'] = test_stats['f1']
+
             if args.output_dir:
                 misc.save_model(
                     args=args, model=model, model_without_ddp=model, optimizer=optimizer,
                     loss_scaler=loss_scaler, epoch="best")
 
-        print(f'Max accuracy: {max_accuracy:.2f}%')
+        print(f'Max Balanced accuracy: {max_accuracy:.2f}%')
 
         if log_writer is not None:
             log_writer.log({'perf/test_acc1': test_stats['acc1'], 
-                            'perf/test_acc3': test_stats['acc3'],  # changed
+                            'perf/bal_acc': test_stats['bal_acc'],
+                            'perf/f1': test_stats['f1'],
                             'perf/test_loss': test_stats['loss'], 
                             'epoch': epoch})
 
@@ -307,7 +315,7 @@ def main(args):
             with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
                 f.write(json.dumps(log_stats) + "\n")
 
-    log_writer.log({"max accuracy": max_accuracy})
+    log_writer.log({f'best_epoch_{k}':v} for k,v in best_metric.items())
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print('Training time {}'.format(total_time_str))
