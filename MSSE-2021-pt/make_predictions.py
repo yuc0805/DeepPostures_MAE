@@ -30,7 +30,7 @@ sys.path.append(pathlib.Path(__file__).parent.absolute())
 from commons import get_subject_dataloader, input_iterator
 from utils import load_model_weights
 from model import CNNBiLSTMModel
-
+import pickle
 # torch imports
 import torch
 
@@ -59,7 +59,7 @@ def generate_predictions(pre_processed_data_dir, output_dir, model, segment, out
     if model not in ['CHAP', 'CHAP_A', 'CHAP_B', 'CHAP_C', 'CHAP_ALL_ADULTS', 'CHAP_CHILDREN', 'CHAP_AUSDIAB', 'CUSTOM_MODEL']:
         raise Exception('model should be one of: CHAP, CHAP_A, CHAP_B, CHAP_C, CHAP_ALL_ADULTS, CHAP_CHILDREN, CHAP_AUSDIAB or CUSTOM_MODEL')
 
-    if test_subject_ids is None
+    if test_subject_ids is None:
         subject_ids = [fname.split('.')[0] for fname in os.listdir(pre_processed_data_dir) if not fname.startswith('.')]
     else:
         subject_ids = test_subject_ids
@@ -326,12 +326,10 @@ if __name__ == "__main__":
         args.model_checkpoint_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'pre-trained-models-pt')
 
     if args.test_split_path is not None:
-        train_test_split = pd.read_csv(args.test_split_path)
-        mask = (
-        (train_test_split['type'] == 'test_set') &
-        (train_test_split['note'].isna())
-        )
-        subject_ids = train_test_split.loc[mask, 'ID'].tolist()
+        with open(args.test_split_path, "rb") as f:
+            split_data = pickle.load(f)
+
+        subject_ids = split_data["val"]
     else:
         subject_ids = None
 
@@ -343,9 +341,9 @@ if __name__ == "__main__":
 
 '''
 python -m make_predictions \
---pre-processed-dir "/niddk-data-central/iWatch/pre_processed_pt/H" \
---predictions-dir "/niddk-data-central/leo_workspace/chap_result/predictions" \
---test_split_path "/niddk-data-central/iWatch/support_files/iWatch_randomization.csv"
+--pre-processed-dir "/niddk-data-central/iWatch/pre_processed_pt/W" \
+--predictions-dir "/niddk-data-central/leo_workspace/iwatch_W/val_result/zeroshot_prediction" \
+--test_split_path "/niddk-data-central/iWatch/support_files/iwatch_split_dict.pkl"
 
 
 '''
