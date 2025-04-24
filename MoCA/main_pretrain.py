@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 import torch
 import torch.backends.cudnn as cudnn
 import wandb
-
+import h5py
 from util.datasets import iWatch, data_aug,iWatch_HDf5,collate_fn
 
 import timm
@@ -208,9 +208,18 @@ def main(args):
     misc.load_model(args=args, model_without_ddp=model_without_ddp, optimizer=optimizer, loss_scaler=loss_scaler)
    
     # fix a sample for plot ###########
-    tmp_sample,_ = next(iter(data_loader_train))  
-    tmp_sample = tmp_sample[1:2]
-    print('tmp_sample shape: ',tmp_sample.shape)
+    # tmp_sample,_ = next(iter(data_loader_train))  
+    # tmp_sample = tmp_sample[1:2]
+    # print('tmp_sample shape: ',tmp_sample.shape)
+    root = "/niddk-data-central/iWatch/pre_processed_seg/H/train.hdf5"
+    with h5py.File(root, "r") as f:
+        idx = 500674
+        tmp_sample = f['x'][idx]  # (100, 3)
+        print('the index is', idx)  
+        print('the sample label is',f['y'])
+
+    tmp_sample = torch.from_numpy(tmp_sample.transpose(1, 0)).to(torch.float32).unsqueeze(0).unsqueeze(0)  # (1,1,3, 100)
+    tmp_sample = tmp_sample / tmp_sample.abs().mean() # normalize
     ############################################
 
     print(f"Start training for {args.epochs} epochs")
