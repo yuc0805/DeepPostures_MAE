@@ -216,7 +216,7 @@ def main(args):
         idx = 500674
         tmp_sample = f['x'][idx]  # (100, 3)
         print('the index is', idx)  
-        print('the sample label is',f['y'])
+        print('the sample label is',f['y'][idx])
 
     tmp_sample = torch.from_numpy(tmp_sample.transpose(1, 0)).to(torch.float32).unsqueeze(0).unsqueeze(0)  # (1,1,3, 100)
     tmp_sample = tmp_sample / tmp_sample.abs().mean() # normalize
@@ -312,7 +312,7 @@ torchrun --nproc_per_node=4 main_pretrain.py \
 
 python main_pretrain.py \
 --data_path /niddk-data-central/iWatch/pre_processed_seg/W \
---batch_size 5 \
+--batch_size 512 \
 --world_size 4 \
 --epochs 100 \
 --warmup_epochs 10 \
