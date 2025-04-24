@@ -12,39 +12,27 @@
 import argparse
 import datetime
 import json
-import numpy as np
 import os
 import time
 from pathlib import Path
 
+import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
-from torch.utils.tensorboard import SummaryWriter
-import torchvision.transforms as transforms
-import torchvision.datasets as datasets
-from util.datasets import iWatch_HDf5
-import timm
-#from util.misc import get_next_run_number
-from config import DATASET_CONFIG
-
-#assert timm.__version__ == "0.3.2" # version check
-from timm.models.layers import trunc_normal_
-
-import util.misc as misc
-from util.pos_embed import interpolate_pos_embed
-
-import util.lr_decay as lrd # changed - added for optimizer
-from util.misc import NativeScalerWithGradNormCount as NativeScaler
-from util.lars import LARS
-from util.crop import RandomResizedCrop
-
-import models_vit
 import torch.nn as nn
+import wandb
+
+import timm
+from config import LP_DATASET_CONFIG
+from util.datasets import iWatch_HDf5, data_aug
+import util.misc as misc
+from util.misc import NativeScalerWithGradNormCount as NativeScaler
+from timm.optim import create_optimizer_v2
+from util.pos_embed import interpolate_pos_embed
+import util.lr_decay as lrd  # for optimizer
+import models_vit
 
 from engine_finetune import train_one_epoch, evaluate
-
-#from leo_model_mae import MaskedAutoencoderViT  
-from models_mae import MaskedAutoencoderViT
 
 # helper function
 def parse_list(input_string):
@@ -66,16 +54,14 @@ def get_args_parser():
     parser.add_argument('--model', default='vit_base_patch16', type=str, metavar='MODEL',
                         help='Name of model to train')
 
-    parser.add_argument('--input_size', type=int, default=200, 
+    parser.add_argument('--input_size', type=int, default=100, 
                         help='Input size "')
-    parser.add_argument('--patch_size', type=int, default=20, 
+    parser.add_argument('--patch_size', type=int, default=5, 
                         help='Patch size')
 
-    parser.add_argument('--patch_num', default=10, type=int,  # changed - added
-                        help='number of patches')
     parser.add_argument('--in_chans', default=6, type=int,  # changed - added
                         help='number of channels')
-    parser.add_argument('--remark', default='model_mae_linprob',type=str,
+    parser.add_argument('--remark', default='',type=str,
                         help='model_remark')
 
     # Optimizer parameters
@@ -99,7 +85,6 @@ def get_args_parser():
     
 
     # * Finetuning params
-    parser.add_argument('--finetune', action='store_true')
     parser.add_argument('--checkpoint', default='/home/jovyan/persistent-data/MAE_Accelerometer/experiments/661169(p200_10_alt_0.0005)/checkpoint-3999.pth', 
                         type=str,help='model checkpoint for evaluation')
     parser.add_argument('--global_pool', action='store_true')
@@ -134,7 +119,7 @@ def get_args_parser():
 
     parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
                         help='start epoch')
-    parser.add_argument('--eval', action='store_true',
+    parser.add_argument('--eval', default=None, type=str,
                         help='Perform evaluation only')
     parser.add_argument('--dist_eval', action='store_true', default=False,
                         help='Enabling distributed evaluation (recommended during training for faster monitor')
@@ -211,6 +196,8 @@ class LinearProb(nn.Module):
 
 
 def main(args):
+    wandb.login(key='32b6f9d5c415964d38bfbe33c6d5c407f7c19743')
+
     misc.init_distributed_mode(args)
 
     print('job dir: {}'.format(os.path.dirname(os.path.realpath(__file__))))
@@ -225,13 +212,9 @@ def main(args):
 
     cudnn.benchmark = False 
     
-
-    ## Leo #####################################
-    if args.ds_name == 'ucihar_6' or args.ds_name == 'ucihar_7':
-        dataset_train = UCIHAR(args.data_path, is_test=False,nb_classes=args.nb_classes,mix_up=False)
-        dataset_val = UCIHAR(args.data_path,is_test=True,nb_classes=args.nb_classes,mix_up=False)
-    if args.ds_name == 'iWatch_HDf5':
-        dataset_train = iWatch_HDf5()
+    if args.ds_name == 'iwatch':
+        dataset_train = iWatch_HDf5(args.data_path, set_type='train', transform=data_aug)
+        dataset_val = iWatch_HDf5(args.data_path, set_type='val', transform=None)
     else:
         raise NotImplementedError('The specified dataset is not implemented.')
 
@@ -239,31 +222,19 @@ def main(args):
     print("Number of Training Samples:", len(dataset_train))
     print("Number of Testing Samples:", len(dataset_val))
 
-    ############################################## data changed - end ################################################
-
-    if args.ds_name in ['capture24_4','capture24_10']:  # args.distributed:
-        num_tasks = misc.get_world_size()
-        global_rank = misc.get_rank()
-        sampler_train = torch.utils.data.DistributedSampler(
-            dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True
-        )
-        print("Sampler_train = %s" % str(sampler_train))
-        if args.dist_eval:
-            if len(dataset_val) % num_tasks != 0:
-                print('Warning: Enabling distributed evaluation with an eval dataset not divisible by process number. '
-                      'This will slightly alter validation results as extra duplicate entries are added to achieve '
-                      'equal num of samples per-process.')
-            sampler_val = torch.utils.data.DistributedSampler(
-                dataset_val, num_replicas=num_tasks, rank=global_rank, shuffle=True)  # shuffle=True to reduce monitor bias
-        else:
-            sampler_val = torch.utils.data.SequentialSampler(dataset_val)
+    if False: #args.distributed:
+        sampler_val = torch.utils.data.SequentialSampler(dataset_val)
     else:
         sampler_train = torch.utils.data.RandomSampler(dataset_train)
         sampler_val = torch.utils.data.SequentialSampler(dataset_val)
 
     if args.log_dir is not None and not args.eval:  
-        log_writer = SummaryWriter(log_dir=args.log_dir)
-        print('log_dir: {}'.format(log_writer.log_dir))
+        log_writer = wandb.init(
+            project='MoCA-iWatch-LP',  # Specify your project
+            config= vars(args),
+            dir=args.log_dir,
+            name=args.remark,)
+      
     else:
         log_writer = None
 
@@ -284,7 +255,7 @@ def main(args):
     )
 
     model = models_vit.__dict__[args.model](
-            img_size=args.img_size, patch_size=[1, int(20)],  # changed - added to reflect input_size change
+            img_size=args.input_size, patch_size=[1, int(args.patch_size)], 
             num_classes=args.nb_classes, in_chans=1, 
             global_pool=False
         )
@@ -294,7 +265,8 @@ def main(args):
         print('Loading pre-trained checkpoint from',args.checkpoint)
         checkpoint = torch.load(args.checkpoint,map_location='cpu')
         checkpoint_model = checkpoint['model']
-        interpolate_pos_embed(model, checkpoint_model,orig_size=(6,10),new_size=(args.img_size[0],int(args.img_size[1]//20)))
+        interpolate_pos_embed(model, checkpoint_model,orig_size=(3,20), # FIXME: can also be [6,20] if using both HIP and Wrist
+                              new_size=(args.input_size[0],int(args.input_size[1]//args.patch_size)))
 
         #print(checkpoint_model.keys())
         decoder_keys = [k for k in checkpoint_model.keys() if 'decoder' in k]
@@ -305,7 +277,7 @@ def main(args):
         msg = model.load_state_dict(checkpoint_model, strict=False)
         print(msg)
     else:
-        checkpoint = torch.load('/home/jovyan/MAE_Accelerometer/results/checkpoint-49(linearprobing).pth',map_location='cpu')
+        checkpoint = torch.load(args.eval,map_location='cpu')
         checkpoint_model = checkpoint['model']
         print(checkpoint['args'])
         msg = model.load_state_dict(checkpoint_model, strict=True)
@@ -313,13 +285,13 @@ def main(args):
         test_stats = evaluate(data_loader_val, model, device)
         print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
         exit(0)
+
     #freeze weight
-    if not args.finetune:
-        model.head = torch.nn.Sequential(torch.nn.BatchNorm1d(model.head.in_features, affine=False, eps=1e-6), model.head)
-        for _, p in model.named_parameters():
-            p.requires_grad = False
-        for _, p in model.head.named_parameters():
-            p.requires_grad = True
+    model.head = torch.nn.Sequential(torch.nn.BatchNorm1d(model.head.in_features, affine=False, eps=1e-6), model.head)
+    for _, p in model.named_parameters():
+        p.requires_grad = False
+    for _, p in model.head.named_parameters():
+        p.requires_grad = True
 
     print("Model = %s" % str(model))
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -347,18 +319,12 @@ def main(args):
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
         model_without_ddp = model.module
 
-    # optimizer =  torch.optim.AdamW(
-    #     model.parameters(),
-    #     lr=args.lr,
-    #     weight_decay=args.weight_decay,
-    #     )
-
-    # print(optimizer)
-    param_groups = lrd.param_groups_lrd(model_without_ddp, args.weight_decay,
-        no_weight_decay_list=model_without_ddp.no_weight_decay(),
-        layer_decay=args.layer_decay
-    )
-    optimizer = torch.optim.AdamW(param_groups, lr=args.lr)
+    optimizer = create_optimizer_v2(
+        model_without_ddp,
+        opt='adamw',
+        lr=args.lr,
+        weight_decay=args.weight_decay,# default: 0 
+        betas=(0.9, 0.95))
 
     loss_scaler = NativeScaler()
 
@@ -402,67 +368,58 @@ def main(args):
         print(f'Max accuracy: {max_accuracy:.2f}%')
 
         if log_writer is not None:
-            log_writer.add_scalar('perf/test_acc1', test_stats['acc1'], epoch)
-            log_writer.add_scalar('perf/test_acc3', test_stats['acc3'], epoch) # changed 
-            log_writer.add_scalar('perf/test_loss', test_stats['loss'], epoch)
+            log_writer.log({'perf/test_acc1': test_stats['acc1'], 
+                            'perf/test_acc3': test_stats['acc3'],  # changed
+                            'perf/test_loss': test_stats['loss'], 
+                            'epoch': epoch})
 
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
-                        **{f'test_{k}': v for k, v in test_stats.items()},
-                        'epoch': epoch,
-                        'n_parameters': n_parameters}
+                     **{f'test_{k}': v for k, v in test_stats.items()},
+                     'epoch': epoch,
+                     'n_parameters': n_parameters}
 
         if args.output_dir and misc.is_main_process():
-            if log_writer is not None:
-                log_writer.flush()
             with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
                 f.write(json.dumps(log_stats) + "\n")
 
+    log_writer.log({"max accuracy": max_accuracy})
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print('Training time {}'.format(total_time_str))
+
+    return max_accuracy
 
 
 if __name__ == '__main__':
     args = get_args_parser()
     args = args.parse_args()
 
-    args.in_chans = DATASET_CONFIG[args.ds_name]['in_chans']
-    args.nb_classes = DATASET_CONFIG[args.ds_name]['nb_classes']
-    if 'lr' in  DATASET_CONFIG[args.ds_name]:
-        args.lr = DATASET_CONFIG[args.ds_name]['lr']
-
-    args.blr = DATASET_CONFIG[args.ds_name]["blr"]
-    args.batch_size = DATASET_CONFIG[args.ds_name]["bs"]
-    args.img_size = DATASET_CONFIG[args.ds_name]["img_size"]
-    
-    if args.finetune:
-        args.blr = args.blr*0.1
-        args.warmup_epochs = 5 # default is 10 for lp
-        if 'weight_decay' in DATASET_CONFIG[args.ds_name]:
-            args.weight_decay = DATASET_CONFIG[args.ds_name]['weight_decay']
-        args.remark = args.remark + '_' + args.ds_name + '_finetune'
-    else:
-        args.remark = args.remark + '_' + args.ds_name + '_lp'
-
     initial_timestamp = datetime.datetime.now()
     
-    args.log_dir = os.path.join(args.log_dir,args.remark,initial_timestamp.strftime("%Y-%m-%d_%H-%M"))
-    args.output_dir = os.path.join(args.output_dir,args.remark,initial_timestamp.strftime("%Y-%m-%d_%H-%M"))
 
+    args.in_chans = LP_DATASET_CONFIG[args.ds_name]['in_chans']
+    args.nb_classes = LP_DATASET_CONFIG[args.ds_name]['nb_classes']
+    args.blr = LP_DATASET_CONFIG[args.ds_name]["blr"]
+    args.batch_size = LP_DATASET_CONFIG[args.ds_name]["bs"]
+    args.input_size = LP_DATASET_CONFIG[args.ds_name]["input_size"]
+    args.remark = args.remark + f'blr_{args.blr}_bs_{args.batch_size}_input_size_{args.input_size}'
+    print(f'Start Training: {args.remark}')
+    
+    args.log_dir = os.path.join(args.log_dir,args.remark,f'{initial_timestamp.strftime("%Y-%m-%d_%H-%M")}')
+    args.output_dir = os.path.join(args.output_dir,args.remark,f'{initial_timestamp.strftime("%Y-%m-%d_%H-%M")}')
     if args.output_dir:
         Path(args.output_dir).mkdir(parents=True, exist_ok=True)
         Path(args.log_dir).mkdir(parents=True, exist_ok=True)
-    main(args)
 
+    main(args)
 
 
 
 '''
 
-CUDA_VISIBLE_DEVICES=0 \
+CUDA_VISIBLE_DEVICES=1 \
 python -m main_linprobe \
---ds_name capture \
+--ds_name imwsha \
 --checkpoint "/home/jovyan/persistent-data/leo/output_dir/moca_aug_checkpoint-200.pth" \
---remark MoCA_200
 
 '''
