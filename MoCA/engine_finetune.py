@@ -17,6 +17,7 @@ import torch
 
 from timm.data import Mixup
 from timm.utils import accuracy
+from sklearn.metrics import f1_score, balanced_accuracy_score
 
 import util.misc as misc
 import util.lr_sched as lr_sched
@@ -38,7 +39,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
     optimizer.zero_grad()
 
     if log_writer is not None:
-        print('log_dir: {}'.format(log_writer.log_dir))
+        print('log_dir: {}'.format(log_writer.dir))
 
     for data_iter_step, (samples, targets) in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
 
@@ -56,9 +57,17 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         loss_value = loss.item()
 
         acc1, _ = accuracy(outputs, targets, topk=(1, 3))
+        # additional metrics: f1, balanced_acc ##############
+        preds = outputs.argmax(dim=1).cpu().numpy()
+        targets_np = targets.cpu().numpy()
+        f1 = f1_score(targets_np, preds, average='weighted')
+        bal_acc = balanced_accuracy_score(targets_np, preds)
+        #################################################
         batch_size = samples.shape[0]
-        
+    
         metric_logger.meters['train_acc1'].update(acc1.item(), n=batch_size)
+        metric_logger.meters['f1'].update(f1, n=batch_size)
+        metric_logger.meters['bal_acc'].update(bal_acc, n=batch_size)
 
         if not math.isfinite(loss_value):
             print("Loss is {}, stopping training".format(loss_value))
@@ -86,11 +95,21 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         loss_value_reduce = misc.all_reduce_mean(loss_value)
 
 
+
         if log_writer is not None and (data_iter_step + 1) % accum_iter == 0:
             """ We use epoch_1000x as the x-axis in tensorboard.
             This calibrates different curves when batch size changes.
             """
             epoch_1000x = int((data_iter_step / len(data_loader) + epoch) * 1000)
+            log_writer.log(
+                {'loss': loss_value_reduce, 
+                 'lr': max_lr, 
+                 'train acc1': acc1,
+                 'train bal_acc':bal_acc,
+                 'train f1':f1,
+                 }, step=epoch_1000x)
+
+
             log_writer.add_scalar('loss', loss_value_reduce, epoch_1000x)
             log_writer.add_scalar('lr', max_lr, epoch_1000x)
             log_writer.add_scalar('train acc1', acc1, epoch_1000x)
@@ -124,16 +143,22 @@ def evaluate(data_loader, model, device):
         output = model(images)
         loss = criterion(output, target)
 
-        acc1, acc3 = accuracy(output, target, topk=(1, 3))     # changed - to top 3
+        acc1, _ = accuracy(output, target, topk=(1, 2))     
+
+        preds = output.argmax(dim=1).cpu().numpy()
+        targets_np = target.cpu().numpy()
+        f1 = f1_score(targets_np, preds, average='weighted')
+        bal_acc = balanced_accuracy_score(targets_np, preds)
 
         batch_size = images.shape[0]
         metric_logger.update(loss=loss.item())
         metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
-        metric_logger.meters['acc3'].update(acc3.item(), n=batch_size)
+        metric_logger.meters['f1'].update(f1, n=batch_size)
+        metric_logger.meters['bal_acc'].update(bal_acc, n=batch_size)
 
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
-    print('* Acc@1 {top1.global_avg:.3f} Acc@3 {top3.global_avg:.3f} loss {losses.global_avg:.3f}'  # changed to 3
-          .format(top1=metric_logger.acc1, top3=metric_logger.acc3, losses=metric_logger.loss))
+    print('* Acc@1 {top1.global_avg:.3f} bal_acc {bal_acc.global_avg:.3f} f1 {f1.global_avg:.3f} loss {losses.global_avg:.3f}'  
+          .format(top1=metric_logger.acc1, bal_acc=metric_logger.bal_acc, f1=metric_logger.f1, losses=metric_logger.loss))
 
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
