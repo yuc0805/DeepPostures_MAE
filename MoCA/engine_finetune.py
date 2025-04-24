@@ -110,9 +110,9 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
                  }, step=epoch_1000x)
 
 
-            log_writer.add_scalar('loss', loss_value_reduce, epoch_1000x)
-            log_writer.add_scalar('lr', max_lr, epoch_1000x)
-            log_writer.add_scalar('train acc1', acc1, epoch_1000x)
+            # log_writer.add_scalar('loss', loss_value_reduce, epoch_1000x)
+            # log_writer.add_scalar('lr', max_lr, epoch_1000x)
+            # log_writer.add_scalar('train acc1', acc1, epoch_1000x)
 
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()

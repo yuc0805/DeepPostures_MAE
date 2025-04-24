@@ -84,7 +84,7 @@ def get_args_parser():
                         
 
     # Dataset parameters
-    parser.add_argument('--data_path', default='/niddk-data-central/iWatch/pre_processed_seg/W ', type=str, # changed
+    parser.add_argument('--data_path', default='/niddk-data-central/iWatch/pre_processed_seg/W', type=str, # changed
                         help='dataset path')
     
     parser.add_argument('--nb_classes', default=7, type=int, # changed
@@ -151,8 +151,22 @@ def main(args):
     print("Number of Training Samples:", len(dataset_train))
     print("Number of Testing Samples:", len(dataset_val))
 
-    if False: #args.distributed:
-        sampler_val = torch.utils.data.SequentialSampler(dataset_val)
+    if True:  # args.distributed:
+        num_tasks = misc.get_world_size()
+        global_rank = misc.get_rank()
+        sampler_train = torch.utils.data.DistributedSampler(
+            dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True
+        )
+        print("Sampler_train = %s" % str(sampler_train))
+        if args.dist_eval:
+            if len(dataset_val) % num_tasks != 0:
+                print('Warning: Enabling distributed evaluation with an eval dataset not divisible by process number. '
+                      'This will slightly alter validation results as extra duplicate entries are added to achieve '
+                      'equal num of samples per-process.')
+            sampler_val = torch.utils.data.DistributedSampler(
+                dataset_val, num_replicas=num_tasks, rank=global_rank, shuffle=True)  # shuffle=True to reduce monitor bias
+        else:
+            sampler_val = torch.utils.data.SequentialSampler(dataset_val)
     else:
         sampler_train = torch.utils.data.RandomSampler(dataset_train)
         sampler_val = torch.utils.data.SequentialSampler(dataset_val)
@@ -350,9 +364,10 @@ if __name__ == '__main__':
 
 '''
 
-CUDA_VISIBLE_DEVICES=1 \
-python -m main_linprobe \
---ds_name imwsha \
---checkpoint "/home/jovyan/persistent-data/leo/output_dir/moca_aug_checkpoint-200.pth" \
---remark Hip
+torchrun --nproc_per_node=4  -m main_linprobe \
+--ds_name iwatch \
+--checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Hipps_5_mask_0.75_bs_256_blr_None_epoch_100/2025-04-23_20-41/checkpoint-35.pth" \
+--data_path "/niddk-data-central/iWatch/pre_processed_seg/H" \
+--remark Hip_35epoch
+
 '''
