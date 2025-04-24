@@ -44,24 +44,21 @@ def get_args_parser():
     parser = argparse.ArgumentParser('MAE linear probing for image classification', add_help=False)
     parser.add_argument('--batch_size', default=128, type=int,
                         help='Batch size per GPU (effective batch size is batch_size * accum_iter * # gpus')
-    parser.add_argument('--epochs', default=50, type=int)
+    parser.add_argument('--epochs', default=20, type=int)
     parser.add_argument('--accum_iter', default=1, type=int,
                         help='Accumulate gradient iterations (for increasing the effective batch size under memory constraints)')
-    parser.add_argument('--bert_pos_embed',default=0,type=int,
-                        help='using bert_pos_embed')
 
     # Model parameters
     parser.add_argument('--model', default='vit_base_patch16', type=str, metavar='MODEL',
                         help='Name of model to train')
-
     parser.add_argument('--input_size', type=int, default=100, 
                         help='Input size "')
     parser.add_argument('--patch_size', type=int, default=5, 
                         help='Patch size')
 
-    parser.add_argument('--in_chans', default=6, type=int,  # changed - added
+    parser.add_argument('--in_chans', default=3, type=int,  # changed - added
                         help='number of channels')
-    parser.add_argument('--remark', default='',type=str,
+    parser.add_argument('--remark', default='Debug',type=str,
                         help='model_remark')
 
     # Optimizer parameters
@@ -74,42 +71,28 @@ def get_args_parser():
                         help='learning rate (absolute lr)')
     parser.add_argument('--blr', type=float, default=1e-2, metavar='LR',
                         help='base learning rate: absolute_lr = base_lr * total_batch_size / 256')
-
-    parser.add_argument('--min_lr', type=float, default=0., metavar='LR',
+    parser.add_argument('--min_lr', type=float, default=1e-6, metavar='LR',
                         help='lower lr bound for cyclic schedulers that hit 0')
 
-    parser.add_argument('--warmup_epochs', type=int, default=10, metavar='N',
+    parser.add_argument('--warmup_epochs', type=int, default=2, metavar='N',
                         help='epochs to warmup LR')
-    parser.add_argument('--layer_decay', type=float, default=0.75,
-                        help='layer-wise lr decay from ELECTRA/BEiT')
     
 
     # * Finetuning params
     parser.add_argument('--checkpoint', default='/home/jovyan/persistent-data/MAE_Accelerometer/experiments/661169(p200_10_alt_0.0005)/checkpoint-3999.pth', 
-                        type=str,help='model checkpoint for evaluation')
-    parser.add_argument('--global_pool', action='store_true')
-    parser.set_defaults(global_pool=False)
-    parser.add_argument('--cls_token', action='store_false', dest='global_pool',
-                        help='Use class token instead of global pool for classification')
-    parser.add_argument('--fintune_mask_ratio',type=float,default=0,help='mask ratio during finetuning')                   
-                        
+                        type=str,help='model checkpoint for evaluation') 
                         
 
     # Dataset parameters
-    parser.add_argument('--data_path', default='data/200', type=str, # changed
+    parser.add_argument('--data_path', default='/niddk-data-central/iWatch/pre_processed_seg/W ', type=str, # changed
                         help='dataset path')
-    parser.add_argument('--alt', action='store_true',
-                        help='using [n, c, l, 1] format instead') # changed - added
-    parser.set_defaults(alt=False) # changed - added
+    
     parser.add_argument('--nb_classes', default=7, type=int, # changed
                         help='number of the classification types')
-    parser.add_argument('--normalization', action='store_true',
-                        help='train and test data set normalization') # changed - added
-    parser.set_defaults(normalization=False) # changed - added
 
-    parser.add_argument('--output_dir', default='../persistent-data/leo/optim_mask/downstream/ckpt', # ../persistent-data/leo/output_dir/downstream/ckpt
+    parser.add_argument('--output_dir', default='/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt',
                         help='path where to save, empty for no saving')
-    parser.add_argument('--log_dir', default='../persistent-data/leo/optim_mask/downstream/log',
+    parser.add_argument('--log_dir', default='/niddk-data-central/leo_workspace/MoCA_result/LP/log',
                         help='path where to tensorboard log')
     parser.add_argument('--device', default='cuda',
                         help='device to use for training / testing')
@@ -138,61 +121,7 @@ def get_args_parser():
     parser.add_argument('--dist_url', default='env://',
                         help='url used to set up distributed training')
 
-    return parser
-
-
-
-
-class LinearProb(nn.Module):
-    def __init__(self,model,
-                 num_classes=7,
-                 in_chans=6,bert_pos_embed=False):
-        
-        super().__init__()
-        # init backbone
-        self.backbone = model
-        embed_size = self.backbone.embed_dim
-        self.bert_pos_embed = bert_pos_embed
-
-        if bert_pos_embed:
-            self.head = nn.Linear(embed_size,num_classes)
-        else:
-            #self.head = nn.Linear(in_chans*embed_size,num_classes)
-            self.head = nn.Linear(embed_size,num_classes)
-        self.embed_size = embed_size
-        self.in_chans = in_chans
-
-    def forward(self, x, mask_ratio=0):
-        '''Input
-        x: bs x nvar x 1 x L
-
-        Output:
-        cls: bs x num_class
-        '''
-        
-        #with torch.no_grad():
-        z,_,_ = self.backbone.forward_encoder(x,mask_ratio=mask_ratio,
-                                              var_mask_ratio=0,time_mask_ratio=0) # only use encoder
-
-        # z: [bs x nvar*(num_p+1) x E]
-        bs, _, E = z.shape
-        # only use CLS Token
-        if self.bert_pos_embed:
-            z = z[:,0,:] # bs, E
-
-        else:
-            # z = z[:,:,0,:]
-            # z = z.reshape(shape=(bs,self.in_chans,-1,E)) 
-            # # get cls_token for each variate
-            # z = z[:,:,0,:] # bs x nvar x E
-
-            # z = z.reshape(shape=(bs,self.in_chans*E))
-            z = z[:,0,:]
-
-        x_out = self.head(z)
-
-        return x_out
-    
+    return parser    
 
 
 def main(args):
@@ -341,21 +270,17 @@ def main(args):
         train_stats = train_one_epoch(
             model, criterion, data_loader_train,
             optimizer, epoch, loss_scaler,
-            max_norm=None, 
+            max_norm=args.clip_grad, 
             log_writer=log_writer,
             args=args, device=device,
         )
-        if args.output_dir and (epoch + 1 == args.epochs): # changed - added and~ for less frequent dump
+        if args.output_dir and (epoch + 1 == args.epochs):
             misc.save_model(
                 args=args, model=model, model_without_ddp=model, optimizer=optimizer,
                 loss_scaler=loss_scaler, epoch=epoch)
 
         test_stats = evaluate(data_loader_val, model, device)
         print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
-
-        
-        # max_accuracy = max(max_accuracy, test_stats["acc1"])
-        # print(f'Max accuracy: {max_accuracy:.2f}%')
 
         # save the best epoch
         if max_accuracy < test_stats["acc1"]:
@@ -421,5 +346,5 @@ CUDA_VISIBLE_DEVICES=1 \
 python -m main_linprobe \
 --ds_name imwsha \
 --checkpoint "/home/jovyan/persistent-data/leo/output_dir/moca_aug_checkpoint-200.pth" \
-
+--remark Hip
 '''
