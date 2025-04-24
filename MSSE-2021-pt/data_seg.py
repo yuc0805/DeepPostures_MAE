@@ -1,76 +1,148 @@
 import os
 import pickle
-import torch
-from commons import get_dataloaders
-from einops import rearrange
+import h5py
+import numpy as np
 from tqdm import tqdm
+from commons import input_iterator
 
-def save_samples_from_loader(dataloader, out_dir):
+def save_samples_from_iter(preprocessed_dir,
+                           out_dir,
+                           subject_ids,
+                           window_size=42,
+                           flush_threshold=1000):
     """
-    Iterate through a DataLoader and save each sample as a pickle.
-    Each file is named 0.pkl, 1.pkl, … and contains {'x', 'y', 'fn'}.
+    Stream fixed-length windows from per-subject HDF5 files into one HDF5
+    without overloading memory. We buffer up to `flush_threshold` windows in RAM,
+    then write them at once.
+
+    Outputs in out_dir/10s_train.h5:
+      x           float32, shape (N_time, 100, 3)
+      y           int32,   shape (N_time,)
+      timestamp   float64, shape (N_time,)
+      subject_id  utf-8 str, shape (N_time,)
     """
     os.makedirs(out_dir, exist_ok=True)
-    idx = 0
-    for batch in tqdm(dataloader, desc="Processing batches"):
-        # assume batch is (x_batch, y_batch)
-        x_batch, y_batch = batch
-        print(f"Batch shape: {x_batch.shape}, {y_batch.shape}") # torch.Size([BS, win_size, 100, 3]) torch.Size([16, 42]) 
-        x_batch = rearrange(x_batch, "b t c l -> (b t) c l")
-        y_batch = y_batch.view(-1)  # flatten y_batch
-        
+    out_h5_path = os.path.join(out_dir, '10s_val.h5')
 
-        # if tensors, move to cpu and convert to numpy
-        if torch.is_tensor(x_batch):
-            x_batch = x_batch.cpu().numpy()
-        if torch.is_tensor(y_batch):
-            y_batch = y_batch.cpu().numpy()
+    x_buf, y_buf, ts_buf, subj_buf = [], [], [], []
+    first_write = True
 
-        # handle batched data
-        for i in range(x_batch.shape[0]):
-            sample = {
-                "x": x_batch[i],
-                "y": y_batch[i],
-            }
-            file_path = os.path.join(out_dir, f"{idx}.pkl")
-            with open(file_path, "wb") as f:
-                pickle.dump(sample, f)
-            idx += 1
+    with h5py.File(out_h5_path, 'w') as f_out:
+        for subject_id in tqdm(subject_ids, desc='Subjects'):
+            subject_dir = os.path.join(preprocessed_dir, subject_id)
+            if not os.path.isdir(subject_dir):
+                continue
+
+            for x_seq, ts_seq, y_seq in input_iterator(preprocessed_dir,
+                                                       subject_id,
+                                                       train=True):
+                x_win, y_win, ts_win = [], [], []
+                for x, ts, y in zip(x_seq, ts_seq, y_seq):
+                    x_win.append(x)
+                    y_win.append(y)
+                    ts_win.append(ts)
+
+                    if len(y_win) == window_size:
+                        # buffer one window of shape (window_size, 100, 3)
+                        x_buf.append(np.stack(x_win, axis=0).astype(np.float32))
+                        y_buf.append(np.array(y_win, dtype=np.int32))
+                        ts_buf.append(np.array(ts_win, dtype=np.float64))
+                        subj_buf.append(subject_id)
+
+                        x_win.clear()
+                        y_win.clear()
+                        ts_win.clear()
+
+                    if len(y_buf) >= flush_threshold:
+                        _flush_to_h5(f_out, x_buf, y_buf, ts_buf, subj_buf, first_write)
+                        first_write = False
+                        x_buf.clear(); y_buf.clear(); ts_buf.clear(); subj_buf.clear()
+
+        # final flush
+        if y_buf:
+            _flush_to_h5(f_out, x_buf, y_buf, ts_buf, subj_buf, first_write)
+
+
+def _flush_to_h5(f_out, x_list, y_list, ts_list, subj_list, first_write):
+    """
+    Flatten windows along the time axis and write to HDF5 so that
+    """
+    # concatenate along the time axis
+    x_arr = np.concatenate(x_list, axis=0)   # (sum(window), 100, 3)
+    y_arr = np.concatenate(y_list, axis=0)   # (sum(window),)
+    ts_arr = np.concatenate(ts_list, axis=0) # (sum(window),)
+    subj_arr = np.array(
+        [sid for sid, arr in zip(subj_list, x_list) for _ in range(arr.shape[0])],
+        dtype=h5py.string_dtype(encoding='utf-8')
+    )
+
+    if first_write:
+        f_out.create_dataset(
+            'x',
+            data=x_arr,
+            maxshape=(None,) + x_arr.shape[1:],
+            chunks=(min(1000, x_arr.shape[0]),) + x_arr.shape[1:],
+            compression='gzip'
+        )
+        f_out.create_dataset(
+            'y',
+            data=y_arr,
+            maxshape=(None,),
+            chunks=(min(1000, y_arr.shape[0]),),
+            compression='gzip'
+        )
+        f_out.create_dataset(
+            'timestamp',
+            data=ts_arr,
+            maxshape=(None,),
+            chunks=(min(1000, ts_arr.shape[0]),),
+            compression='gzip'
+        )
+        f_out.create_dataset(
+            'subject_id',
+            data=subj_arr,
+            maxshape=(None,),
+            chunks=(min(1000, subj_arr.shape[0]),),
+            dtype=h5py.string_dtype(encoding='utf-8'),
+            compression='gzip'
+        )
+    else:
+        for name, arr in zip(['x','y','timestamp','subject_id'],
+                             [x_arr, y_arr, ts_arr, subj_arr]):
+            ds = f_out[name]
+            old = ds.shape[0]
+            new = old + arr.shape[0]
+            ds.resize(new, axis=0)
+            ds[old:new] = arr
 
 
 if __name__ == "__main__":
     split_data_file = "/niddk-data-central/iWatch/support_files/iwatch_split_dict.pkl"
-    pre_processed_dir = '/niddk-data-central/iWatch/pre_processed_pt/H'  # '/niddk-data-central/iWatch/pre_processed_pt/W'
+    pre_processed_dir = '/niddk-data-central/iWatch/pre_processed_pt/H'
 
     with open(split_data_file, "rb") as f:
         split_data = pickle.load(f)
-
         train_subjects = split_data["train"]
         valid_subjects = split_data["val"]
-        test_subjects = split_data["test"]
+        test_subjects  = split_data["test"]
 
-            
-    train_dl, valid_dl, test_dl = get_dataloaders(
-        pre_processed_dir=pre_processed_dir,
-        bi_lstm_win_size=42, # CHAP_Adult: 60 // 10 * 7 = 42
-        batch_size=16, 
-        train_subjects=train_subjects, 
-        valid_subjects=valid_subjects, 
-        test_subjects=test_subjects,
-    )
+    # write out one HDF5 per split, flattened along the time axis
+    save_samples_from_iter(pre_processed_dir,
+                           "/niddk-data-central/iWatch/pre_processed_seg/H",
+                           valid_subjects,
+                           window_size=42,
+                           flush_threshold=1000)
 
-    if train_dl is not None:
-        save_samples_from_loader(train_dl, "/niddk-data-central/iWatch/pre_processed_seg/H/train")
-    if valid_dl is not None:
-        save_samples_from_loader(valid_dl, "/niddk-data-central/iWatch/pre_processed_seg/H/val")
-    if test_dl is not None:
-        save_samples_from_loader(test_dl, "/niddk-data-central/iWatch/pre_processed_seg/H/test")
-    
-    # print how many files in each folder
-    for split in ["train", "val", "test"]:
-        path = os.path.join("/niddk-data-central/iWatch/pre_processed_seg/H", split)
-        num_files = len([name for name in os.listdir(path) if os.path.isfile(os.path.join(path, name))])
-        print(f"Number of files in {split}: {num_files}")
-    print('Done!')
-   
-# python -m data_seg
+    # save_samples_from_iter(pre_processed_dir,
+    #                        "/niddk-data-central/iWatch/pre_processed_seg/H",
+    #                        train_subjects,
+    #                        window_size=42,
+    #                        flush_threshold=1000)
+
+    # save_samples_from_iter(pre_processed_dir,
+    #                        "/niddk-data-central/iWatch/pre_processed_seg/H",
+    #                        test_subjects,
+    #                        window_size=42,
+    #                        flush_threshold=1000)
+
+    print("Done!")

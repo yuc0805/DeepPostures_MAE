@@ -1,9 +1,9 @@
 import os
 import h5py
 import numpy as np
-import pickle
 from tqdm import tqdm
 from commons import input_iterator
+import pickle
 
 def merge(preprocessed_h,
           preprocessed_w,
@@ -24,8 +24,8 @@ def merge(preprocessed_h,
       merge_warnings.log  listing any skipped windows
     """
     os.makedirs(output_dir, exist_ok=True)
-    out_h5 = os.path.join(output_dir, 'merged_data.h5')
-    log_fp = os.path.join(output_dir, 'merge_warnings.log')
+    out_h5 = os.path.join(output_dir, 'test_merged_data.h5')
+    log_fp = os.path.join(output_dir, 'test_merge_warnings.log')
 
     log_f = open(log_fp, 'w')
     log_f.write("subject_id\twindow_index\treason\n")
@@ -74,37 +74,99 @@ def merge(preprocessed_h,
             total += n
             x_buf.clear(); y_buf.clear(); ts_buf.clear(); sid_buf.clear()
 
+        # helper to turn each generator into a per-window iterator
+        def window_iter(gen):
+            for x_batch, ts_batch, y_batch in gen:
+                for win, ts, lab in zip(x_batch, ts_batch, y_batch):
+                    yield win, ts, lab
+
         for subject_id in tqdm(subject_ids, desc='subjects'):
             hip_gen   = input_iterator(preprocessed_h, subject_id, train=True)
             wrist_gen = input_iterator(preprocessed_w, subject_id, train=True)
+            hip_it = window_iter(hip_gen)
+            wri_it = window_iter(wrist_gen)
 
-            for (x_h, ts_h, y_h), (x_w, ts_w, y_w) in zip(hip_gen, wrist_gen):
-                # x_h: (N,100,3), ts_h: (N,), y_h: (N,)
-                for idx, (win_h, win_w, t_h, t_w, lab_h, lab_w) in enumerate(
-                        zip(x_h, x_w, ts_h, ts_w, y_h, y_w)):
-                    reasons = []
-                    if not np.isclose(t_h, t_w, atol=tol):
-                        reasons.append("timestamp mismatch")
-                    if lab_h != lab_w:
-                        reasons.append("label mismatch")
-                    if reasons:
-                        log_f.write(f"{subject_id}\t{idx}\t{'; '.join(reasons)}\n")
-                        continue
+            hip_idx = 0
+            wri_idx = 0
 
-                    merged = np.concatenate((win_h, win_w), axis=-1)  # (100,6)
-                    x_buf.append(merged)
-                    y_buf.append(int(lab_h))
-                    ts_buf.append(float(t_h))
-                    sid_buf.append(subject_id)
+            # prime both streams
+            try:
+                win_h, ts_h, lab_h = next(hip_it)
+                hip_alive = True
+            except StopIteration:
+                hip_alive = False
 
-                    if len(x_buf) >= batch_size:
-                        flush()
+            try:
+                win_w, ts_w, lab_w = next(wri_it)
+                wri_alive = True
+            except StopIteration:
+                wri_alive = False
 
+            # merge by timestamp order
+            while hip_alive and wri_alive:
+                if abs(ts_h - ts_w) <= tol:
+                    if lab_h == lab_w:
+                        merged = np.concatenate((win_h, win_w), axis=-1)
+                        x_buf.append(merged)
+                        y_buf.append(int(lab_h))
+                        ts_buf.append(float(ts_h))
+                        sid_buf.append(subject_id)
+                    else:
+                        log_f.write(f"{subject_id}\t{hip_idx}\tlabel mismatch\n")
+                    # advance both
+                    hip_idx += 1
+                    wri_idx += 1
+                    try:
+                        win_h, ts_h, lab_h = next(hip_it)
+                    except StopIteration:
+                        hip_alive = False
+                    try:
+                        win_w, ts_w, lab_w = next(wri_it)
+                    except StopIteration:
+                        wri_alive = False
+
+                elif ts_h < ts_w:
+                    log_f.write(f"{subject_id}\t{hip_idx}\ttimestamp mismatch\n")
+                    hip_idx += 1
+                    try:
+                        win_h, ts_h, lab_h = next(hip_it)
+                    except StopIteration:
+                        hip_alive = False
+                else:  # ts_w < ts_h
+                    log_f.write(f"{subject_id}\t{wri_idx}\ttimestamp mismatch\n")
+                    wri_idx += 1
+                    try:
+                        win_w, ts_w, lab_w = next(wri_it)
+                    except StopIteration:
+                        wri_alive = False
+
+                if len(x_buf) >= batch_size:
+                    flush()
+
+            # any leftovers on hip or wrist get logged as timestamp mismatches
+            while hip_alive:
+                log_f.write(f"{subject_id}\t{hip_idx}\ttimestamp mismatch\n")
+                hip_idx += 1
+                try:
+                    next(hip_it)
+                except StopIteration:
+                    break
+
+            while wri_alive:
+                log_f.write(f"{subject_id}\t{wri_idx}\ttimestamp mismatch\n")
+                wri_idx += 1
+                try:
+                    next(wri_it)
+                except StopIteration:
+                    break
+
+        # final flush of any remaining merged windows
         flush()
 
     log_f.close()
     print(f"Merged {total} windows into {out_h5}")
     print(f"Any mismatches logged in {log_fp}")
+
 
 
 if __name__ == "__main__":
@@ -114,7 +176,7 @@ if __name__ == "__main__":
 
     with open("/niddk-data-central/iWatch/support_files/iwatch_split_dict.pkl", "rb") as f:
         split_data = pickle.load(f)
-    train_subjects = split_data["train"]
+    train_subjects = split_data["test"]
 
     merge(preprocessed_h, preprocessed_w, train_subjects, output_dir)
     print('Done!')
