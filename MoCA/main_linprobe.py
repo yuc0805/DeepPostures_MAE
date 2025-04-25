@@ -226,7 +226,7 @@ def main(args):
         print(checkpoint['args'])
         msg = model.load_state_dict(checkpoint_model, strict=True)
         model.to(device)
-        test_stats = evaluate(data_loader_val, model, device)
+        test_stats = evaluate(args,data_loader_val, model, device)
         print(f"Balanced Accuracy of the network on the {len(dataset_val)} test images: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
         exit(0)
 
@@ -295,7 +295,7 @@ def main(args):
                 args=args, model=model, model_without_ddp=model, optimizer=optimizer,
                 loss_scaler=loss_scaler, epoch=epoch)
 
-        test_stats = evaluate(data_loader_val, model, device)
+        test_stats = evaluate(args,data_loader_val, model, device)
         print(f"Balanced Accuracy of the network on the {len(dataset_val)} test images: {test_stats['bal_acc']:.5f} and F1 score of {test_stats['f1']:.5f}%")
         # save the best epoch
         if max_accuracy < test_stats["bal_acc"]:
