@@ -3,3 +3,4 @@ torch==2.0.1
 matplotlib
 numpy==1.24.4
 wandb
+torchmetrics

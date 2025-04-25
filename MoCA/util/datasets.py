@@ -127,7 +127,7 @@ class iWatch_HDf5(Dataset):
         self.transform = transform
 
         # HDF5 path mapping
-        hdf5_name = f"{set_type}.hdf5"
+        hdf5_name = f"10s_{set_type}.h5"
         self.file_path = os.path.join(root, hdf5_name)
 
         # Open HDF5 in read-only mode

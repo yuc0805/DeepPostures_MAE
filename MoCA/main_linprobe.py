@@ -24,7 +24,7 @@ import wandb
 
 import timm
 from config import LP_DATASET_CONFIG
-from util.datasets import iWatch_HDf5, data_aug
+from util.datasets import iWatch_HDf5, data_aug,collate_fn
 import util.misc as misc
 from util.misc import NativeScalerWithGradNormCount as NativeScaler
 from timm.optim import create_optimizer_v2
@@ -188,6 +188,7 @@ def main(args):
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
         drop_last=True,
+        collate_fn = collate_fn,
     )
 
     data_loader_val = torch.utils.data.DataLoader(
@@ -195,7 +196,8 @@ def main(args):
         batch_size=args.batch_size,
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
-        drop_last=False
+        drop_last=False,
+        collate_fn = collate_fn
     )
 
     model = models_vit.__dict__[args.model](
