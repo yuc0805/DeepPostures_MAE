@@ -310,9 +310,9 @@ torchrun --nproc_per_node=4 main_pretrain.py \
 --remark iWatch-Hip
 
 
-python main_pretrain.py \
+torchrun --nproc_per_node=4 main_pretrain.py \
 --data_path /niddk-data-central/iWatch/pre_processed_seg/W \
---batch_size 512 \
+--batch_size 256 \
 --world_size 4 \
 --epochs 100 \
 --warmup_epochs 10 \
