@@ -106,7 +106,7 @@ def get_args_parser():
                         help='Perform evaluation only')
     parser.add_argument('--dist_eval', action='store_true', default=False,
                         help='Enabling distributed evaluation (recommended during training for faster monitor')
-    parser.add_argument('--num_workers', default=4, type=int)
+    parser.add_argument('--num_workers', default=2, type=int)
     parser.add_argument('--pin_mem', action='store_true',
                         help='Pin CPU memory in DataLoader for more efficient (sometimes) transfer to GPU.')
     parser.add_argument('--no_pin_mem', action='store_false', dest='pin_mem')
@@ -125,7 +125,7 @@ def get_args_parser():
 
 
 def main(args):
-    wandb.login(key='32b6f9d5c415964d38bfbe33c6d5c407f7c19743')
+    
 
     misc.init_distributed_mode(args)
 
@@ -171,7 +171,8 @@ def main(args):
         sampler_train = torch.utils.data.RandomSampler(dataset_train)
         sampler_val = torch.utils.data.SequentialSampler(dataset_val)
 
-    if args.log_dir is not None and not args.eval:  
+    if args.log_dir is not None and not args.eval and global_rank == 0:  
+        wandb.login(key='32b6f9d5c415964d38bfbe33c6d5c407f7c19743')
         log_writer = wandb.init(
             project='MoCA-iWatch-LP',  # Specify your project
             config= vars(args),
