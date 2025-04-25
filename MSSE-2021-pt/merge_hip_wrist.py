@@ -5,167 +5,118 @@ from tqdm import tqdm
 from commons import input_iterator
 import pickle
 
-def merge(preprocessed_h,
-          preprocessed_w,
-          subject_ids,
-          output_dir,
-          tol=1e-10,
-          batch_size=10000):
-    """
-    Stream hip/wrist segments in parallel, check per-window timestamps and labels,
-    merge into 6-channel windows, and write in batches to one HDF5.
+import os
+import numpy as np
+import h5py
 
-    Outputs:
-      merged_data.h5  with datasets:
-        x           float32, shape (N,100,6)
-        y           int32,   shape (N,)
-        timestamp   float64, shape (N,)
-        subject_id  utf-8 str, shape (N,)
-      merge_warnings.log  listing any skipped windows
+def merge(h_f5, d_f5, subject_ids, output_dir, tol=1e-10):
+    """
+    Iterate over subject_ids, join hip (h_f5) and wrist (d_f5) by exact timestamp,
+    merging their 3-channel windows into 6-channel windows.
+
+    - h_f5, d_f5: paths to HDF5 files containing datasets:
+        'x': (N, 100, 3), 'y': (N,), 'timestamp': (N,), 'subject_id': (N,)
+    - subject_ids: list of subject_id strings to process
+    - output_dir: directory where 'merged_data.h5' and 'merge_warnings.log' are created
+    - tol: unused for integer timestamps (exact match required)
+
+    Records any dropped windows in 'merge_warnings.log'.
+
+    Returns the path to the merged HDF5 file.
     """
     os.makedirs(output_dir, exist_ok=True)
-    out_h5 = os.path.join(output_dir, 'test_merged_data.h5')
-    log_fp = os.path.join(output_dir, 'test_merge_warnings.log')
+    out_h5_path = os.path.join(output_dir, 'merged_data.h5')
+    log_path = os.path.join(output_dir, 'merge_warnings.log')
 
-    log_f = open(log_fp, 'w')
-    log_f.write("subject_id\twindow_index\treason\n")
+    # Initialize log file
+    with open(log_path, 'w') as log_f:
+        log_f.write('subject_id\ttimestamp\treason\n')
 
-    with h5py.File(out_h5, 'w') as h5f:
-        x_ds = h5f.create_dataset('x',
-                                  shape=(0,100,6),
-                                  maxshape=(None,100,6),
-                                  dtype='float32',
-                                  chunks=(batch_size,100,6))
-        y_ds = h5f.create_dataset('y',
-                                  shape=(0,),
-                                  maxshape=(None,),
-                                  dtype='int32',
-                                  chunks=(batch_size,))
-        ts_ds = h5f.create_dataset('timestamp',
-                                   shape=(0,),
-                                   maxshape=(None,),
-                                   dtype='float64',
-                                   chunks=(batch_size,))
-        str_dt = h5py.string_dtype(encoding='utf-8')
-        sid_ds = h5f.create_dataset('subject_id',
-                                    shape=(0,),
-                                    maxshape=(None,),
-                                    dtype=str_dt,
-                                    chunks=(batch_size,))
+    # Open input files and preload lightweight arrays
+    with h5py.File(h_f5, 'r') as f_hip, h5py.File(d_f5, 'r') as f_wrist:
+        hip_subj = f_hip['subject_id'][:]  # array of bytes or str
+        wrist_subj = f_wrist['subject_id'][:]
+        hip_ts = f_hip['timestamp'][:]
+        wrist_ts = f_wrist['timestamp'][:]
+        hip_x = f_hip['x']
+        hip_y = f_hip['y']
+        wrist_x = f_wrist['x']
+        wrist_y = f_wrist['y']
 
-        total = 0
-        x_buf, y_buf, ts_buf, sid_buf = [], [], [], []
+        # Set up output HDF5 with extendable datasets
+        with h5py.File(out_h5_path, 'w') as f_out:
+            # merged x will have shape (None, 100, 6)
+            merged_shape = (0, hip_x.shape[1], hip_x.shape[2] * 2)
+            chunk_shape = (1000, hip_x.shape[1], hip_x.shape[2] * 2)
+            x_out = f_out.create_dataset(
+                'x', shape=merged_shape, maxshape=(None, 100, 6),
+                chunks=chunk_shape, dtype=hip_x.dtype
+            )
+            y_out = f_out.create_dataset(
+                'y', shape=(0,), maxshape=(None,),
+                chunks=(1000,), dtype=hip_y.dtype
+            )
+            ts_out = f_out.create_dataset(
+                'timestamp', shape=(0,), maxshape=(None,),
+                chunks=(1000,), dtype=hip_ts.dtype
+            )
+            subj_out = f_out.create_dataset(
+                'subject_id', shape=(0,), maxshape=(None,),
+                chunks=(1000,), dtype=h5py.string_dtype(encoding='utf-8')
+            )
 
-        def flush():
-            nonlocal total
-            n = len(x_buf)
-            if n == 0:
-                return
-            x_ds.resize(total+n, axis=0)
-            y_ds.resize(total+n, axis=0)
-            ts_ds.resize(total+n, axis=0)
-            sid_ds.resize(total+n, axis=0)
+            total = 0
+            # Process each subject separately
+            for subject_id in subject_ids:
+                # Find indices for this subject
+                hip_idx = np.where(hip_subj == subject_id)[0]
+                wrist_idx = np.where(wrist_subj == subject_id)[0]
+                if hip_idx.size == 0 or wrist_idx.size == 0:
+                    with open(log_path, 'a') as log_f:
+                        log_f.write(f"{subject_id}\t-\tno windows in one file\n")
+                    continue
 
-            x_ds[total:total+n] = np.stack(x_buf)
-            y_ds[total:total+n] = np.array(y_buf, dtype='int32')
-            ts_ds[total:total+n] = np.array(ts_buf, dtype='float64')
-            sid_ds[total:total+n] = np.array(sid_buf, dtype=str_dt)
+                # Build quick lookup for hip timestamps
+                hip_ts_sub = hip_ts[hip_idx]
+                hip_map = {ts: idx for ts, idx in zip(hip_ts_sub, hip_idx)}
 
-            total += n
-            x_buf.clear(); y_buf.clear(); ts_buf.clear(); sid_buf.clear()
+                # Iterate wrist windows and merge when timestamp matches
+                for w_i in wrist_idx:
+                    ts = wrist_ts[w_i]
+                    hip_i = hip_map.get(ts)
+                    if hip_i is None:
+                        with open(log_path, 'a') as log_f:
+                            log_f.write(f"{subject_id}\t{ts}\tmissing counterpart\n")
+                        continue
 
-        # helper to turn each generator into a per-window iterator
-        def window_iter(gen):
-            for x_batch, ts_batch, y_batch in gen:
-                for win, ts, lab in zip(x_batch, ts_batch, y_batch):
-                    yield win, ts, lab
+                    # Read data and check labels
+                    x1 = hip_x[hip_i]
+                    x2 = wrist_x[w_i]
+                    y1 = hip_y[hip_i]
+                    y2 = wrist_y[w_i]
+                    if y1 != y2:
+                        with open(log_path, 'a') as log_f:
+                            log_f.write(f"{subject_id}\t{ts}\tlabel mismatch\n")
+                        continue
 
-        for subject_id in tqdm(subject_ids, desc='subjects'):
-            hip_gen   = input_iterator(preprocessed_h, subject_id, train=True)
-            wrist_gen = input_iterator(preprocessed_w, subject_id, train=True)
-            hip_it = window_iter(hip_gen)
-            wri_it = window_iter(wrist_gen)
+                    merged_x = np.concatenate([x1, x2], axis=2)
 
-            hip_idx = 0
-            wri_idx = 0
+                    # Resize and append to output
+                    new_total = total + 1
+                    x_out.resize((new_total, 100, 6))
+                    y_out.resize((new_total,))
+                    ts_out.resize((new_total,))
+                    subj_out.resize((new_total,))
 
-            # prime both streams
-            try:
-                win_h, ts_h, lab_h = next(hip_it)
-                hip_alive = True
-            except StopIteration:
-                hip_alive = False
+                    x_out[total] = merged_x
+                    y_out[total] = y1
+                    ts_out[total] = ts
+                    subj_out[total] = subject_id
 
-            try:
-                win_w, ts_w, lab_w = next(wri_it)
-                wri_alive = True
-            except StopIteration:
-                wri_alive = False
-
-            # merge by timestamp order
-            while hip_alive and wri_alive:
-                if abs(ts_h - ts_w) <= tol:
-                    if lab_h == lab_w:
-                        merged = np.concatenate((win_h, win_w), axis=-1)
-                        x_buf.append(merged)
-                        y_buf.append(int(lab_h))
-                        ts_buf.append(float(ts_h))
-                        sid_buf.append(subject_id)
-                    else:
-                        log_f.write(f"{subject_id}\t{hip_idx}\tlabel mismatch\n")
-                    # advance both
-                    hip_idx += 1
-                    wri_idx += 1
-                    try:
-                        win_h, ts_h, lab_h = next(hip_it)
-                    except StopIteration:
-                        hip_alive = False
-                    try:
-                        win_w, ts_w, lab_w = next(wri_it)
-                    except StopIteration:
-                        wri_alive = False
-
-                elif ts_h < ts_w:
-                    log_f.write(f"{subject_id}\t{hip_idx}\ttimestamp mismatch\n")
-                    hip_idx += 1
-                    try:
-                        win_h, ts_h, lab_h = next(hip_it)
-                    except StopIteration:
-                        hip_alive = False
-                else:  # ts_w < ts_h
-                    log_f.write(f"{subject_id}\t{wri_idx}\ttimestamp mismatch\n")
-                    wri_idx += 1
-                    try:
-                        win_w, ts_w, lab_w = next(wri_it)
-                    except StopIteration:
-                        wri_alive = False
-
-                if len(x_buf) >= batch_size:
-                    flush()
-
-            # any leftovers on hip or wrist get logged as timestamp mismatches
-            while hip_alive:
-                log_f.write(f"{subject_id}\t{hip_idx}\ttimestamp mismatch\n")
-                hip_idx += 1
-                try:
-                    next(hip_it)
-                except StopIteration:
-                    break
-
-            while wri_alive:
-                log_f.write(f"{subject_id}\t{wri_idx}\ttimestamp mismatch\n")
-                wri_idx += 1
-                try:
-                    next(wri_it)
-                except StopIteration:
-                    break
-
-        # final flush of any remaining merged windows
-        flush()
-
-    log_f.close()
-    print(f"Merged {total} windows into {out_h5}")
-    print(f"Any mismatches logged in {log_fp}")
+                    total = new_total
+                    
+    print('Done merging:', total, 'windows')
+    return out_h5_path
 
 
 
