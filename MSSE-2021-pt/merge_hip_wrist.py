@@ -25,8 +25,8 @@ def merge(h_f5, d_f5, subject_ids, output_dir, tol=1e-10):
     Returns the path to the merged HDF5 file.
     """
     os.makedirs(output_dir, exist_ok=True)
-    out_h5_path = os.path.join(output_dir, 'merged_data.h5')
-    log_path = os.path.join(output_dir, 'merge_warnings.log')
+    out_h5_path = os.path.join(output_dir, 'merged_val_data.h5')
+    log_path = os.path.join(output_dir, 'merge_val_warnings.log')
 
     # Initialize log file
     with open(log_path, 'w') as log_f:
@@ -34,8 +34,8 @@ def merge(h_f5, d_f5, subject_ids, output_dir, tol=1e-10):
 
     # Open input files and preload lightweight arrays
     with h5py.File(h_f5, 'r') as f_hip, h5py.File(d_f5, 'r') as f_wrist:
-        hip_subj = f_hip['subject_id'][:]  # array of bytes or str
-        wrist_subj = f_wrist['subject_id'][:]
+        hip_subj = f_hip['subject_id'][:].astype('U')  # array of bytes or str
+        wrist_subj = f_wrist['subject_id'][:].astype('U')
         hip_ts = f_hip['timestamp'][:]
         wrist_ts = f_wrist['timestamp'][:]
         hip_x = f_hip['x']
@@ -67,8 +67,9 @@ def merge(h_f5, d_f5, subject_ids, output_dir, tol=1e-10):
 
             total = 0
             # Process each subject separately
-            for subject_id in subject_ids:
+            for subject_id in tqdm(subject_ids):
                 # Find indices for this subject
+
                 hip_idx = np.where(hip_subj == subject_id)[0]
                 wrist_idx = np.where(wrist_subj == subject_id)[0]
                 if hip_idx.size == 0 or wrist_idx.size == 0:
@@ -98,8 +99,8 @@ def merge(h_f5, d_f5, subject_ids, output_dir, tol=1e-10):
                         with open(log_path, 'a') as log_f:
                             log_f.write(f"{subject_id}\t{ts}\tlabel mismatch\n")
                         continue
-
-                    merged_x = np.concatenate([x1, x2], axis=2)
+                    #print(x1.shape, x2.shape) # (100,3) (100,3)
+                    merged_x = np.concatenate([x1, x2], axis=1)
 
                     # Resize and append to output
                     new_total = total + 1
@@ -121,13 +122,16 @@ def merge(h_f5, d_f5, subject_ids, output_dir, tol=1e-10):
 
 
 if __name__ == "__main__":
-    preprocessed_h = '/niddk-data-central/iWatch/pre_processed_pt/H'
-    preprocessed_w = '/niddk-data-central/iWatch/pre_processed_pt/W'
+    preprocessed_h = '/niddk-data-central/iWatch/pre_processed_seg/H/10s_val.h5'
+    preprocessed_w = '/niddk-data-central/iWatch/pre_processed_seg/W/10s_val.h5'
     output_dir     = '/niddk-data-central/iWatch/pre_processed_seg/HW'
 
     with open("/niddk-data-central/iWatch/support_files/iwatch_split_dict.pkl", "rb") as f:
         split_data = pickle.load(f)
-    train_subjects = split_data["test"]
+    train_subjects = split_data["val"]
 
     merge(preprocessed_h, preprocessed_w, train_subjects, output_dir)
     print('Done!')
+
+
+# python merge_hip_wrist.py
