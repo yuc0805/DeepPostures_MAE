@@ -332,9 +332,9 @@ def main(args):
         if args.output_dir and misc.is_main_process():
             with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
                 f.write(json.dumps(log_stats) + "\n")
+    if log_writer is not None:
+        log_writer.log({f"best_epoch_{k}": v for k, v in best_metric.items()})
 
-    log_writer.log({f"best_epoch_{k}": v for k, v in best_metric.items()})
-    
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print('Training time {}'.format(total_time_str))
@@ -371,17 +371,16 @@ if __name__ == '__main__':
 
 torchrun --nproc_per_node=4  -m main_linprobe \
 --ds_name iwatch \
---checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Hipps_5_mask_0.75_bs_256_blr_None_epoch_100/2025-04-23_20-41/checkpoint-35.pth" \
+--checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Hipps_5_mask_0.75_bs_256_blr_None_epoch_100/2025-04-23_20-41/checkpoint-20.pth" \
 --data_path "/niddk-data-central/iWatch/pre_processed_seg/H" \
---remark Hip_35epoch
+--remark Hip_20epoch
 
 
 torchrun --nproc_per_node=4  -m main_linprobe \
 --ds_name iwatch \
 --checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Wristps_5_mask_0.75_bs_256_blr_None_epoch_100/2025-04-25_04-07/checkpoint-20.pth" \
 --data_path "/niddk-data-central/iWatch/pre_processed_seg/W" \
---remark Wrist_20epoch
---epoch 2
+--remark Wrist_20epoch 
 
 
 

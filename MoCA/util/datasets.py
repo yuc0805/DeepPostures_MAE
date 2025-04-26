@@ -183,7 +183,7 @@ class iWatch_HDf5(Dataset):
     def __len__(self):
         # we open here if not already, so that len() works in main process
         self._ensure_open()
-        return 2000 #len(self.x_data)
+        return len(self.x_data)
 
     def __getitem__(self, idx):
         self._ensure_open()                     # open once per worker
