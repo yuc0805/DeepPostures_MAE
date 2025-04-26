@@ -125,14 +125,14 @@ def evaluate(args,data_loader, model, device):
 
     recall_metric = MulticlassRecall(args.nb_classes,
                             average='weighted',
-                            zero_division=0)
+                            zero_division=0).to(device)
     
     specificity_metric  = MulticlassSpecificity(num_classes=2,
                             average='weighted',
-                            zero_division=0)
+                            zero_division=0).to(device)
     f1_metric = MulticlassF1Score(num_classes=args.nb_classes,
                             average='weighted',
-                            zero_division=0)
+                            zero_division=0).to(device)
     
     for batch in metric_logger.log_every(data_loader, 10, header):
         images = batch[0]
@@ -164,10 +164,10 @@ def evaluate(args,data_loader, model, device):
     # Compute metrics
     recall_tm = recall_metric.compute().item()
     specificity_tm = specificity_metric.compute().item()
-    bal_acc = (recall_tm + specificity_tm) / 2
-    f1 = f1_metric.compute().item()
+    bal_acc = 100 * (recall_tm + specificity_tm) / 2
+    f1 = 100 * f1_metric.compute().item()
 
-    print('* Acc@1 {top1.global_avg:.3f} bal_acc {bal_acc.global_avg:.3f} f1 {f1.global_avg:.3f} loss {losses.global_avg:.3f}'  
+    print('* Acc@1 {top1.global_avg:.5f} bal_acc {bal_acc:.5f} f1 {f1:.5f} loss {losses.global_avg:.3f}'  
           .format(top1=metric_logger.acc1, bal_acc=bal_acc, f1=f1, losses=metric_logger.loss))
 
     eval_stats = {k: meter.global_avg for k, meter in metric_logger.meters.items()}

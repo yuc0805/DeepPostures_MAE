@@ -117,49 +117,93 @@ class iWatch(Dataset):
 
 
 import h5py
+# class iWatch_HDf5(Dataset):
+#     def __init__(self, 
+#                  root='/niddk-data-central/iWatch/pre_processed_seg/H', 
+#                  set_type='train',
+#                  transform=None):
+        
+#         self.set_type = set_type
+#         self.transform = transform
+
+#         # HDF5 path mapping
+#         hdf5_name = f"10s_{set_type}.h5"
+#         self.file_path = os.path.join(root, hdf5_name)
+
+#         # Open HDF5 in read-only mode
+#         self.h5_file = h5py.File(self.file_path, 'r')
+#         self.x_data = self.h5_file['x']
+#         self.y_data = self.h5_file['y']
+
+#     def __len__(self):
+#         return len(self.x_data)
+
+#     def __getitem__(self, idx):
+#         # Load and normalize x
+#         x = self.x_data[idx]  # shape: (100, 3)
+#         x = torch.from_numpy(x.transpose(1, 0)).to(torch.float32)  # shape: (3, 100)
+#         x = x / x.abs().mean()
+
+#         if self.transform is not None:
+#             x = self.transform(x)
+
+#         y = torch.tensor(self.y_data[idx], dtype=torch.long)
+#         x = x.unsqueeze(0)  # shape: (1, 3, 100)
+
+#         # # check if x is inf or nan
+#         # assert not torch.isnan(x).any(), f"x contains NaN values: {x}"
+#         # assert not torch.isinf(x).any(), f"x contains Inf values: {x}"
+
+#         return x, y
+
+#     def __del__(self):
+#         # Ensure file closes properly
+#         if hasattr(self, 'h5_file') and self.h5_file:
+#             self.h5_file.close()
+
 class iWatch_HDf5(Dataset):
-    def __init__(self, 
-                 root='/niddk-data-central/iWatch/pre_processed_seg/H', 
+    def __init__(self,
+                 root='/niddk-data-central/iWatch/pre_processed_seg/H',
                  set_type='train',
                  transform=None):
-        
-        self.set_type = set_type
+        self.file_path = os.path.join(root, f"10s_{set_type}.h5")
         self.transform = transform
+        # these will be set in the worker when first accessed
+        self.h5_file = None
+        self.x_data = None
+        self.y_data = None
 
-        # HDF5 path mapping
-        hdf5_name = f"10s_{set_type}.h5"
-        self.file_path = os.path.join(root, hdf5_name)
-
-        # Open HDF5 in read-only mode
-        self.h5_file = h5py.File(self.file_path, 'r')
-        self.x_data = self.h5_file['x']
-        self.y_data = self.h5_file['y']
+    def _ensure_open(self):
+        # called inside worker on first __getitem__
+        if self.h5_file is None:
+            self.h5_file = h5py.File(self.file_path, 'r')
+            self.x_data = self.h5_file['x']
+            self.y_data = self.h5_file['y']
 
     def __len__(self):
-        return len(self.x_data)
+        # we open here if not already, so that len() works in main process
+        self._ensure_open()
+        return 2000 #len(self.x_data)
 
     def __getitem__(self, idx):
-        # Load and normalize x
-        x = self.x_data[idx]  # shape: (100, 3)
-        x = torch.from_numpy(x.transpose(1, 0)).to(torch.float32)  # shape: (3, 100)
-        x = x / x.abs().mean()
+        self._ensure_open()                     # open once per worker
+        x = self.x_data[idx]                    # shape: (100, 3)
+        x = torch.from_numpy(x.T).float()       # shape: (3, 100)
+        x = x / x.abs().mean()                  # normalize
 
         if self.transform is not None:
             x = self.transform(x)
 
-        y = torch.tensor(self.y_data[idx], dtype=torch.long)
-        x = x.unsqueeze(0)  # shape: (1, 3, 100)
-
-        # # check if x is inf or nan
-        # assert not torch.isnan(x).any(), f"x contains NaN values: {x}"
-        # assert not torch.isinf(x).any(), f"x contains Inf values: {x}"
-
-        return x, y
+        y = int(self.y_data[idx])               # assume integer labels
+        x = x.unsqueeze(0)                      # shape: (1, 3, 100)
+        return x, torch.tensor(y, dtype=torch.long)
 
     def __del__(self):
-        # Ensure file closes properly
-        if hasattr(self, 'h5_file') and self.h5_file:
-            self.h5_file.close()
+        if getattr(self, 'h5_file', None) is not None:
+            try:
+                self.h5_file.close()
+            except Exception:
+                pass
 
 
 def collate_fn(batch):

@@ -283,7 +283,7 @@ def main(args):
     print(f"Start training for {args.epochs} epochs")
     start_time = time.time()
     max_accuracy = 0.0
-    best_metric = {}
+    best_metric = {'epoch':0, 'acc1':0.0, 'bal_acc':0.0, 'f1':0.0}
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed: 
             data_loader_train.sampler.set_epoch(epoch)
@@ -308,7 +308,6 @@ def main(args):
             best_metric['epoch'] = epoch
             best_metric['bal_acc'] = test_stats['bal_acc']
             best_metric['acc1'] = test_stats['acc1']
-            best_metric['bal_acc'] = test_stats['bal_acc']
             best_metric['f1'] = test_stats['f1']
 
             if args.output_dir:
@@ -334,7 +333,8 @@ def main(args):
             with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
                 f.write(json.dumps(log_stats) + "\n")
 
-    log_writer.log({f'best_epoch_{k}':v} for k,v in best_metric.items())
+    log_writer.log({f"best_epoch_{k}": v for k, v in best_metric.items()})
+    
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print('Training time {}'.format(total_time_str))
@@ -381,6 +381,7 @@ torchrun --nproc_per_node=4  -m main_linprobe \
 --checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Wristps_5_mask_0.75_bs_256_blr_None_epoch_100/2025-04-25_04-07/checkpoint-20.pth" \
 --data_path "/niddk-data-central/iWatch/pre_processed_seg/W" \
 --remark Wrist_20epoch
+--epoch 2
 
 
 
