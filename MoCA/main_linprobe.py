@@ -106,7 +106,7 @@ def get_args_parser():
                         help='Perform evaluation only')
     parser.add_argument('--dist_eval', action='store_true', default=False,
                         help='Enabling distributed evaluation (recommended during training for faster monitor')
-    parser.add_argument('--num_workers', default=2, type=int)
+    parser.add_argument('--num_workers', default=4, type=int)
     parser.add_argument('--pin_mem', action='store_true',
                         help='Pin CPU memory in DataLoader for more efficient (sometimes) transfer to GPU.')
     parser.add_argument('--no_pin_mem', action='store_false', dest='pin_mem')
@@ -188,6 +188,7 @@ def main(args):
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
         drop_last=True,
+        prefetch_factor=2,
         collate_fn = collate_fn,
     )
 
@@ -197,6 +198,7 @@ def main(args):
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
         drop_last=False,
+        prefetch_factor=2,
         collate_fn = collate_fn
     )
 
@@ -372,5 +374,14 @@ torchrun --nproc_per_node=4  -m main_linprobe \
 --checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Hipps_5_mask_0.75_bs_256_blr_None_epoch_100/2025-04-23_20-41/checkpoint-35.pth" \
 --data_path "/niddk-data-central/iWatch/pre_processed_seg/H" \
 --remark Hip_35epoch
+
+
+torchrun --nproc_per_node=4  -m main_linprobe \
+--ds_name iwatch \
+--checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Wristps_5_mask_0.75_bs_256_blr_None_epoch_100/2025-04-25_04-07/checkpoint-20.pth" \
+--data_path "/niddk-data-central/iWatch/pre_processed_seg/W" \
+--remark Wrist_20epoch
+
+
 
 '''
