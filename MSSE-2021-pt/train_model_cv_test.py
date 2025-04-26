@@ -760,7 +760,8 @@ python -m train_model_cv_test \
     --output-file-train "/niddk-data-central/leo_workspace/iwatch_H/val_result/output_metrics_train.csv" \
     --output-file-test "/niddk-data-central/leo_workspace/iwatch_H/val_result/output_metrics_test.csv" \
     --model-checkpoint-path "/niddk-data-central/leo_workspace/iwatch_H/chap-finetune" \
-    --split_data_file "/niddk-data-central/iWatch/support_files/iwatch_split_dict.pkl"
+    --split_data_file "/niddk-data-central/iWatch/support_files/iwatch_split_dict.pkl" \
+    
 
 
 python -m train_model_cv_test \
