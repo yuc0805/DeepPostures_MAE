@@ -388,10 +388,10 @@ torchrun --nproc_per_node=4  -m main_linprobe \
 
 torchrun --nproc_per_node=4  -m main_linprobe \
 --ds_name iwatch \
---checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Wristps_5_mask_0.75_bs_256_blr_None_epoch_100/2025-04-25_04-07/checkpoint-20.pth" \
+--checkpoint "/niddk-data-central/leo_workspace/MoCA_200.pth" \
 --data_path "/niddk-data-central/iWatch/pre_processed_seg/W" \
---remark Wrist_20epoch \
---patch_size 5 \
+--remark Wrist_MoCA200 \
+--patch_size 5 
 
 
 
