@@ -32,6 +32,7 @@ import util.misc as misc
 #from util.datasets import build_dataset
 from util.pos_embed import interpolate_pos_embed
 from util.misc import NativeScalerWithGradNormCount as NativeScaler
+from timm.optim import create_optimizer_v2
 
 from models_vit import *
 
@@ -94,7 +95,7 @@ def get_args_parser():
 
     parser.add_argument('--output_dir', default='/niddk-data-central/leo_workspace/MoCA_result/FT/ckpt',
                         help='path where to save, empty for no saving')
-    parser.add_argument('--log_dir', default='/niddk-data-central/leo_workspace/MoCA_result/FT/log'',
+    parser.add_argument('--log_dir', default='/niddk-data-central/leo_workspace/MoCA_result/FT/log',
                         help='path where to tensorboard log')
     parser.add_argument('--device', default='cuda', # changed
                         help='device to use for training / testing')
@@ -379,95 +380,18 @@ if __name__ == '__main__':
 
 '''
 
-CUDA_VISIBLE_DEVICES=0,1 \
-torchrun --nproc_per_node=2  \
-    -m main_finetune \
-    --ds_name capture24_4 \
-    --finetune "/home/jovyan/persistent-data/leo/output_dir/moca_aug_checkpoint-200.pth" \
-    --remark MoCA_200
-
-python -m main_finetune \
---ds_name oppo \
---finetune "/home/jovyan/persistent-data/MAE_Accelerometer/experiments/2971(p200_10_alt_0.0005_both)/checkpoint-19.pth" \
---remark MoCA_20pth
+torchrun --nproc_per_node=4  -m main_finetune \
+--ds_name iwatch \
+--finetune "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Hipps_5_mask_0.75_bs_256_blr_None_epoch_100/2025-04-23_20-41/checkpoint-20.pth" \
+--data_path "/niddk-data-central/iWatch/pre_processed_seg/H" \
+--remark Hip_20epoch
 
 
-python -m main_finetune \
---ds_name oppo \
---finetune "/home/jovyan/persistent-data/leo/output_dir/moca_aug_checkpoint-200.pth" \
---remark MoCA
-
-python -m main_finetune \
---ds_name imwsha \
---finetune "/home/jovyan/persistent-data/leo/output_dir/syncmask_8_checkpoint-200.pth" \
---remark SyncMask_200
+torchrun --nproc_per_node=4  -m main_finetune \
+--ds_name iwatch \
+--finetune "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Wristps_5_mask_0.75_bs_256_blr_None_epoch_100/2025-04-25_04-07/checkpoint-20.pth" \
+--data_path "/niddk-data-central/iWatch/pre_processed_seg/W" \
+--remark Wrist_20epoch 
 
 
-python -m main_finetune \
---ds_name imwsha \
---finetune "/home/jovyan/persistent-data/leo/optim_mask/ckpt/maxcut_2025-03-21_21-07/maxcut_checkpoint-100.pth" \
---remark maxcut
-
-python -m main_finetune \
---ds_name ucihar_7 \
---finetune "/home/jovyan/persistent-data/leo/optim_mask/ckpt/covariance_raw_split_mask_2025-03-16_16-16/covariance_raw_split_mask_checkpoint-200.pth" \
---remark covariance_raw_split_mask
-
-python -m main_finetune \
---ds_name oppo \
---finetune "/home/jovyan/persistent-data/leo/optim_mask/ckpt/covariance_raw_split_mask_2025-03-16_16-16/covariance_raw_split_mask_checkpoint-200.pth" \
---remark covariance_raw_split_mask
-
-python -m main_finetune \
---ds_name wisdm \
---finetune "/home/jovyan/persistent-data/MAE_Accelerometer/experiments/28533(p200_10_syn_0.0005_both)/checkpoint-19.pth" \
---remark SyncMask_20
-
-
-python -m main_finetune \
---ds_name oppo \
---finetune "/home/jovyan/persistent-data/MAE_Accelerometer/experiments/661169(p200_10_alt_0.0005)/checkpoint-3999.pth" \
---remark MoCA_noAug
-
-python -m main_finetune \
---ds_name oppo \
---finetune "/home/jovyan/persistent-data/MAE_Accelerometer/experiments/185(p200_10_syn_0.0005)/checkpoint-3999.pth" \
---remark SyncMask_NoAug
-
-python -m main_finetune \
---ds_name imwsha \
---finetune "/home/jovyan/persistent-data/leo/optim_mask/ckpt/maxcut_2025-03-21_21-07/maxcut_checkpoint-200.pth" \
---remark maxcut_mask_200
-
-python -m main_finetune \
---ds_name wisdm \
---finetune "/home/jovyan/persistent-data/leo/optim_mask/ckpt/maxcut_2025-03-21_21-07/maxcut_checkpoint-300.pth" \
---remark maxcut_mask_300
-
-python -m main_finetune \
---ds_name oppo \
---finetune "/home/jovyan/persistent-data/leo/optim_mask/ckpt/maxcut_2025-03-21_21-07/maxcut_checkpoint-300.pth" \
---remark random_init
-
-python -m main_finetune \
---ds_name oppo \
---finetune "/home/jovyan/persistent-data/leo/optim_mask/ckpt/feat_maxcut_100iter_init_MoCA_20_2025-04-08_01-47/feat_maxcut_100iter_init_MoCA_20_checkpoint-200.pth" \
---remark feat_maxcut_100iter_init_MoCA_20
-
-python -m main_finetune \
---ds_name oppo \
---finetune "/home/jovyan/persistent-data/leo/optim_mask/ckpt/maxcut_500iter_2025-04-04_00-51/maxcut_500iter_checkpoint-200.pth" \
---remark raw_maxcut_500iter
-
-
-python -m main_finetune \
---ds_name ucihar_7 \
---finetune "/home/jovyan/persistent-data/leo/optim_mask/ckpt/feat_maxcut_100iter_init_scratch_2025-04-10_06-26/feat_maxcut_100iter_init_scratch_checkpoint-200.pth" \
---remark feat_maxcut_100iter_init_scratch
-
-CUDA_VISIBLE_DEVICES=1 \
-python -m main_finetune \
---ds_name oppo \
---finetune "/home/jovyan/persistent-data/leo/optim_mask/ckpt/feat_maxcut_100iter_init_scratch_2025-04-10_06-26/feat_maxcut_100iter_init_scratch_checkpoint-200.pth" \
---remark feat_maxcut_100iter_init_scratch
 '''
