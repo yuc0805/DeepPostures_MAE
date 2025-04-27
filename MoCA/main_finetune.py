@@ -109,7 +109,7 @@ def get_args_parser():
                         help='Perform evaluation only')
     parser.add_argument('--dist_eval', action='store_true', default=False,
                         help='Enabling distributed evaluation (recommended during training for faster monitor')
-    parser.add_argument('--num_workers', default=10, type=int)
+    parser.add_argument('--num_workers', default=2, type=int)
     parser.add_argument('--pin_mem', action='store_true',
                         help='Pin CPU memory in DataLoader for more efficient (sometimes) transfer to GPU.')
     parser.add_argument('--no_pin_mem', action='store_false', dest='pin_mem')
@@ -154,7 +154,7 @@ def main(args):
     print("Number of Training Samples:", len(dataset_train))
     print("Number of Testing Samples:", len(dataset_val))
 
-    if args.ds_name in ['capture24_4','capture24_10']:  # args.distributed:
+    if args.ds_name in ['capture24_4','capture24_10','iwatch']:  # args.distributed:
         num_tasks = misc.get_world_size()
         global_rank = misc.get_rank()
         sampler_train = torch.utils.data.DistributedSampler(
@@ -191,6 +191,7 @@ def main(args):
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
         drop_last=True,
+        persistent_workers=True if args.num_workers > 0 else False,
         collate_fn=collate_fn
     )
 
@@ -200,6 +201,7 @@ def main(args):
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
         drop_last=False,
+        persistent_workers=True if args.num_workers > 0 else False,
         collate_fn=collate_fn
     )
     
