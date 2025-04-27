@@ -24,7 +24,7 @@ import wandb
 
 import timm
 from config import LP_DATASET_CONFIG
-from util.datasets import iWatch_HDf5, data_aug,collate_fn
+from util.datasets import iWatch_HDf5, data_aug,collate_fn,resample_aug
 import util.misc as misc
 from util.misc import NativeScalerWithGradNormCount as NativeScaler
 from timm.optim import create_optimizer_v2
@@ -142,8 +142,8 @@ def main(args):
     cudnn.benchmark = False 
     
     if args.ds_name == 'iwatch':
-        dataset_train = iWatch_HDf5(args.data_path, set_type='train', transform=data_aug)
-        dataset_val = iWatch_HDf5(args.data_path, set_type='val', transform=None)
+        dataset_train = iWatch_HDf5(args.data_path, set_type='train', transform=resample_aug)
+        dataset_val = iWatch_HDf5(args.data_path, set_type='val', transform=lambda x: resample_aug(x, is_train=False))
     else:
         raise NotImplementedError('The specified dataset is not implemented.')
 
