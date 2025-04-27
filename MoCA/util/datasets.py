@@ -4,7 +4,18 @@ import os
 import numpy as np
 import pickle
 import torch
+import torch.nn.functional as F
 
+def resample_aug(x,is_train=True):
+    sample_X = x.unsqueeze()
+    new_length = int(sample_X.shape[-1] * 50 / 10)  
+    sample_X = F.interpolate(sample_X, size=new_length, mode='linear', align_corners=True).squeeze()
+    if is_train:
+        sample_X = data_aug(sample_X)
+
+    sample_X = sample_X.unsqueeze(0)
+    
+    return sample_X
 
 # Helper function, load numpy that from later version of numpy
 class LegacyNumpyUnpickler(pickle.Unpickler):
