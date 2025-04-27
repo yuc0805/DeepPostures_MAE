@@ -16,18 +16,16 @@ import numpy as np
 import os
 import time
 from pathlib import Path
-from config import DATASET_CONFIG
+from config import FT_DATASET_CONFIG
 import torch
 import torch.backends.cudnn as cudnn
-import torchvision.transforms as transforms
-from torch.utils.tensorboard import SummaryWriter
-from util.datasets import UCIHAR,WISDM,IMWSHA,Oppo,Capture24
+import wandb
+from util.datasets import iWatch_HDf5, data_aug,collate_fn
 import timm
 
-assert timm.__version__ == "0.3.2" # version check
 from timm.models.layers import trunc_normal_
-from timm.data.mixup import Mixup
-from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
+# from timm.data.mixup import Mixup
+# from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
 
 import util.lr_decay as lrd
 import util.misc as misc
@@ -42,28 +40,22 @@ from engine_finetune import train_one_epoch, evaluate
 
 def get_args_parser():
     parser = argparse.ArgumentParser('MAE fine-tuning for image classification', add_help=False)
-    parser.add_argument('--batch_size', default=64, type=int,
+    parser.add_argument('--batch_size', default=256, type=int,
                         help='Batch size per GPU (effective batch size is batch_size * accum_iter * # gpus')
-    parser.add_argument('--epochs', default=50, type=int)
+    parser.add_argument('--epochs', default=20, type=int)
     parser.add_argument('--accum_iter', default=1, type=int,
                         help='Accumulate gradient iterations (for increasing the effective batch size under memory constraints)')
 
     # Model parameters
     parser.add_argument('--model', default='vit_large_patch16', type=str, metavar='MODEL',
                         help='Name of model to train')
-    parser.add_argument('--input_size', default=None, type=list,  # changed
-                        help='images input size')
-    parser.add_argument('--patch_size', default=None, type=list,  # changed - added
-                        help='images patch size')
-    parser.add_argument('--patch_num', default=10, type=int,  # changed - added
-                        help='number of patches per one row in the image')
-    parser.add_argument('--in_chans', default=6, type=int,  # changed - added
-                        help='number of channels')
+    parser.add_argument('--input_size', type=int, default=100, 
+                        help='Input size "')
+    parser.add_argument('--patch_size', type=int, default=5, 
+                        help='Patch size')
+
     parser.add_argument('--drop_path', type=float, default=0.1, metavar='PCT',
                         help='Drop path rate (default: 0.1)')
-    parser.add_argument('--alt', action='store_true',
-                        help='using [n, c, l, 1] format instead') # changed - added
-    parser.set_defaults(alt=False) # changed - added
 
 
     # Optimizer parameters
@@ -82,40 +74,8 @@ def get_args_parser():
     parser.add_argument('--min_lr', type=float, default=1e-6, metavar='LR',
                         help='lower lr bound for cyclic schedulers that hit 0')
 
-    parser.add_argument('--warmup_epochs', type=int, default=5, metavar='N',
+    parser.add_argument('--warmup_epochs', type=int, default=2, metavar='N',
                         help='epochs to warmup LR')
-
-    # Augmentation parameters
-    parser.add_argument('--color_jitter', type=float, default=None, metavar='PCT',
-                        help='Color jitter factor (enabled only when not using Auto/RandAug)')
-    parser.add_argument('--aa', type=str, default='rand-m9-mstd0.5-inc1', metavar='NAME',
-                        help='Use AutoAugment policy. "v0" or "original". " + "(default: rand-m9-mstd0.5-inc1)'),
-    parser.add_argument('--smoothing', type=float, default=0.1,
-                        help='Label smoothing (default: 0.1)')
-
-    # * Random Erase params
-    parser.add_argument('--reprob', type=float, default=0.25, metavar='PCT',
-                        help='Random erase prob (default: 0.25)')
-    parser.add_argument('--remode', type=str, default='pixel',
-                        help='Random erase mode (default: "pixel")')
-    parser.add_argument('--recount', type=int, default=1,
-                        help='Random erase count (default: 1)')
-    parser.add_argument('--resplit', action='store_true', default=False,
-                        help='Do not random erase first (clean) augmentation split')
-
-    # * Mixup params
-    parser.add_argument('--mixup', type=float, default=0,
-                        help='mixup alpha, mixup enabled if > 0.')
-    parser.add_argument('--cutmix', type=float, default=0,
-                        help='cutmix alpha, cutmix enabled if > 0.')
-    parser.add_argument('--cutmix_minmax', type=float, nargs='+', default=None,
-                        help='cutmix min/max ratio, overrides alpha and enables cutmix if set (default: None)')
-    parser.add_argument('--mixup_prob', type=float, default=1.0,
-                        help='Probability of performing mixup or cutmix when either/both is enabled')
-    parser.add_argument('--mixup_switch_prob', type=float, default=0.5,
-                        help='Probability of switching to cutmix when both mixup and cutmix enabled')
-    parser.add_argument('--mixup_mode', type=str, default='batch',
-                        help='How to apply mixup/cutmix params. Per "batch", "pair", or "elem"')
 
     # * Finetuning params
     parser.add_argument('--finetune', default='unsyncmask_checkpoint-200.pth',
@@ -126,18 +86,15 @@ def get_args_parser():
                         help='Use class token instead of global pool for classification')
 
     # Dataset parameters
-    parser.add_argument('--ds_name', default='ucihar_7', type=str)
-    parser.add_argument('--data_path', default='data/200', type=str, # changed
+    parser.add_argument('--ds_name', default='iwatch', type=str)
+    parser.add_argument('--data_path', default='/niddk-data-central/iWatch/pre_processed_seg/W', type=str, 
                         help='dataset path')
-    parser.add_argument('--nb_classes', default=6, type=int, # changed
+    parser.add_argument('--nb_classes', default=2, type=int, # changed
                         help='number of the classification types')
-    parser.add_argument('--normalization', action='store_true',
-                        help='train and test data set normalization') # changed - added
-    parser.set_defaults(normalization=False) # changed - added
 
-    parser.add_argument('--output_dir', default='../persistent-data/leo/optim_mask/downstream/ckpt',
+    parser.add_argument('--output_dir', default='/niddk-data-central/leo_workspace/MoCA_result/FT/ckpt',
                         help='path where to save, empty for no saving')
-    parser.add_argument('--log_dir', default='../persistent-data/leo/optim_mask/downstream/log',
+    parser.add_argument('--log_dir', default='/niddk-data-central/leo_workspace/MoCA_result/FT/log'',
                         help='path where to tensorboard log')
     parser.add_argument('--device', default='cuda', # changed
                         help='device to use for training / testing')
@@ -165,7 +122,7 @@ def get_args_parser():
     parser.add_argument('--dist_url', default='env://',
                         help='url used to set up distributed training')
     
-    parser.add_argument('--remark', default='moca',help='additional training info')
+    parser.add_argument('--remark', default='Debug',help='additional training info')
 
     return parser
 
@@ -186,22 +143,9 @@ def main(args):
 
     cudnn.benchmark = True 
 
-    if args.ds_name == 'ucihar_6' or args.ds_name == 'ucihar_7':
-        dataset_train = UCIHAR(args.data_path, is_test=False,nb_classes=args.nb_classes,mix_up=False)
-        dataset_val = UCIHAR(args.data_path,is_test=True,nb_classes=args.nb_classes,mix_up=False)
-    elif args.ds_name == 'wisdm':
-        dataset_train = WISDM(data_path=args.data_path,is_test=False)
-        dataset_val = WISDM(data_path=args.data_path,is_test=True)
-    elif args.ds_name == 'imwsha':
-        dataset_train = IMWSHA(data_path=args.data_path,is_test=False)
-        dataset_val = IMWSHA(data_path=args.data_path,is_test=True)
-    elif args.ds_name == 'oppo':
-        dataset_train = Oppo(data_path=args.data_path,is_test=False)
-        dataset_val = Oppo(data_path=args.data_path,is_test=True)
-    elif args.ds_name == 'capture24_4' or args.ds_name == 'capture24_10':
-        dataset_train = Capture24(data_path=args.data_path,is_test=False,nb_classes=args.nb_classes)
-        dataset_val = Capture24(data_path=args.data_path,is_test=True,nb_classes=args.nb_classes)
-
+    if args.ds_name == 'iwatch':
+        dataset_train = iWatch_HDf5(args.data_path, set_type='train', transform=data_aug)
+        dataset_val = iWatch_HDf5(args.data_path, set_type='val', transform=None)
     else:
         raise NotImplementedError('The specified dataset is not implemented.')
 
@@ -229,11 +173,14 @@ def main(args):
         sampler_train = torch.utils.data.RandomSampler(dataset_train)
         sampler_val = torch.utils.data.SequentialSampler(dataset_val)
 
-    if args.log_dir is not None and not args.eval:  
-        os.makedirs(args.log_dir, exist_ok=True)
-        os.makedirs(args.output_dir, exist_ok=True)
-        log_writer = SummaryWriter(log_dir=args.log_dir)
-
+    if args.log_dir is not None and not args.eval and global_rank == 0:  
+        wandb.login(key='32b6f9d5c415964d38bfbe33c6d5c407f7c19743')
+        log_writer = wandb.init(
+            project='MoCA-iWatch-FT',  # Specify your project
+            config= vars(args),
+            dir=args.log_dir,
+            name=args.remark,)
+      
     else:
         log_writer = None
 
@@ -243,6 +190,7 @@ def main(args):
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
         drop_last=True,
+        collate_fn=collate_fn
     )
 
     data_loader_val = torch.utils.data.DataLoader(
@@ -250,12 +198,13 @@ def main(args):
         batch_size=args.batch_size,
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
-        drop_last=False
+        drop_last=False,
+        collate_fn=collate_fn
     )
     
     print(f"Using in_chans={args.in_chans}") 
     model = VisionTransformer(
-        img_size = args.img_size,patch_size=[1,20], 
+        img_size = args.input_size,patch_size=[1, int(args.patch_size)], 
         embed_dim=768, depth=12, num_heads=12, mlp_ratio=4, 
         qkv_bias=True,in_chans=1, num_classes=args.nb_classes,
         norm_layer=partial(nn.LayerNorm, eps=1e-6),)
@@ -274,7 +223,8 @@ def main(args):
                 del checkpoint_model[k]
 
         # interpolate position embedding
-        interpolate_pos_embed(model, checkpoint_model,orig_size=(6,10),new_size=(args.img_size[0],int(args.img_size[1]//20)))
+        interpolate_pos_embed(model, checkpoint_model,orig_size=(3,20), # FIXME: can also be [6,20] if using both HIP and Wrist
+                              new_size=(args.input_size[0],int(args.input_size[1]//args.patch_size)))
 
         # load pre-trained model
         msg = model.load_state_dict(checkpoint_model, strict=False) # changed from strict=False
@@ -312,11 +262,12 @@ def main(args):
         model_without_ddp = model.module
 
     # build optimizer with layer-wise lr decay (lrd)
-    param_groups = lrd.param_groups_lrd(model_without_ddp, args.weight_decay,
-        no_weight_decay_list=model_without_ddp.no_weight_decay(),
-        layer_decay=args.layer_decay
-    )
-    optimizer = torch.optim.AdamW(param_groups, lr=args.lr)
+    optimizer = create_optimizer_v2(
+        model_without_ddp,
+        opt='adamw',
+        lr=args.lr,
+        weight_decay=args.weight_decay,# default: 0 
+        betas=(0.9, 0.95))
     loss_scaler = NativeScaler()
 
     # if mixup_fn is not None:
@@ -338,6 +289,7 @@ def main(args):
     print(f"Start training for {args.epochs} epochs")
     start_time = time.time()
     max_accuracy = 0.0
+    best_metric = {'epoch':0, 'acc1':0.0, 'bal_acc':0.0, 'f1':0.0}
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             data_loader_train.sampler.set_epoch(epoch)
@@ -348,31 +300,49 @@ def main(args):
             log_writer=log_writer,
             args=args, device=device,
         )
-        if args.output_dir and (epoch % 100 == 0 or epoch + 1 == args.epochs): # changed - added and~ for less frequent dump
+        if args.output_dir and (epoch + 1 == args.epochs): 
             misc.save_model(
                 args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                 loss_scaler=loss_scaler, epoch=epoch)
 
-        test_stats = evaluate(data_loader_val, model, device)
-        print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
-        max_accuracy = max(max_accuracy, test_stats["acc1"])
-        print(f'Max accuracy: {max_accuracy:.2f}%')
+        test_stats = evaluate(args,data_loader_val, model, device)
+        print(f"Balanced Accuracy of the network on the {len(dataset_val)} test images: {test_stats['bal_acc']:.5f} and F1 score of {test_stats['f1']:.5f}%")
+
+        # save the best epoch
+        if max_accuracy < test_stats["bal_acc"]:
+            max_accuracy = test_stats["bal_acc"]
+
+            best_metric['epoch'] = epoch
+            best_metric['bal_acc'] = test_stats['bal_acc']
+            best_metric['acc1'] = test_stats['acc1']
+            best_metric['f1'] = test_stats['f1']
+
+            if args.output_dir:
+                misc.save_model(
+                    args=args, model=model, model_without_ddp=model, optimizer=optimizer,
+                    loss_scaler=loss_scaler, epoch="best")
+
+        print(f'Max Balanced accuracy: {max_accuracy:.2f}%')
+
 
         if log_writer is not None:
-            log_writer.add_scalar('perf/test_acc1', test_stats['acc1'], epoch)
-            log_writer.add_scalar('perf/test_acc3', test_stats['acc3'], epoch) # changed - changed to acc3
-            log_writer.add_scalar('perf/test_loss', test_stats['loss'], epoch)
+            log_writer.log({'perf/test_acc1': test_stats['acc1'], 
+                            'perf/bal_acc': test_stats['bal_acc'],
+                            'perf/f1': test_stats['f1'],
+                            'perf/test_loss': test_stats['loss'], 
+                            'epoch': epoch})
 
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
-                        **{f'test_{k}': v for k, v in test_stats.items()},
-                        'epoch': epoch,
-                        'n_parameters': n_parameters}
+                     **{f'test_{k}': v for k, v in test_stats.items()},
+                     'epoch': epoch,
+                     'n_parameters': n_parameters}
 
         if args.output_dir and misc.is_main_process():
-            if log_writer is not None:
-                log_writer.flush()
             with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
                 f.write(json.dumps(log_stats) + "\n")
+
+    if log_writer is not None:
+        log_writer.log({f"best_epoch_{k}": v for k, v in best_metric.items()})
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
@@ -384,21 +354,25 @@ def main(args):
 if __name__ == '__main__':
     args = get_args_parser()
     args = args.parse_args()
-
-    args.remark = args.remark + '_' + args.ds_name + '_finetune'
     initial_timestamp = datetime.datetime.now()
-    args.log_dir = os.path.join(args.log_dir,args.remark,initial_timestamp.strftime("%Y-%m-%d_%H-%M"))
-    args.output_dir = os.path.join(args.output_dir,args.remark,initial_timestamp.strftime("%Y-%m-%d_%H-%M"))
+
+    initial_timestamp = datetime.datetime.now()
         
     args.in_chans = 1
-    args.nb_classes = DATASET_CONFIG[args.ds_name]['nb_classes']
-    args.blr = DATASET_CONFIG[args.ds_name]["blr"]*0.1
-    if 'lr' in  DATASET_CONFIG[args.ds_name]:
-        args.lr = DATASET_CONFIG[args.ds_name]['lr']
+    args.nb_classes = FT_DATASET_CONFIG[args.ds_name]['nb_classes']
+    args.blr = FT_DATASET_CONFIG[args.ds_name]["blr"]
         
-    args.batch_size = DATASET_CONFIG[args.ds_name]["bs"]
-    args.img_size = DATASET_CONFIG[args.ds_name]["img_size"]
-    args.weight_decay = DATASET_CONFIG[args.ds_name]["weight_decay"] if 'weight_decay' in DATASET_CONFIG[args.ds_name] else args.weight_decay
+    args.batch_size = FT_DATASET_CONFIG[args.ds_name]["bs"]
+    args.input_size = FT_DATASET_CONFIG[args.ds_name]["input_size"]
+    args.weight_decay = FT_DATASET_CONFIG[args.ds_name]["weight_decay"] if 'weight_decay' in FT_DATASET_CONFIG[args.ds_name] else args.weight_decay
+    args.remark = args.remark + f'FT_blr_{args.blr}_bs_{args.batch_size}_wd_{args.weight_decay}'
+    print(f'Start Training: {args.remark}')
+
+    args.log_dir = os.path.join(args.log_dir,args.remark,f'{initial_timestamp.strftime("%Y-%m-%d_%H-%M")}')
+    args.output_dir = os.path.join(args.output_dir,args.remark,f'{initial_timestamp.strftime("%Y-%m-%d_%H-%M")}')
+    if args.output_dir:
+        Path(args.output_dir).mkdir(parents=True, exist_ok=True)
+        Path(args.log_dir).mkdir(parents=True, exist_ok=True)
     
     main(args)
 

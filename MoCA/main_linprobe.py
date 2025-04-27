@@ -354,7 +354,7 @@ if __name__ == '__main__':
     args.blr = LP_DATASET_CONFIG[args.ds_name]["blr"]
     args.batch_size = LP_DATASET_CONFIG[args.ds_name]["bs"]
     args.input_size = LP_DATASET_CONFIG[args.ds_name]["input_size"]
-    args.remark = args.remark + f'blr_{args.blr}_bs_{args.batch_size}_input_size_{args.input_size}'
+    args.remark = args.remark + f'LP_blr_{args.blr}_bs_{args.batch_size}_input_size_{args.input_size}'
     print(f'Start Training: {args.remark}')
     
     args.log_dir = os.path.join(args.log_dir,args.remark,f'{initial_timestamp.strftime("%Y-%m-%d_%H-%M")}')
