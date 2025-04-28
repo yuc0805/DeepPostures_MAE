@@ -218,10 +218,10 @@ def main(args):
         print('Loading pre-trained checkpoint from',args.checkpoint)
         checkpoint = torch.load(args.checkpoint,map_location='cpu')
         checkpoint_model = checkpoint['model']
-        # interpolate_pos_embed(model, checkpoint_model,orig_size=(3,20), # FIXME: can also be [6,20] if using both HIP and Wrist
-        #                       new_size=(args.input_size[0],int(args.input_size[1]//args.patch_size)))
-        interpolate_pos_embed(model, checkpoint_model,orig_size=(6,10), # FIXME: can also be [6,20] if using both HIP and Wrist
+        interpolate_pos_embed(model, checkpoint_model,orig_size=(3,20), # FIXME: can also be [6,20] if using both HIP and Wrist
                               new_size=(args.input_size[0],int(args.input_size[1]//args.patch_size)))
+        # interpolate_pos_embed(model, checkpoint_model,orig_size=(6,10), # FIXME: can also be [6,20] if using both HIP and Wrist
+        #                       new_size=(args.input_size[0],int(args.input_size[1]//args.patch_size)))
 
         #print(checkpoint_model.keys())
         decoder_keys = [k for k in checkpoint_model.keys() if 'decoder' in k]

@@ -60,7 +60,9 @@ def data_aug(x):
         x0, x1 = x[0], x[1]
         x_rot[0] = cos_t * x0 - sin_t * x1
         x_rot[1] = sin_t * x0 + cos_t * x1
-    
+
+        x = x_rot
+        
         # if x.size(0) >= 6:
         #     # gyroscope channels 3,4
         #     g0, g1 = x[3], x[4]
@@ -68,11 +70,15 @@ def data_aug(x):
         #     x_rot[4] = sin_t * g0 + cos_t * g1
         #     x = x_rot
 
+        
+
     # Permutation: split into 4 segments and shuffle
     if torch.rand(1).item() < 0.5:
         nvar, L = x.shape
         n_seg = 4
         seg_len = L // n_seg
+        L_new = seg_len * n_seg
+        x = x[:, :L_new]  # Crop extra
         segments = [x[:, i*seg_len:(i+1)*seg_len] for i in range(n_seg)]
         perm = torch.randperm(n_seg)
         x = torch.cat([segments[i] for i in perm], dim=1)
