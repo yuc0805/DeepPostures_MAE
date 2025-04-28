@@ -142,8 +142,11 @@ def main(args):
     cudnn.benchmark = False 
     
     if args.ds_name == 'iwatch':
-        dataset_train = iWatch_HDf5(args.data_path, set_type='train', transform=resample_aug)
-        dataset_val = iWatch_HDf5(args.data_path, set_type='val', transform=lambda x: resample_aug(x, is_train=False))
+        # dataset_train = iWatch_HDf5(args.data_path, set_type='train', transform=resample_aug)
+        # dataset_val = iWatch_HDf5(args.data_path, set_type='val', transform=lambda x: resample_aug(x, is_train=False))
+
+        dataset_train = iWatch_HDf5(args.data_path, set_type='train', transform=data_aug)
+        dataset_val = iWatch_HDf5(args.data_path, set_type='val', transform=None)
     else:
         raise NotImplementedError('The specified dataset is not implemented.')
 
