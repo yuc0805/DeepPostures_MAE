@@ -48,7 +48,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         # if data_iter_step % accum_iter == 0:
         #     lr_sched.adjust_learning_rate(optimizer, data_iter_step / len(data_loader) + epoch, args)
 
-        samples = samples.to(device, non_blocking=True) # BS, 42, 100, 3
+        samples = samples.float().to(device, non_blocking=True) # BS, 42, 100, 3
         targets = targets.to(device, non_blocking=True) # BS,42
 
         with torch.cuda.amp.autocast(enabled=False):
@@ -138,17 +138,16 @@ def evaluate(args,data_loader, model, device):
                             average='weighted',
                             zero_division=0).to(device)
     
-    for batch in metric_logger.log_every(data_loader, 10, header):
-        images = batch[0]
-        target = batch[-1]
-        images = images.to(device, non_blocking=True)
+    for samples,target in data_loader:
+        samples = samples.float().to(device, non_blocking=True)
         target = target.to(device, non_blocking=True)
 
         # compute output
-        # with torch.cuda.amp.autocast():
+        output = model(samples)
+
+        output = output.view(-1, output.size(-1))  # (BS * 42, 2)
+        target = target.view(-1) 
         
-        #output = model(images,mask_ratio=0)
-        output = model(images)
         loss = criterion(output, target)
 
         acc1, _ = accuracy(output, target, topk=(1, 2))     
@@ -158,7 +157,7 @@ def evaluate(args,data_loader, model, device):
         specificity_metric.update(preds, target)
         f1_metric.update(preds, target)
 
-        batch_size = images.shape[0]
+        batch_size = samples.shape[0]
         metric_logger.update(loss=loss.item())
         metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
 

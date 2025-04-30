@@ -150,7 +150,7 @@ class AttentionProbeModel(nn.Module):
         '''
         
         # get feature for each window
-        x = rearrange(x, 'b,w,l,c -> (b w) c l') # BS*42, 3,100
+        x = rearrange(x, 'b w l c -> (b w) c l') # BS*42, 3,100
         x = x.unsqueeze(1)  # BS*42, 1, 3, 100
         with torch.no_grad():
             x = self.base_model(x) # BS*42, 768
