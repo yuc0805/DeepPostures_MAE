@@ -37,7 +37,7 @@ import sys
 sys.path.append('/DeepPostures_MAE/MSSE-2021-pt')
 from commons import get_dataloaders_dist
 import random
-from eniops import arrange
+from einops import rearrange
 
 # helper function
 def parse_list(input_string):
@@ -149,12 +149,12 @@ class AttentionProbeModel(nn.Module):
         '''
         
         # get feature for each window
-        x = arrange(x, 'b,w,l,c -> (b w) c l') # BS*42, 3,100
+        x = rearrange(x, 'b,w,l,c -> (b w) c l') # BS*42, 3,100
         x = x.unsqueeze(1)  # BS*42, 1, 3, 100
         with torch.no_grad():
             x = self.base_model(x) # BS*42, 768
 
-        x = arrange(x, '(b w) c -> b w c', b=x.shape[0]//self.window_size, w=self.window_size) # BS, 42, 768
+        x = rearrange(x, '(b w) c -> b w c', b=x.shape[0]//self.window_size, w=self.window_size) # BS, 42, 768
         x = self.proj(x) # BS, 42, 256
         x = self.attn(x) # BS, 42, 256
         x = self.head(x) # BS, 42, num_classes
