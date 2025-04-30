@@ -21,7 +21,7 @@ import torch
 import torch.backends.cudnn as cudnn
 import torch.nn as nn
 import wandb
-
+from timm.scheduler.cosine_lr import CosineLRScheduler
 import timm
 from config import LP_DATASET_CONFIG
 from util.datasets import iWatch_HDf5, data_aug,collate_fn,resample_aug
@@ -38,6 +38,7 @@ sys.path.append('/DeepPostures_MAE/MSSE-2021-pt')
 from commons import get_dataloaders_dist
 import random
 from einops import rearrange
+from tqdm import tqdm
 
 # helper function
 def parse_list(input_string):
@@ -178,6 +179,11 @@ def main(args):
 
     cudnn.benchmark = False 
     
+    if True:  # args.distributed:
+        num_tasks = misc.get_world_size()
+        global_rank = misc.get_rank()
+
+
     if args.ds_name == 'iwatch':
         with open("/niddk-data-central/iWatch/support_files/iwatch_split_dict.pkl", "rb") as f:
             split_data = pickle.load(f)
@@ -195,7 +201,9 @@ def main(args):
         batch_size=args.batch_size,
         train_subjects=train_subjects,
         valid_subjects=valid_subjects,
-        test_subjects=None,)
+        test_subjects=None,
+        rank=global_rank,
+        world_size=num_tasks,)
 
 
         
@@ -204,9 +212,6 @@ def main(args):
 
 
 
-    if True:  # args.distributed:
-        num_tasks = misc.get_world_size()
-        global_rank = misc.get_rank()
 
     if args.log_dir is not None and not args.eval and global_rank == 0:  
         wandb.login(key='32b6f9d5c415964d38bfbe33c6d5c407f7c19743')
@@ -297,15 +302,22 @@ def main(args):
 
     criterion = torch.nn.CrossEntropyLoss()
 
+    scheduler = CosineLRScheduler(
+    optimizer,
+    t_initial=args.epochs,
+    warmup_t=args.warmup_epochs,
+    warmup_lr_init=args.min_lr,
+    t_in_epochs=True)
+
     print("criterion = %s" % str(criterion))
 
     print(f"Start training for {args.epochs} epochs")
     start_time = time.time()
     max_accuracy = 0.0
     best_metric = {'epoch':0, 'acc1':0.0, 'bal_acc':0.0, 'f1':0.0}
-    for epoch in range(args.start_epoch, args.epochs):
-        if args.distributed: 
-            data_loader_train.sampler.set_epoch(epoch)
+    for epoch in tqdm(range(args.start_epoch, args.epochs)):
+        # if args.distributed: 
+        #     data_loader_train.sampler.set_epoch(epoch)
         train_stats = train_one_epoch(
             model, criterion, data_loader_train,
             optimizer, epoch, loss_scaler,
@@ -320,6 +332,8 @@ def main(args):
 
         test_stats = evaluate(args,data_loader_val, model, device)
         print(f"Balanced Accuracy of the network on the test images: {test_stats['bal_acc']:.5f} and F1 score of {test_stats['f1']:.5f}%")
+
+        scheduler.step(epoch)
         # save the best epoch
         if max_accuracy < test_stats["bal_acc"]:
             max_accuracy = test_stats["bal_acc"]

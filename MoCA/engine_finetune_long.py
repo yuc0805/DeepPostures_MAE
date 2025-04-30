@@ -20,7 +20,7 @@ from timm.utils import accuracy
 from torchmetrics.classification import MulticlassRecall, MulticlassSpecificity,MulticlassF1Score
 
 import util.misc as misc
-import util.lr_sched as lr_sched
+# import util.lr_sched as lr_sched
 
 
 def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
@@ -42,11 +42,11 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         print('log_dir: {}'.format(log_writer.dir))
 
     
-    for data_iter_step, (samples, targets) in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
+    for data_iter_step, (samples, targets) in enumerate(data_loader):
 
         # we use a per iteration (instead of per epoch) lr scheduler
-        if data_iter_step % accum_iter == 0:
-            lr_sched.adjust_learning_rate(optimizer, data_iter_step / len(data_loader) + epoch, args)
+        # if data_iter_step % accum_iter == 0:
+        #     lr_sched.adjust_learning_rate(optimizer, data_iter_step / len(data_loader) + epoch, args)
 
         samples = samples.to(device, non_blocking=True) # BS, 42, 100, 3
         targets = targets.to(device, non_blocking=True) # BS,42
@@ -56,7 +56,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
 
             outputs = outputs.view(-1, outputs.size(-1))  # (BS * 42, 2)
             targets = targets.view(-1)  
-               
+
             loss = criterion(outputs, targets)
 
         loss_value = loss.item()
@@ -97,14 +97,14 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
             """ We use epoch_1000x as the x-axis in tensorboard.
             This calibrates different curves when batch size changes.
             """
-            epoch_1000x = int((data_iter_step / len(data_loader) + epoch) * 1000)
+            #epoch_1000x = int((data_iter_step / len(data_loader) + epoch) * 1000)
             log_writer.log(
                 {'loss': loss_value_reduce, 
                  'lr': max_lr, 
                  'train acc1': acc1,
                 #  'train bal_acc':bal_acc,
                 #  'train f1':f1,
-                 }, step=epoch_1000x)
+                 })
 
 
             # log_writer.add_scalar('loss', loss_value_reduce, epoch_1000x)
