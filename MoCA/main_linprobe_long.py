@@ -65,6 +65,8 @@ def get_args_parser():
                         help='number of channels')
     parser.add_argument('--remark', default='Debug',type=str,
                         help='model_remark')
+    parser.add_argument('--num_attn_layer', type=int, default=1,
+                        help='number of attention layers to use in the probe model')
 
     # Optimizer parameters
     parser.add_argument('--clip_grad', type=float, default=None, metavar='NORM',
@@ -266,7 +268,7 @@ def main(args):
     for _, p in base_model.named_parameters():
         p.requires_grad = False
 
-    model = AttentionProbeModel(base_model, window_size=42,num_classes=args.nb_classes,hidden_dim=256)
+    model = AttentionProbeModel(base_model, window_size=42,num_classes=args.nb_classes,hidden_dim=256,num_layer=args.num_attn_layer)
     print("Model = %s" % str(model))
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print('number of training params : %.2f' % (n_parameters))
