@@ -24,7 +24,6 @@ import wandb
 from timm.scheduler.cosine_lr import CosineLRScheduler
 import timm
 from config import LP_DATASET_CONFIG
-from util.datasets import iWatch_HDf5, data_aug,collate_fn,resample_aug
 import util.misc as misc
 from util.misc import NativeScalerWithGradNormCount as NativeScaler
 from timm.optim import create_optimizer_v2
@@ -35,7 +34,7 @@ import models_vit
 from engine_finetune_long import train_one_epoch, evaluate
 import sys
 sys.path.append('/DeepPostures_MAE/MSSE-2021-pt')
-from commons import get_dataloaders_dist
+from commons import get_dataloaders_dist,data_aug
 import random
 from einops import rearrange
 from tqdm import tqdm
@@ -130,18 +129,20 @@ def get_args_parser():
     return parser    
 
 class AttentionProbeModel(nn.Module):
-    def __init__(self, base_model, window_size=42,num_classes=2,hidden_dim=256):
+    def __init__(self, base_model, window_size=42,num_classes=2,num_layer=1,
+                 hidden_dim=256):
         super(AttentionProbeModel, self).__init__()
         self.base_model = base_model
         self.base_model.head = nn.Identity()  # Remove the original head
         self.window_size = window_size
         self.proj = nn.Linear(self.base_model.embed_dim, hidden_dim)
-        self.attn = nn.TransformerEncoderLayer(
+        encoder_layer = nn.TransformerEncoderLayer(
             d_model=hidden_dim,
             nhead=8,
             dim_feedforward=hidden_dim*2,
             batch_first=True
         )
+        self.attn = nn.TransformerEncoder(encoder_layer, num_layers=num_layer)
         self.head = nn.Linear(hidden_dim, num_classes)
 
     def forward(self, x):
@@ -203,7 +204,8 @@ def main(args):
         valid_subjects=valid_subjects,
         test_subjects=None,
         rank=global_rank,
-        world_size=num_tasks,)
+        world_size=num_tasks,
+        transform=data_aug,)
 
 
         

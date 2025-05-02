@@ -20,7 +20,7 @@ from torch.utils.data import DataLoader
 
 from datetime import datetime, timedelta
 from tqdm import tqdm
-
+from functools import partial
 
 # Custom IterableDataset for distributed training which divides the data among the workers
 class IterDatasetDist(torch.utils.data.IterableDataset):
@@ -147,7 +147,7 @@ def input_iterator(data_root, subject_id, train=False):
         yield np.array(data_batch), np.array(timestamps_batch), np.array(label_batch)
 
 
-def window_generator(data_root, win_size_10s, subject_ids):
+def window_generator(data_root, win_size_10s, subject_ids,transform=None):
     """
     Generate windowed to be processed by CNN
     """
@@ -165,7 +165,14 @@ def window_generator(data_root, win_size_10s, subject_ids):
                     y_window.append(y)
 
                     if len(y_window) == win_size_10s:
-                        yield np.stack(x_window, axis=0), np.stack(y_window, axis=0)
+                        x_sample = np.stack(x_window, axis=0) # num_window, 100, 3
+                        y_sample = np.stack(y_window, axis=0)
+
+                        if transform is not None:
+                            x_sample = transform(x_sample)
+
+                        yield x_sample, y_sample
+
                         x_window = []
                         y_window = []
         else:
@@ -197,6 +204,7 @@ def get_dataloaders_dist(
     test_subjects,
     rank,
     world_size,
+    transform,
 ):
     """
     Process data and get dataloaders for subject
@@ -207,8 +215,10 @@ def get_dataloaders_dist(
     test_dataloader = None
     # https://github.com/pytorch/ignite/issues/1076#issuecomment-829191233
     if train_subjects:
+        gen_with_transform = partial(window_generator, transform=transform)
+
         train_data = IterDatasetDist(
-            window_generator,
+            gen_with_transform,
             rank,
             world_size,
             pre_processed_dir,
@@ -283,3 +293,30 @@ def get_dataloaders(
         test_dataloader = DataLoader(test_data, batch_size=batch_size, pin_memory=True)
 
     return train_dataloader, valid_dataloader, test_dataloader
+
+
+def data_aug(x):
+    '''
+    Inout: x: numpy array of shape (num_windows, 100, 3)
+    Output: x: numpy array of shape (num_windows, 100, 3) with data augmentation applied
+
+    https://shamilmamedov.com/blog/2023/da-time-series/
+    '''
+
+    num_windows, T, C = x.shape
+    x_aug = x.copy()
+
+    # Channel swapping: apply one permutation across all windows
+    perm = np.random.permutation(C)
+    x_aug = x_aug[:, :, perm]
+
+    # Jittering: add Gaussian noise
+    noise_std = 0.05  # Adjust as needed
+    noise = np.random.normal(loc=0.0, scale=noise_std, size=x_aug.shape)
+    x_aug += noise
+
+    # Scaling: apply one random scalar per window
+    scaling_factors = np.random.normal(loc=1.0, scale=0.1, size=(num_windows, 1, 1))
+    x_aug *= scaling_factors
+
+    return x_aug
