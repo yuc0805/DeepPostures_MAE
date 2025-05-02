@@ -170,7 +170,6 @@ def window_generator(data_root, win_size_10s, subject_ids,transform=None):
 
                         if transform is not None:
                             x_sample = transform(x_sample)
-                            print("Applying data augmentation",x_sample.shape)
 
                         yield x_sample, y_sample
 
