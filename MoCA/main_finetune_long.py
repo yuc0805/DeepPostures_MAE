@@ -220,7 +220,7 @@ def main(args):
     if args.log_dir is not None and not args.eval and global_rank == 0:  
         wandb.login(key='32b6f9d5c415964d38bfbe33c6d5c407f7c19743')
         log_writer = wandb.init(
-            project='MoCA-iWatch-attention-probe',  # Specify your project
+            project='MoCA-iWatch-attentionHead-FT',  # Specify your project
             config= vars(args),
             dir=args.log_dir,
             name=args.remark,)
@@ -403,11 +403,11 @@ if __name__ == '__main__':
 
 '''
 
-torchrun --nproc_per_node=4  -m main_linprobe_long \
+torchrun --nproc_per_node=4  -m main_finetune_long \
 --ds_name iwatch \
 --checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Wristps_5_mask_0.75_bs_256_blr_None_epoch_100/2025-04-25_04-07/checkpoint-20.pth" \
 --data_path "/niddk-data-central/iWatch/pre_processed_pt/W" \
---remark Wrist_20epoch 
+--remark Wrist_20epoch \
 --num_attn_layer 2
 
 '''
