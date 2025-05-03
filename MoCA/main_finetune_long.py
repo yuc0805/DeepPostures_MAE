@@ -80,6 +80,8 @@ def get_args_parser():
                         help='base learning rate: absolute_lr = base_lr * total_batch_size / 256')
     parser.add_argument('--min_lr', type=float, default=1e-6, metavar='LR',
                         help='lower lr bound for cyclic schedulers that hit 0')
+    parser.add_argument('--layer_decay', type=float, default=0.75, metavar='DECAY',
+                        help='layer-wise learning rate decay (default: 0.75, i.e., no decay)')
 
     parser.add_argument('--warmup_epochs', type=int, default=2, metavar='N',
                         help='epochs to warmup LR')
