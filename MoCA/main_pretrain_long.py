@@ -36,7 +36,7 @@ import pickle
 
 import sys
 sys.path.append('/DeepPostures_MAE/MSSE-2021-pt')
-from commons import get_dataloaders_dist
+from commons import get_dataloaders_dist,data_aug
 import random
 from einops import rearrange
 from tqdm import tqdm
@@ -152,7 +152,8 @@ def main(args):
     valid_subjects=None,
     test_subjects=None,
     rank=global_rank,
-    world_size=num_tasks,)
+    world_size=num_tasks,
+    transform=data_aug,)
     ###########################
 
     #print('training sample: ',len(dataset_train))
@@ -214,15 +215,12 @@ def main(args):
     misc.load_model(args=args, model_without_ddp=model_without_ddp, optimizer=optimizer, loss_scaler=loss_scaler)
    
     # fix a sample for plot ###########
-    root = "/niddk-data-central/iWatch/pre_processed_seg/H/train.hdf5"
-    with h5py.File(root, "r") as f:
-        idx = 500674
-        tmp_sample = f['x'][idx]  # (100, 3)
-        print('the index is', idx)  
-        print('the sample label is',f['y'][idx])
-
-    tmp_sample = torch.from_numpy(tmp_sample.transpose(1, 0)).to(torch.float32).unsqueeze(0).unsqueeze(0)  # (1,1,3, 100)
-    tmp_sample = tmp_sample / tmp_sample.abs().mean() # normalize
+    x, y = next(iter(data_loader_train))
+    tmp_sample = x[3:4] # 1, 42, 100, 3
+    tmp_sample = rearrange(tmp_sample, 'b w l c -> b 1 c (w l)') # 1,1,3,4200
+    #tmp_label = 'sitting' if y[3] == 0 else 'non-sitting'
+    print(f"tmp_sample shape: {tmp_sample.shape}")
+    #print(f"tmp_label: {tmp_label}")
     ############################################
 
     print(f"Start training for {args.epochs} epochs")
@@ -297,13 +295,13 @@ if __name__ == '__main__':
 
 '''
 
-torchrun --nproc_per_node=4 main_pretrain.py \
---data_path /niddk-data-central/iWatch/pre_processed_seg/H \
---batch_size 256 \
+torchrun --nproc_per_node=4 main_pretrain_long.py \
+--data_path /niddk-data-central/iWatch/pre_processed_pt/H \
+--batch_size 32 \
 --world_size 4 \
---epochs 100 \
---warmup_epochs 10 \
---remark iWatch-Hip
+--epochs 50 \
+--warmup_epochs 5 \
+--remark iWatch-Hip-Long
 
 
 torchrun --nproc_per_node=4 main_pretrain.py \
