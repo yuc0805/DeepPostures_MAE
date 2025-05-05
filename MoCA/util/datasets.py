@@ -5,179 +5,75 @@ import numpy as np
 import pickle
 import torch
 import torch.nn.functional as F
+from scipy.signal import resample
 
-def resample_aug(x,is_train=True):
-    sample_X = x.unsqueeze()
-    new_length = int(sample_X.shape[-1] * 50 / 10)  
-    sample_X = F.interpolate(sample_X, size=new_length, mode='linear', align_corners=True).squeeze()
+def resample_aug(x,is_train=True,target_sr=50):
+    """
+    Resample input x from its original sampling rate to target_sr.
+    Input shape: (T, C), e.g., (100, 3)
+    Output shape: (new_T, C), e.g., (50, 3) if target_sr is 50
+
+    Args:
+        x (torch.Tensor): input tensor of shape (T, C)
+        is_train (bool): flag for whether augmentation is applied (optional use)
+        target_sr (int): target sampling rate
+
+    Returns:
+        torch.Tensor: resampled tensor of shape (new_T, C)
+    """
+    T, C = x.shape
+    new_T = int(T * target_sr / 100)
+    sample_X = resample(x, new_T, axis=0)
+
     if is_train:
         sample_X = data_aug(sample_X)
-
-    sample_X = sample_X.unsqueeze(0)
     
     return sample_X
 
-# Helper function, load numpy that from later version of numpy
-class LegacyNumpyUnpickler(pickle.Unpickler):
-    def find_class(self, module, name):
-        # Redirect deprecated or removed internal numpy modules
-        if module.startswith("numpy._core"):
-            module = module.replace("_core", "core")
-        if module == "numpy.core.multiarray":
-            import numpy.core.multiarray
-            return getattr(numpy.core.multiarray, name)
-        return super().find_class(module, name)
-
 def data_aug(x):
-    '''
-    input: x: (nvar, L)
+    """
+    Input:
+        x: numpy array of shape (T, C), typically (100, 3)
+           T is the number of time steps, C is the number of channels
+    Output:
+        x_aug: numpy array of the same shape with augmentations applied
 
-    Jittering: add small Gaussian noise to each axis to simulate measurement error.
+    Augmentations [1]:
+        - Channel permutation
+        - Gaussian noise (jittering)
+        - Global scaling
+        - Segment permutation
+    
+    Notes: Should not apply normalization for activity data [2]
 
-    Scaling: multiply the full sequence by a random factor (e.g. between 0.9 and 1.1) to mimic signal‐strength variation.
+    Reference:
+        [1] https://shamilmamedov.com/blog/2023/da-time-series/
+        [2] https://www.mdpi.com/1999-5903/12/11/194
+    """
 
-    Rotation: apply a random rotation in the horizontal plane (x–y axes) to reflect changes in device orientation.
+    x = x.astype(np.float32).copy()
 
-    Permutation: split the series into equal‐length segments and shuffle their order to break global dependencies.
+    # channel permutation
+    perm = np.random.permutation(x.shape[1])
+    x = x[:, perm]
 
-    '''
+    # jittering
+    x += np.random.normal(loc=0.0, scale=0.05, size=x.shape)
 
-    # Jittering: add Gaussian noise with std = 0.02
-    if torch.rand(1).item() < 0.5:
-        x = x + torch.randn_like(x) * 0.02
+    # scaling
+    x *= np.random.normal(loc=1.0, scale=0.1)
 
-    # Scaling: multiply by a random factor in [0.9, 1.1]
-    if torch.rand(1).item() < 0.5:
-        factor = torch.rand(1).item() * 0.2 + 0.9
-        x = x * factor
-
-    # Rotation: rotate x–y axes of both accel and gyro
-    if x.size(0) >= 3 and torch.rand(1).item() < 0.5:
-        theta = torch.rand(1) * (torch.pi/2) - (torch.pi/4)
-        cos_t, sin_t = torch.cos(theta), torch.sin(theta)
-        x_rot = x.clone()
-        # accelerate channels 0,1
-        x0, x1 = x[0], x[1]
-        x_rot[0] = cos_t * x0 - sin_t * x1
-        x_rot[1] = sin_t * x0 + cos_t * x1
-
-        x = x_rot
-        
-        # if x.size(0) >= 6:
-        #     # gyroscope channels 3,4
-        #     g0, g1 = x[3], x[4]
-        #     x_rot[3] = cos_t * g0 - sin_t * g1
-        #     x_rot[4] = sin_t * g0 + cos_t * g1
-        #     x = x_rot
-
-        
-
-    # Permutation: split into 4 segments and shuffle
-    if torch.rand(1).item() < 0.5:
-        nvar, L = x.shape
-        n_seg = 4
-        seg_len = L // n_seg
-        L_new = seg_len * n_seg
-        x = x[:, :L_new]  # Crop extra
-        segments = [x[:, i*seg_len:(i+1)*seg_len] for i in range(n_seg)]
-        perm = torch.randperm(n_seg)
-        x = torch.cat([segments[i] for i in perm], dim=1)
+    # segment permute
+    seg_len =  x.shape[0] // 4 # 100//4
+    segments = np.split(x[:seg_len * 4, :], 4, axis=0)
+    perm = np.random.permutation(4)
+    x = np.concatenate([segments[i] for i in perm], axis=0)
 
     return x
 
 
-class iWatch(Dataset):
-    def __init__(self, 
-                root='/niddk-data-central/iWatch/pre_processed_seg/H', 
-                set_type='train',
-                transform=None):
-        
-        self.root = root
-        self.set_type = set_type
-        # Set file paths
-        if set_type == 'train':
-            self.data_path = os.path.join(self.root, 'train')
-        elif set_type == 'val':
-            self.data_path = os.path.join(self.root, 'val')
-        elif set_type == 'test':
-            self.data_path = os.path.join(self.root, 'test')
-        else:
-            raise ValueError("set_type must be 'train', 'val', or 'test'")
-
-        self.transform = transform
-
-    def __len__(self):
-        return 1733088 # H 1733088, W 1785840
-
-    def __getitem__(self, idx):
-        # load the data
-        fn = os.path.join(self.data_path, f"{idx}.pkl")
-        with open(fn, "rb") as f:
-            #data = pickle.load(f)
-            data = LegacyNumpyUnpickler(f).load()
-
-        x = data['x']  # np.array shape: (100, 3)
-
-        # Normalization
-        x = torch.from_numpy(x.transpose(1, 0)).to(torch.float32)
-        x = x / x.abs().mean()  # (3,100)
-
-        if self.transform is not None:
-            x = self.transform(x) # (3,100) tensor
-
-        sample_y = data['y']  # np.int
-        sample_y = torch.tensor(sample_y, dtype=torch.long)
-
-        sample_X = x.unsqueeze(0)  # (1,3,100)                
-
-        return sample_X, sample_y
-
 
 import h5py
-# class iWatch_HDf5(Dataset):
-#     def __init__(self, 
-#                  root='/niddk-data-central/iWatch/pre_processed_seg/H', 
-#                  set_type='train',
-#                  transform=None):
-        
-#         self.set_type = set_type
-#         self.transform = transform
-
-#         # HDF5 path mapping
-#         hdf5_name = f"10s_{set_type}.h5"
-#         self.file_path = os.path.join(root, hdf5_name)
-
-#         # Open HDF5 in read-only mode
-#         self.h5_file = h5py.File(self.file_path, 'r')
-#         self.x_data = self.h5_file['x']
-#         self.y_data = self.h5_file['y']
-
-#     def __len__(self):
-#         return len(self.x_data)
-
-#     def __getitem__(self, idx):
-#         # Load and normalize x
-#         x = self.x_data[idx]  # shape: (100, 3)
-#         x = torch.from_numpy(x.transpose(1, 0)).to(torch.float32)  # shape: (3, 100)
-#         x = x / x.abs().mean()
-
-#         if self.transform is not None:
-#             x = self.transform(x)
-
-#         y = torch.tensor(self.y_data[idx], dtype=torch.long)
-#         x = x.unsqueeze(0)  # shape: (1, 3, 100)
-
-#         # # check if x is inf or nan
-#         # assert not torch.isnan(x).any(), f"x contains NaN values: {x}"
-#         # assert not torch.isinf(x).any(), f"x contains Inf values: {x}"
-
-#         return x, y
-
-#     def __del__(self):
-#         # Ensure file closes properly
-#         if hasattr(self, 'h5_file') and self.h5_file:
-#             self.h5_file.close()
-
 class iWatch_HDf5(Dataset):
     def __init__(self,
                  root='/niddk-data-central/iWatch/pre_processed_seg/H',
@@ -205,14 +101,13 @@ class iWatch_HDf5(Dataset):
     def __getitem__(self, idx):
         self._ensure_open()                     # open once per worker
         x = self.x_data[idx]                    # shape: (100, 3)
-        x = torch.from_numpy(x.T).float()       # shape: (3, 100)
-        x = x / x.abs().mean()                  # normalize
-
         if self.transform is not None:
-            x = self.transform(x)
-
-        y = int(self.y_data[idx])               # assume integer labels
+            x = self.transform(x) # shape: (100, 3)
+        
+        x = torch.from_numpy(x).permute(1, 0)  # shape: (3, 100)
         x = x.unsqueeze(0)                      # shape: (1, 3, 100)
+
+        y = int(self.y_data[idx])               
         return x, torch.tensor(y, dtype=torch.long)
 
     def __del__(self):
