@@ -117,15 +117,9 @@ def main(args):
     # fix the seed for reproducibility
     seed = args.seed + misc.get_rank()
     torch.manual_seed(seed)
-    # torch.set_num_threads(1)
-    # torch.set_num_interop_threads(1)
     np.random.seed(seed)
 
     cudnn.benchmark =  True
-
-    # dataset_train = iWatch(root=args.data_path,
-    #                         set_type='train',
-    #                         transform=data_aug)
 
     dataset_train = iWatch_HDf5(root=args.data_path,
                                 set_type='train',
@@ -160,7 +154,6 @@ def main(args):
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
         drop_last=True,
-        prefetch_factor=2,
         collate_fn = collate_fn
     )
     
@@ -189,9 +182,6 @@ def main(args):
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu], find_unused_parameters=True)
         model_without_ddp = model.module
     
-    # following re: set wd as 0 for bias and norm layers
-    # param_groups = optim_factory.add_weight_decay(model_without_ddp, args.weight_decay)
-    # optimizer = torch.optim.AdamW(param_groups, lr=args.lr, betas=(0.9, 0.95))
 
     # new version timm
     optimizer = create_optimizer_v2(
@@ -216,10 +206,10 @@ def main(args):
         idx = 500674
         tmp_sample = f['x'][idx]  # (100, 3)
         print('the index is', idx)  
-        print('the sample label is',f['y'][idx])
+        tmp_label = 'sitting' if f['y'][idx] == 0 else 'non-sitting' 
+        print('the sample label is', tmp_label)
 
     tmp_sample = torch.from_numpy(tmp_sample.transpose(1, 0)).to(torch.float32).unsqueeze(0).unsqueeze(0)  # (1,1,3, 100)
-    tmp_sample = tmp_sample / tmp_sample.abs().mean() # normalize
     ############################################
 
     print(f"Start training for {args.epochs} epochs")
@@ -259,7 +249,7 @@ def main(args):
                 
                 tmp_mask = tmp_mask.reshape(shape=(args.nvar,int(model_without_ddp.num_patches//args.nvar)))
                 fig = plot_masked_series(tmp_mask.cpu(),tmp_pred.cpu(),tmp_sample.squeeze().cpu(),
-                                            title=f'epoch_{epoch}_loss = {tmp_loss}')
+                                            title=f'{tmp_label}_epoch_{epoch}_loss = {tmp_loss}')
 
                 # Log the figure to TensorBoard
                 log_writer.log({f"Reconstruction": wandb.Image(fig)})
@@ -303,10 +293,10 @@ if __name__ == '__main__':
 
 torchrun --nproc_per_node=4 main_pretrain.py \
 --data_path /niddk-data-central/iWatch/pre_processed_seg/H \
---batch_size 256 \
+--batch_size 512 \
 --world_size 4 \
---epochs 100 \
---warmup_epochs 10 \
+--epochs 50 \
+--warmup_epochs 5 \
 --remark iWatch-Hip
 
 
