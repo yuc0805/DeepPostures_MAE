@@ -20,7 +20,7 @@ import torch
 import torch.backends.cudnn as cudnn
 import wandb
 import h5py
-from util.datasets import iWatch, data_aug,iWatch_HDf5,collate_fn
+from util.datasets import data_aug,iWatch_HDf5,collate_fn
 
 import timm
 import torch.nn as nn
