@@ -251,9 +251,8 @@ def main(args):
                 print('plotting')
                 # Create a matplotlib figure
                 with torch.no_grad():
-                    tmp_sample = tmp_sample.to(device, non_blocking=True)
                     tmp_sample = tmp_sample.detach().clone().to(device, non_blocking=True)
-                    with torch.cuda.amp.autocast():
+                    with torch.cuda.amp.autocast(enabled=False):
                         tmp_loss, tmp_pred, tmp_mask = model_without_ddp(tmp_sample, 
                                                                          mask_ratio=args.mask_ratio,
                                                                          masking_scheme = args.masking_scheme)
