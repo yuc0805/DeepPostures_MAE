@@ -21,6 +21,7 @@ import torch
 import torch.backends.cudnn as cudnn
 import torch.nn as nn
 import wandb
+from timm.scheduler.cosine_lr import CosineLRScheduler
 
 import timm
 from config import LP_LONG_DATASET_CONFIG
@@ -131,10 +132,11 @@ class LinearProbeModel(nn.Module):
     def __init__(self, backbone, num_classes=2):
         super(LinearProbeModel, self).__init__()
         # make sure head is clean
+        num_feats = backbone.head.in_features 
         backbone.head = nn.Identity()
         self.backbone = backbone
-        self.head = nn.Linear(self.backbone.num_features, num_classes)
-        self.batch_norm = nn.BatchNorm1d(model.head.in_features, affine=False, eps=1e-6)
+        self.head = nn.Linear(num_feats, num_classes)
+        self.batch_norm = nn.BatchNorm1d(num_feats, affine=False, eps=1e-6)
 
     def forward(self, x):
         '''
@@ -389,32 +391,10 @@ if __name__ == '__main__':
 
 '''
 
-torchrun --nproc_per_node=4  -m main_linprobe \
---ds_name iwatch \
---checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Hipps_5_mask_0.75_bs_256_blr_None_epoch_100/2025-04-23_20-41/checkpoint-20.pth" \
---data_path "/niddk-data-central/iWatch/pre_processed_seg/H" \
---remark Hip_20epoch
-
-
-torchrun --nproc_per_node=4  -m main_linprobe \
---ds_name iwatch \
---checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Wristps_5_mask_0.75_bs_256_blr_None_epoch_100/2025-04-25_04-07/checkpoint-20.pth" \
---data_path "/niddk-data-central/iWatch/pre_processed_seg/W" \
---remark Wrist_20epoch 
-
-torchrun --nproc_per_node=4  -m main_linprobe \
---ds_name iwatch \
---checkpoint "/niddk-data-central/leo_workspace/MoCA_200.pth" \
---data_path "/niddk-data-central/iWatch/pre_processed_seg/W" \
---remark Wrist_MoCA200 \
---patch_size 5 
-
-
-
 torchrun --nproc_per_node=4  -m main_linprobe_long \
 --ds_name iwatch \
 --checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Hip-Longps_100_mask_0.75_bs_32_blr_None_epoch_50/2025-05-06_00-25/checkpoint-49.pth" \
---data_path "/niddk-data-central/iWatch/pre_processed_seg/H" \
+--data_path "/niddk-data-central/iWatch/pre_processed_pt/H" \
 --remark Hip_Long_50epoch
 
 '''
