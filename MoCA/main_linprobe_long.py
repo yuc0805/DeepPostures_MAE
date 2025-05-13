@@ -135,8 +135,8 @@ class LinearProbeModel(nn.Module):
         num_feats = backbone.head.in_features 
         backbone.head = nn.Identity()
         self.backbone = backbone
+
         self.head = nn.Linear(num_feats, num_classes)
-        self.batch_norm = nn.BatchNorm1d(num_feats, affine=False, eps=1e-6)
 
     def forward(self, x):
         '''
@@ -144,11 +144,12 @@ class LinearProbeModel(nn.Module):
         '''
         x = rearrange(x, 'b w l c -> b c (w l)') # BS, 3, 4200
         x = x.unsqueeze(1)  # BS, 1, 3, 4200
-
-        x = self.backbone.forward_features(x) # BS, 42, 768
+        b,_,c,_ = x.shape
+        x = self.backbone.forward_features(x) # BS, nvar*42, 768
+        x = rearrange(x, 'b (c w) d -> b w c d',c=c) # BS, 42, nvar,768
+        x = x.mean(dim=2) # BS, 42, 768
         print('x shape:',x.shape)
-        # normalize feats, lp hack from MAE
-        x = self.batch_norm(x)
+        
         x = self.head(x) # BS, 42, 2
 
         return x

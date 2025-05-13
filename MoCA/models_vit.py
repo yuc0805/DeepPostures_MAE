@@ -54,7 +54,7 @@ class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
             outcome = x[:, 0]
         else:
             x = self.norm(x)
-            outcome = x # [B, num_win, embed_dim]
+            outcome = x[:,1:] # [B, nvar*num_win, embed_dim]
 
         return outcome
 
