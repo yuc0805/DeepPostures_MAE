@@ -210,8 +210,6 @@ def main(args):
         raise NotImplementedError('The specified dataset is not implemented.')
 
 
-
-
     if args.log_dir is not None and not args.eval and global_rank == 0:  
         wandb.login(key='32b6f9d5c415964d38bfbe33c6d5c407f7c19743')
         log_writer = wandb.init(

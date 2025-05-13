@@ -143,7 +143,7 @@ class LinearProbeModel(nn.Module):
         x = rearrange(x, 'b w l c -> b c (w l)') # BS, 3, 4200
         x = x.unsqueeze(1)  # BS, 1, 3, 4200
 
-        x = self.backbone(x) # BS, 42, 768
+        x = self.backbone.forward_features(x) # BS, 42, 768
         print('x shape:',x.shape)
         # normalize feats, lp hack from MAE
         x = self.batch_norm(x)
@@ -213,33 +213,11 @@ def main(args):
     else:
         log_writer = None
 
-    data_loader_train = torch.utils.data.DataLoader(
-        dataset_train, sampler=sampler_train,
-        batch_size=args.batch_size,
-        num_workers=args.num_workers,
-        pin_memory=args.pin_mem,
-        drop_last=True,
-        prefetch_factor=1,
-        persistent_workers=True,
-        collate_fn = collate_fn,
-    )
-
-    data_loader_val = torch.utils.data.DataLoader(
-        dataset_val, sampler=sampler_val,
-        batch_size=args.batch_size,
-        num_workers=args.num_workers,
-        pin_memory=args.pin_mem,
-        drop_last=False,
-        prefetch_factor=1,
-        persistent_workers=True,
-        collate_fn = collate_fn
-    )
 
     backbone = models_vit.__dict__[args.model](
             img_size=args.input_size, patch_size=[1, int(args.patch_size)], 
             num_classes=args.nb_classes, in_chans=1, 
-            global_pool=False,cls_token=False,
-        )
+            global_pool=False,cls_token=False,)
 
     # # load weight
     if not args.eval:
@@ -313,6 +291,12 @@ def main(args):
     loss_scaler = NativeScaler()
 
     criterion = torch.nn.CrossEntropyLoss()
+    scheduler = CosineLRScheduler(
+    optimizer,
+    t_initial=args.epochs,
+    warmup_t=args.warmup_epochs,
+    warmup_lr_init=args.min_lr,
+    t_in_epochs=True)
 
     print("criterion = %s" % str(criterion))
 
@@ -321,8 +305,8 @@ def main(args):
     max_accuracy = 0.0
     best_metric = {'epoch':0, 'acc1':0.0, 'bal_acc':0.0, 'f1':0.0}
     for epoch in range(args.start_epoch, args.epochs):
-        if args.distributed: 
-            data_loader_train.sampler.set_epoch(epoch)
+        # if args.distributed: 
+        #     data_loader_train.sampler.set_epoch(epoch)
         train_stats = train_one_epoch(
             model, criterion, data_loader_train,
             optimizer, epoch, loss_scaler,
@@ -337,6 +321,8 @@ def main(args):
 
         test_stats = evaluate(args,data_loader_val, model, device)
         print(f"Balanced Accuracy of the network on the {len(dataset_val)} test images: {test_stats['bal_acc']:.5f} and F1 score of {test_stats['f1']:.5f}%")
+
+        scheduler.step(epoch)
         # save the best epoch
         if max_accuracy < test_stats["bal_acc"]:
             max_accuracy = test_stats["bal_acc"]
