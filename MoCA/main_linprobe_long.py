@@ -320,7 +320,7 @@ def main(args):
                 loss_scaler=loss_scaler, epoch=epoch)
 
         test_stats = evaluate(args,data_loader_val, model, device)
-        print(f"Balanced Accuracy of the network on the {len(dataset_val)} test images: {test_stats['bal_acc']:.5f} and F1 score of {test_stats['f1']:.5f}%")
+        print(f"Balanced Accuracy of the network on test images: {test_stats['bal_acc']:.5f} and F1 score of {test_stats['f1']:.5f}%")
 
         scheduler.step(epoch)
         # save the best epoch
