@@ -427,7 +427,16 @@ torchrun --nproc_per_node=4  -m main_linprobe_long \
 --ds_name iwatch \
 --checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Wristps_5_mask_0.75_bs_512_blr_None_epoch_50/2025-05-05_01-30/checkpoint-49.pth" \
 --data_path "/niddk-data-central/iWatch/pre_processed_pt/W" \
---remark Wrist_50epoch 
+--remark Wrist_50epoch \
+--num_attn_layer 2
+
+
+
+torchrun --nproc_per_node=4  -m main_linprobe_long \
+--ds_name iwatch \
+--checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Hipps_5_mask_0.75_bs_512_blr_None_epoch_50/2025-05-05_01-23/checkpoint-49.pth" \
+--data_path "/niddk-data-central/iWatch/pre_processed_pt/H" \
+--remark Hip_50epoch \
 --num_attn_layer 2
 
 '''

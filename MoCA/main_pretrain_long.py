@@ -304,11 +304,11 @@ torchrun --nproc_per_node=4 main_pretrain_long.py \
 --remark iWatch-Hip-Long
 
 
-torchrun --nproc_per_node=4 main_pretrain.py \
---data_path /niddk-data-central/iWatch/pre_processed_seg/W \
---batch_size 256 \
+torchrun --nproc_per_node=4 main_pretrain_long.py \
+--data_path /niddk-data-central/iWatch/pre_processed_pt/W \
+--batch_size 32 \
 --world_size 4 \
---epochs 100 \
---warmup_epochs 10 \
---remark iWatch-Wrist
+--epochs 50 \
+--warmup_epochs 5 \
+--remark iWatch-Wrist-Long
 '''
