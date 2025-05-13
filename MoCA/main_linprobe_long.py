@@ -23,7 +23,7 @@ import torch.nn as nn
 import wandb
 
 import timm
-from config import LP_DATASET_CONFIG
+from config import LP_LONG_DATASET_CONFIG
 from util.datasets import iWatch_HDf5, data_aug,collate_fn,resample_aug
 import util.misc as misc
 from util.misc import NativeScalerWithGradNormCount as NativeScaler
@@ -35,6 +35,7 @@ import models_vit
 from engine_finetune_long import train_one_epoch, evaluate
 
 import pickle
+import sys
 sys.path.append('/DeepPostures_MAE/MSSE-2021-pt')
 from commons import get_dataloaders_dist,data_aug
 import random
@@ -219,7 +220,7 @@ def main(args):
     if args.log_dir is not None and not args.eval and global_rank == 0:  
         wandb.login(key='32b6f9d5c415964d38bfbe33c6d5c407f7c19743')
         log_writer = wandb.init(
-            project='MoCA-iWatch-LP',  # Specify your project
+            project='MoCA-Long-iWatch-LP',  # Specify your project
             config= vars(args),
             dir=args.log_dir,
             name=args.remark,)
@@ -399,11 +400,11 @@ if __name__ == '__main__':
     initial_timestamp = datetime.datetime.now()
     
 
-    args.in_chans = LP_DATASET_CONFIG[args.ds_name]['in_chans']
-    args.nb_classes = LP_DATASET_CONFIG[args.ds_name]['nb_classes']
-    args.blr = LP_DATASET_CONFIG[args.ds_name]["blr"]
-    args.batch_size = LP_DATASET_CONFIG[args.ds_name]["bs"]
-    args.input_size = LP_DATASET_CONFIG[args.ds_name]["input_size"]
+    args.in_chans = LP_LONG_DATASET_CONFIG[args.ds_name]['in_chans']
+    args.nb_classes = LP_LONG_DATASET_CONFIG[args.ds_name]['nb_classes']
+    args.blr = LP_LONG_DATASET_CONFIG[args.ds_name]["blr"]
+    args.batch_size = LP_LONG_DATASET_CONFIG[args.ds_name]["bs"]
+    args.input_size = LP_LONG_DATASET_CONFIG[args.ds_name]["input_size"]
     args.remark = args.remark + f'LP_blr_{args.blr}_bs_{args.batch_size}_input_size_{args.input_size}'
     print(f'Start Training: {args.remark}')
     
@@ -439,6 +440,8 @@ torchrun --nproc_per_node=4  -m main_linprobe \
 --remark Wrist_MoCA200 \
 --patch_size 5 
 
+
+pip  install wandb
 
 torchrun --nproc_per_node=4  -m main_linprobe_long \
 --ds_name iwatch \
