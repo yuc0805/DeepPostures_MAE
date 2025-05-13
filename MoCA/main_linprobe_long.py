@@ -170,8 +170,6 @@ def main(args):
     
 
     print('Using dataset',args.ds_name)
-    print("Number of Training Samples:", len(dataset_train))
-    print("Number of Testing Samples:", len(dataset_val))
 
     if True:  # args.distributed:
         num_tasks = misc.get_world_size()
@@ -217,7 +215,7 @@ def main(args):
     backbone = models_vit.__dict__[args.model](
             img_size=args.input_size, patch_size=[1, int(args.patch_size)], 
             num_classes=args.nb_classes, in_chans=1, 
-            global_pool=False,cls_token=False,)
+            global_pool=False,use_cls=False)
 
     # # load weight
     if not args.eval:
@@ -412,7 +410,6 @@ torchrun --nproc_per_node=4  -m main_linprobe \
 --patch_size 5 
 
 
-pip  install wandb
 
 torchrun --nproc_per_node=4  -m main_linprobe_long \
 --ds_name iwatch \

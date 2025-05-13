@@ -21,12 +21,12 @@ import timm.models.vision_transformer
 class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
     """ Vision Transformer with support for global average pooling
     """
-    def __init__(self, global_pool=False, **kwargs): #
+    def __init__(self, global_pool=False,use_cls=True, **kwargs): #
         super(VisionTransformer, self).__init__(**kwargs)
         self.global_pool = global_pool
         self.patch_embed = PatchEmbed(img_size=kwargs['img_size'], patch_size=kwargs['patch_size'],
                                       in_chans=kwargs['in_chans'], embed_dim=kwargs['embed_dim']) # changed - added
-        self.cls_token = cls_token # use cls token or not
+        self.use_cls = use_cls # use cls token or not
         if self.global_pool:
             norm_layer = kwargs['norm_layer']
             embed_dim = kwargs['embed_dim']
@@ -49,7 +49,7 @@ class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
         if self.global_pool:
             x = x[:, 1:, :].mean(dim=1)  # global pool without cls token
             outcome = self.fc_norm(x)
-        elif cls_token:
+        elif self.use_cls:
             x = self.norm(x)
             outcome = x[:, 0]
         else:
@@ -59,10 +59,10 @@ class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
         return outcome
 
 
-def vit_base_patch16(**kwargs):
+def vit_base_patch16(use_cls=True,**kwargs):
     model = VisionTransformer(
         embed_dim=768, depth=12, num_heads=12, mlp_ratio=4, qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6),cls_token=True **kwargs)
+        norm_layer=partial(nn.LayerNorm, eps=1e-6),use_cls=use_cls, **kwargs)
     return model
 
 
