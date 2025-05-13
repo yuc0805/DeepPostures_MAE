@@ -26,7 +26,7 @@ class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
         self.global_pool = global_pool
         self.patch_embed = PatchEmbed(img_size=kwargs['img_size'], patch_size=kwargs['patch_size'],
                                       in_chans=kwargs['in_chans'], embed_dim=kwargs['embed_dim']) # changed - added
-
+        self.cls_token = cls_token # use cls token or not
         if self.global_pool:
             norm_layer = kwargs['norm_layer']
             embed_dim = kwargs['embed_dim']
@@ -49,9 +49,12 @@ class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
         if self.global_pool:
             x = x[:, 1:, :].mean(dim=1)  # global pool without cls token
             outcome = self.fc_norm(x)
-        else:
+        elif cls_token:
             x = self.norm(x)
             outcome = x[:, 0]
+        else:
+            x = self.norm(x)
+            outcome = x # [B, num_win, embed_dim]
 
         return outcome
 
@@ -59,7 +62,7 @@ class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
 def vit_base_patch16(**kwargs):
     model = VisionTransformer(
         embed_dim=768, depth=12, num_heads=12, mlp_ratio=4, qkv_bias=True,
-        norm_layer=partial(nn.LayerNorm, eps=1e-6), **kwargs)
+        norm_layer=partial(nn.LayerNorm, eps=1e-6),cls_token=True **kwargs)
     return model
 
 

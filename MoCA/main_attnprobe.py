@@ -15,16 +15,15 @@ import json
 import os
 import time
 from pathlib import Path
-
+import pickle
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 import torch.nn as nn
 import wandb
-
+from timm.scheduler.cosine_lr import CosineLRScheduler
 import timm
 from config import LP_DATASET_CONFIG
-from util.datasets import iWatch_HDf5, data_aug,collate_fn,resample_aug
 import util.misc as misc
 from util.misc import NativeScalerWithGradNormCount as NativeScaler
 from timm.optim import create_optimizer_v2
@@ -33,8 +32,7 @@ import util.lr_decay as lrd  # for optimizer
 import models_vit
 
 from engine_finetune_long import train_one_epoch, evaluate
-
-import pickle
+import sys
 sys.path.append('/DeepPostures_MAE/MSSE-2021-pt')
 from commons import get_dataloaders_dist,data_aug
 import random
@@ -53,15 +51,17 @@ def get_args_parser():
     # Model parameters
     parser.add_argument('--model', default='vit_base_patch16', type=str, metavar='MODEL',
                         help='Name of model to train')
-    parser.add_argument('--input_size', type=int, default=4200, 
+    parser.add_argument('--input_size', type=int, default=100, 
                         help='Input size "')
-    parser.add_argument('--patch_size', type=int, default=100, 
+    parser.add_argument('--patch_size', type=int, default=5, 
                         help='Patch size')
 
     parser.add_argument('--in_chans', default=3, type=int,  # changed - added
                         help='number of channels')
     parser.add_argument('--remark', default='Debug',type=str,
                         help='model_remark')
+    parser.add_argument('--num_attn_layer', type=int, default=1,
+                        help='number of attention layers to use in the probe model')
 
     # Optimizer parameters
     parser.add_argument('--clip_grad', type=float, default=None, metavar='NORM',
@@ -125,28 +125,38 @@ def get_args_parser():
 
     return parser    
 
-
-class LinearProbeModel(nn.Module):
-    def __init__(self, backbone, num_classes=2):
-        super(LinearProbeModel, self).__init__()
-        # make sure head is clean
-        backbone.head = nn.Identity()
-        self.backbone = backbone
-        self.head = nn.Linear(self.backbone.num_features, num_classes)
-        self.batch_norm = nn.BatchNorm1d(model.head.in_features, affine=False, eps=1e-6)
+class AttentionProbeModel(nn.Module):
+    def __init__(self, base_model, window_size=42,num_classes=2,num_layer=1,
+                 hidden_dim=256):
+        super(AttentionProbeModel, self).__init__()
+        self.base_model = base_model
+        self.base_model.head = nn.Identity()  # Remove the original head
+        self.window_size = window_size
+        self.proj = nn.Linear(self.base_model.embed_dim, hidden_dim)
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=hidden_dim,
+            nhead=8,
+            dim_feedforward=hidden_dim*2,
+            batch_first=True
+        )
+        self.attn = nn.TransformerEncoder(encoder_layer, num_layers=num_layer)
+        self.head = nn.Linear(hidden_dim, num_classes)
 
     def forward(self, x):
         '''
-        input: x: (BS, 42,100,3)
+        input: x [BS, 42, 100, 3]
         '''
-        x = rearrange(x, 'b w l c -> b c (w l)') # BS, 3, 4200
-        x = x.unsqueeze(1)  # BS, 1, 3, 4200
+        
+        # get feature for each window
+        x = rearrange(x, 'b w l c -> (b w) c l') # BS*42, 3,100
+        x = x.unsqueeze(1)  # BS*42, 1, 3, 100
+        with torch.no_grad():
+            x = self.base_model(x) # BS*42, 768
 
-        x = self.backbone(x) # BS, 42, 768
-        print('x shape:',x.shape)
-        # normalize feats, lp hack from MAE
-        x = self.batch_norm(x)
-        x = self.head(x) # BS, 42, 2
+        x = rearrange(x, '(b w) c -> b w c', b=x.shape[0]//self.window_size, w=self.window_size) # BS, 42, 768
+        x = self.proj(x) # BS, 42, 256
+        x = self.attn(x) # BS, 42, 256
+        x = self.head(x) # BS, 42, num_classes
 
         return x
 
@@ -167,6 +177,11 @@ def main(args):
 
     cudnn.benchmark = False 
     
+    if True:  # args.distributed:
+        num_tasks = misc.get_world_size()
+        global_rank = misc.get_rank()
+
+
     if args.ds_name == 'iwatch':
         with open("/niddk-data-central/iWatch/support_files/iwatch_split_dict.pkl", "rb") as f:
             split_data = pickle.load(f)
@@ -189,37 +204,18 @@ def main(args):
         world_size=num_tasks,
         transform=data_aug,)
 
+
+        
     else:
         raise NotImplementedError('The specified dataset is not implemented.')
 
-    print('Using dataset',args.ds_name)
-    print("Number of Training Samples:", len(dataset_train))
-    print("Number of Testing Samples:", len(dataset_val))
 
-    if True:  # args.distributed:
-        num_tasks = misc.get_world_size()
-        global_rank = misc.get_rank()
-        sampler_train = torch.utils.data.DistributedSampler(
-            dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True
-        )
-        print("Sampler_train = %s" % str(sampler_train))
-        if args.dist_eval:
-            if len(dataset_val) % num_tasks != 0:
-                print('Warning: Enabling distributed evaluation with an eval dataset not divisible by process number. '
-                      'This will slightly alter validation results as extra duplicate entries are added to achieve '
-                      'equal num of samples per-process.')
-            sampler_val = torch.utils.data.DistributedSampler(
-                dataset_val, num_replicas=num_tasks, rank=global_rank, shuffle=True)  # shuffle=True to reduce monitor bias
-        else:
-            sampler_val = torch.utils.data.SequentialSampler(dataset_val)
-    else:
-        sampler_train = torch.utils.data.RandomSampler(dataset_train)
-        sampler_val = torch.utils.data.SequentialSampler(dataset_val)
+
 
     if args.log_dir is not None and not args.eval and global_rank == 0:  
         wandb.login(key='32b6f9d5c415964d38bfbe33c6d5c407f7c19743')
         log_writer = wandb.init(
-            project='MoCA-iWatch-LP',  # Specify your project
+            project='MoCA-iWatch-attention-probe',  # Specify your project
             config= vars(args),
             dir=args.log_dir,
             name=args.remark,)
@@ -227,42 +223,22 @@ def main(args):
     else:
         log_writer = None
 
-    data_loader_train = torch.utils.data.DataLoader(
-        dataset_train, sampler=sampler_train,
-        batch_size=args.batch_size,
-        num_workers=args.num_workers,
-        pin_memory=args.pin_mem,
-        drop_last=True,
-        prefetch_factor=1,
-        persistent_workers=True,
-        collate_fn = collate_fn,
-    )
-
-    data_loader_val = torch.utils.data.DataLoader(
-        dataset_val, sampler=sampler_val,
-        batch_size=args.batch_size,
-        num_workers=args.num_workers,
-        pin_memory=args.pin_mem,
-        drop_last=False,
-        prefetch_factor=1,
-        persistent_workers=True,
-        collate_fn = collate_fn
-    )
-
-    backbone = models_vit.__dict__[args.model](
+    base_model = models_vit.__dict__[args.model](
             img_size=args.input_size, patch_size=[1, int(args.patch_size)], 
             num_classes=args.nb_classes, in_chans=1, 
-            global_pool=False,cls_token=False,
-        )
+            global_pool=False)
+    
+
 
     # # load weight
     if not args.eval:
         print('Loading pre-trained checkpoint from',args.checkpoint)
         checkpoint = torch.load(args.checkpoint,map_location='cpu')
         checkpoint_model = checkpoint['model']
-        interpolate_pos_embed(backbone, checkpoint_model,orig_size=(3,42),
+        interpolate_pos_embed(base_model, checkpoint_model,orig_size=(3,20), # FIXME: can also be [6,20] if using both HIP and Wrist
                               new_size=(args.input_size[0],int(args.input_size[1]//args.patch_size)))
-        
+        # interpolate_pos_embed(model, checkpoint_model,orig_size=(6,10), # FIXME: can also be [6,20] if using both HIP and Wrist
+        #                       new_size=(args.input_size[0],int(args.input_size[1]//args.patch_size)))
 
         #print(checkpoint_model.keys())
         decoder_keys = [k for k in checkpoint_model.keys() if 'decoder' in k]
@@ -270,27 +246,24 @@ def main(args):
             del checkpoint_model[key]
 
         print('shape after interpolate:',checkpoint_model['pos_embed'].shape)
-        msg = backbone.load_state_dict(checkpoint_model, strict=False)
+        msg = base_model.load_state_dict(checkpoint_model, strict=False)
         print(msg)
-    else:
-        checkpoint = torch.load(args.eval,map_location='cpu')
-        checkpoint_model = checkpoint['model']
-        print(checkpoint['args'])
-        msg = backbone.load_state_dict(checkpoint_model, strict=True)
-        backbone.to(device)
-        test_stats = evaluate(args,data_loader_val, backbone, device)
-        print(f"Balanced Accuracy of the network on the {len(dataset_val)} test images: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
-        exit(0)
+    # else:
+    #     checkpoint = torch.load(args.eval,map_location='cpu')
+    #     checkpoint_model = checkpoint['model']
+    #     print(checkpoint['args'])
+    #     msg = model.load_state_dict(checkpoint_model, strict=True)
+    #     model.to(device)
+    #     test_stats = evaluate(args,data_loader_val, model, device)
+    #     print(f"Balanced Accuracy of the network on the test images: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
+    #     exit(0)
 
-    model = LinearProbeModel(backbone, num_classes=args.nb_classes)
     #freeze weight
-    # model.head = torch.nn.Sequential(torch.nn.BatchNorm1d(model.head.in_features, affine=False, eps=1e-6), model.head)
-
-    for _, p in model.named_parameters():
+    base_model.head = nn.Identity()
+    for _, p in base_model.named_parameters():
         p.requires_grad = False
-    for _, p in model.head.named_parameters():
-        p.requires_grad = True
 
+    model = AttentionProbeModel(base_model, window_size=42,num_classes=args.nb_classes,hidden_dim=256,num_layer=args.num_attn_layer)
     print("Model = %s" % str(model))
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print('number of training params : %.2f' % (n_parameters))
@@ -328,15 +301,22 @@ def main(args):
 
     criterion = torch.nn.CrossEntropyLoss()
 
+    scheduler = CosineLRScheduler(
+    optimizer,
+    t_initial=args.epochs,
+    warmup_t=args.warmup_epochs,
+    warmup_lr_init=args.min_lr,
+    t_in_epochs=True)
+
     print("criterion = %s" % str(criterion))
 
     print(f"Start training for {args.epochs} epochs")
     start_time = time.time()
     max_accuracy = 0.0
     best_metric = {'epoch':0, 'acc1':0.0, 'bal_acc':0.0, 'f1':0.0}
-    for epoch in range(args.start_epoch, args.epochs):
-        if args.distributed: 
-            data_loader_train.sampler.set_epoch(epoch)
+    for epoch in tqdm(range(args.start_epoch, args.epochs)):
+        # if args.distributed: 
+        #     data_loader_train.sampler.set_epoch(epoch)
         train_stats = train_one_epoch(
             model, criterion, data_loader_train,
             optimizer, epoch, loss_scaler,
@@ -350,7 +330,9 @@ def main(args):
                 loss_scaler=loss_scaler, epoch=epoch)
 
         test_stats = evaluate(args,data_loader_val, model, device)
-        print(f"Balanced Accuracy of the network on the {len(dataset_val)} test images: {test_stats['bal_acc']:.5f} and F1 score of {test_stats['f1']:.5f}%")
+        print(f"Balanced Accuracy of the network on the test images: {test_stats['bal_acc']:.5f} and F1 score of {test_stats['f1']:.5f}%")
+
+        scheduler.step(epoch)
         # save the best epoch
         if max_accuracy < test_stats["bal_acc"]:
             max_accuracy = test_stats["bal_acc"]
@@ -404,6 +386,7 @@ if __name__ == '__main__':
     args.blr = LP_DATASET_CONFIG[args.ds_name]["blr"]
     args.batch_size = LP_DATASET_CONFIG[args.ds_name]["bs"]
     args.input_size = LP_DATASET_CONFIG[args.ds_name]["input_size"]
+    args.weight_decay = LP_DATASET_CONFIG[args.ds_name]["weight_decay"]
     args.remark = args.remark + f'LP_blr_{args.blr}_bs_{args.batch_size}_input_size_{args.input_size}'
     print(f'Start Training: {args.remark}')
     
@@ -419,31 +402,37 @@ if __name__ == '__main__':
 
 '''
 
-torchrun --nproc_per_node=4  -m main_linprobe \
+torchrun --nproc_per_node=4 -m main_attnprobe \
 --ds_name iwatch \
 --checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Hipps_5_mask_0.75_bs_256_blr_None_epoch_100/2025-04-23_20-41/checkpoint-20.pth" \
---data_path "/niddk-data-central/iWatch/pre_processed_seg/H" \
+--data_path "/niddk-data-central/iWatch/pre_processed_pt/H" \
 --remark Hip_20epoch
+--num_attn_layer 2
 
-
-torchrun --nproc_per_node=4  -m main_linprobe \
+torchrun --nproc_per_node=4  -m main_attnprobe \
 --ds_name iwatch \
 --checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Wristps_5_mask_0.75_bs_256_blr_None_epoch_100/2025-04-25_04-07/checkpoint-20.pth" \
---data_path "/niddk-data-central/iWatch/pre_processed_seg/W" \
+--data_path "/niddk-data-central/iWatch/pre_processed_pt/W" \
 --remark Wrist_20epoch 
+--num_attn_layer 2
 
-torchrun --nproc_per_node=4  -m main_linprobe \
+
+# No normalization
+torchrun --nproc_per_node=4  -m main_attnprobe \
 --ds_name iwatch \
---checkpoint "/niddk-data-central/leo_workspace/MoCA_200.pth" \
---data_path "/niddk-data-central/iWatch/pre_processed_seg/W" \
---remark Wrist_MoCA200 \
---patch_size 5 
+--checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Wristps_5_mask_0.75_bs_512_blr_None_epoch_50/2025-05-05_01-30/checkpoint-49.pth" \
+--data_path "/niddk-data-central/iWatch/pre_processed_pt/W" \
+--remark Wrist_50epoch \
+--num_attn_layer 2
 
 
-torchrun --nproc_per_node=4  -m main_linprobe_long \
+
+torchrun --nproc_per_node=4  -m main_attnprobe \
 --ds_name iwatch \
---checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Hip-Longps_100_mask_0.75_bs_32_blr_None_epoch_50/2025-05-06_00-25/checkpoint-49.pth" \
---data_path "/niddk-data-central/iWatch/pre_processed_seg/H" \
---remark Hip_Long_50epoch
+--checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Hipps_5_mask_0.75_bs_512_blr_None_epoch_50/2025-05-05_01-23/checkpoint-49.pth" \
+--data_path "/niddk-data-central/iWatch/pre_processed_pt/H" \
+--remark Hip_50epoch \
+--num_attn_layer 2
+
 
 '''
