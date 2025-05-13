@@ -168,6 +168,15 @@ def main(args):
 
     cudnn.benchmark = False 
     
+
+    print('Using dataset',args.ds_name)
+    print("Number of Training Samples:", len(dataset_train))
+    print("Number of Testing Samples:", len(dataset_val))
+
+    if True:  # args.distributed:
+        num_tasks = misc.get_world_size()
+        global_rank = misc.get_rank()
+
     if args.ds_name == 'iwatch':
         with open("/niddk-data-central/iWatch/support_files/iwatch_split_dict.pkl", "rb") as f:
             split_data = pickle.load(f)
@@ -192,30 +201,6 @@ def main(args):
 
     else:
         raise NotImplementedError('The specified dataset is not implemented.')
-
-    print('Using dataset',args.ds_name)
-    print("Number of Training Samples:", len(dataset_train))
-    print("Number of Testing Samples:", len(dataset_val))
-
-    if True:  # args.distributed:
-        num_tasks = misc.get_world_size()
-        global_rank = misc.get_rank()
-        sampler_train = torch.utils.data.DistributedSampler(
-            dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True
-        )
-        print("Sampler_train = %s" % str(sampler_train))
-        if args.dist_eval:
-            if len(dataset_val) % num_tasks != 0:
-                print('Warning: Enabling distributed evaluation with an eval dataset not divisible by process number. '
-                      'This will slightly alter validation results as extra duplicate entries are added to achieve '
-                      'equal num of samples per-process.')
-            sampler_val = torch.utils.data.DistributedSampler(
-                dataset_val, num_replicas=num_tasks, rank=global_rank, shuffle=True)  # shuffle=True to reduce monitor bias
-        else:
-            sampler_val = torch.utils.data.SequentialSampler(dataset_val)
-    else:
-        sampler_train = torch.utils.data.RandomSampler(dataset_train)
-        sampler_val = torch.utils.data.SequentialSampler(dataset_val)
 
     if args.log_dir is not None and not args.eval and global_rank == 0:  
         wandb.login(key='32b6f9d5c415964d38bfbe33c6d5c407f7c19743')
