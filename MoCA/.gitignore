@@ -22,3 +22,4 @@ baseline_models/simsiam/checkpoint_0099.pth.tar
 envs/
 logs/
 output/
+wandb/
