@@ -7,28 +7,28 @@ import torch
 import torch.nn.functional as F
 from scipy.signal import resample
 
-def resample_aug(x,is_train=True,target_sr=50):
-    """
-    Resample input x from its original sampling rate to target_sr.
-    Input shape: (T, C), e.g., (100, 3)
-    Output shape: (new_T, C), e.g., (50, 3) if target_sr is 50
+# def resample_aug(x,is_train=True,target_sr=50):
+#     """
+#     Resample input x from its original sampling rate to target_sr.
+#     Input shape: (T, C), e.g., (100, 3)
+#     Output shape: (new_T, C), e.g., (50, 3) if target_sr is 50
 
-    Args:
-        x (torch.Tensor): input tensor of shape (T, C)
-        is_train (bool): flag for whether augmentation is applied (optional use)
-        target_sr (int): target sampling rate
+#     Args:
+#         x (torch.Tensor): input tensor of shape (T, C)
+#         is_train (bool): flag for whether augmentation is applied (optional use)
+#         target_sr (int): target sampling rate
 
-    Returns:
-        torch.Tensor: resampled tensor of shape (new_T, C)
-    """
-    T, C = x.shape
-    new_T = int(T * target_sr / 100)
-    sample_X = resample(x, new_T, axis=0)
+#     Returns:
+#         torch.Tensor: resampled tensor of shape (new_T, C)
+#     """
+#     T, C = x.shape
+#     new_T = int(T * target_sr / 100)
+#     sample_X = resample(x, new_T, axis=0)
 
-    if is_train:
-        sample_X = data_aug(sample_X)
+#     if is_train:
+#         sample_X = data_aug(sample_X)
     
-    return sample_X
+#     return sample_X
 
 def data_aug(x):
     """
