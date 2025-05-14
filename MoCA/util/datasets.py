@@ -78,14 +78,15 @@ class iWatch_HDf5(Dataset):
     def __init__(self,
                  root='/niddk-data-central/iWatch/pre_processed_seg/H',
                  set_type='train',
-                 transform=None):
+                 transform=None,
+                 subset=None):
         self.file_path = os.path.join(root, f"10s_{set_type}.h5")
         self.transform = transform
         # these will be set in the worker when first accessed
         self.h5_file = None
         self.x_data = None
         self.y_data = None
-
+        self.subset= subset
     def _ensure_open(self):
         # called inside worker on first __getitem__
         if self.h5_file is None:
@@ -96,6 +97,9 @@ class iWatch_HDf5(Dataset):
     def __len__(self):
         # we open here if not already, so that len() works in main process
         self._ensure_open()
+        if self.subset is not None:
+            return self.subset
+        
         return len(self.x_data)
 
     def __getitem__(self, idx):
