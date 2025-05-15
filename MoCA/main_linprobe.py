@@ -24,7 +24,7 @@ import wandb
 
 import timm
 from config import LP_DATASET_CONFIG
-from util.datasets import iWatch_HDf5, data_aug,collate_fn,resample_aug
+from util.datasets import iWatch_HDf5, data_aug,collate_fn#,resample_aug
 import util.misc as misc
 from util.misc import NativeScalerWithGradNormCount as NativeScaler
 from timm.optim import create_optimizer_v2
@@ -396,6 +396,10 @@ torchrun --nproc_per_node=4  -m main_linprobe \
 --remark Wrist_MoCA200 \
 --patch_size 5 
 
-
+python -m main_linprobe \
+--ds_name iwatch \
+--checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Hipps_5_mask_0.75_bs_512_blr_None_epoch_50/2025-05-05_01-23/checkpoint-49.pth" \
+--data_path "/niddk-data-central/iWatch/pre_processed_seg/H" \
+--remark Debug 
 
 '''
