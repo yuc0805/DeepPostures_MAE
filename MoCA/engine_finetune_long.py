@@ -185,9 +185,11 @@ from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
+import pickle
+import os
 
 @torch.no_grad()
-def evaluate_cm(data_loader, model, device,as_img=False):
+def evaluate_cm(data_loader, model, device, as_img=False, save_dir='./'):
     criterion = torch.nn.CrossEntropyLoss()
     metric_logger = misc.MetricLogger(delimiter="  ")
     header = 'Test:'
@@ -201,15 +203,20 @@ def evaluate_cm(data_loader, model, device,as_img=False):
     all_preds = []
     all_targets = []
 
+    misclassified_series = []
+    misclassified_true_labels = []
+    misclassified_pred_labels = []
+
     for samples, target in data_loader:
-        samples = samples.float().to(device, non_blocking=True) # BS,42, 100, 3
+        samples = samples.float().to(device, non_blocking=True)  # shape: (B, 42, 100, 3)
+        original_samples = samples.clone().detach().cpu()
+
         if as_img:
             samples = rearrange(samples, 'b w l c -> (b w) 1 c l')
-            #samples = samples.unsqueeze(1)
-        target = target.to(device, non_blocking=True)
 
+        target = target.to(device, non_blocking=True)
         output = model(samples)
-        output = output.view(-1, output.size(-1))  # (BS * 42, C)
+        output = output.view(-1, output.size(-1))  # shape: (B*42, C)
         target = target.view(-1)
 
         loss = criterion(output, target)
@@ -228,6 +235,17 @@ def evaluate_cm(data_loader, model, device,as_img=False):
         metric_logger.update(loss=loss.item())
         metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
 
+        misclassified_mask = preds != target
+        misclassified_indices = misclassified_mask.nonzero(as_tuple=True)[0]
+
+        if not as_img:
+            for idx in misclassified_indices:
+                sample_idx = idx // 42
+                time_step_idx = idx % 42
+                misclassified_series.append(original_samples[sample_idx, time_step_idx].numpy())
+                misclassified_true_labels.append(target[idx].item())
+                misclassified_pred_labels.append(preds[idx].item())
+
     metric_logger.synchronize_between_processes()
     recall_tm = recall_metric.compute().item()
     specificity_tm = specificity_metric.compute().item()
@@ -238,6 +256,68 @@ def evaluate_cm(data_loader, model, device,as_img=False):
           .format(top1=metric_logger.acc1, bal_acc=bal_acc, f1=f1, losses=metric_logger.loss))
 
     cm = confusion_matrix(all_targets, all_preds, labels=list(range(2)))
+
+    os.makedirs(save_dir, exist_ok=True)
+    with open(os.path.join(save_dir, 'misclassified.pkl'), 'wb') as f:
+        pickle.dump({
+            'series': misclassified_series,
+            'true_labels': misclassified_true_labels,
+            'pred_labels': misclassified_pred_labels
+        }, f)
+
+    return cm, bal_acc
+
+# def evaluate_cm(data_loader, model, device,as_img=False):
+#     criterion = torch.nn.CrossEntropyLoss()
+#     metric_logger = misc.MetricLogger(delimiter="  ")
+#     header = 'Test:'
+
+#     model.eval()
+
+#     recall_metric = MulticlassRecall(2, average='weighted', zero_division=0).to(device)
+#     specificity_metric = MulticlassSpecificity(num_classes=2, average='weighted', zero_division=0).to(device)
+#     f1_metric = MulticlassF1Score(num_classes=2, average='weighted', zero_division=0).to(device)
+
+#     all_preds = []
+#     all_targets = []
+
+#     for samples, target in data_loader:
+#         samples = samples.float().to(device, non_blocking=True) # BS,42, 100, 3
+#         if as_img:
+#             samples = rearrange(samples, 'b w l c -> (b w) 1 c l')
+#             #samples = samples.unsqueeze(1)
+#         target = target.to(device, non_blocking=True)
+
+#         output = model(samples)
+#         output = output.view(-1, output.size(-1))  # (BS * 42, C)
+#         target = target.view(-1)
+
+#         loss = criterion(output, target)
+
+#         preds = output.argmax(dim=1)
+
+#         recall_metric.update(preds, target)
+#         specificity_metric.update(preds, target)
+#         f1_metric.update(preds, target)
+
+#         all_preds.extend(preds.cpu().numpy())
+#         all_targets.extend(target.cpu().numpy())
+
+#         acc1, _ = accuracy(output, target, topk=(1, 2))
+#         batch_size = samples.shape[0]
+#         metric_logger.update(loss=loss.item())
+#         metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
+
+#     metric_logger.synchronize_between_processes()
+#     recall_tm = recall_metric.compute().item()
+#     specificity_tm = specificity_metric.compute().item()
+#     bal_acc = 100 * (recall_tm + specificity_tm) / 2
+#     f1 = 100 * f1_metric.compute().item()
+
+#     print('* Acc@1 {top1.global_avg:.5f} bal_acc {bal_acc:.5f} f1 {f1:.5f} loss {losses.global_avg:.3f}'
+#           .format(top1=metric_logger.acc1, bal_acc=bal_acc, f1=f1, losses=metric_logger.loss))
+
+#     cm = confusion_matrix(all_targets, all_preds, labels=list(range(2)))
     
-    return cm,bal_acc
+#     return cm,bal_acc
 
