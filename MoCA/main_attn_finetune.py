@@ -37,8 +37,8 @@ from engine_finetune_long import train_one_epoch, evaluate
 import sys
 if os.path.exists('/DeepPostures_MAE/MSSE-2021-pt'):
     sys.path.append('/DeepPostures_MAE/MSSE-2021-pt')
-elif os.path.exists('app/DeepPostures_MAE/MSSE-2021-pt'):
-    sys.path.append('app/DeepPostures_MAE/MSSE-2021-pt')
+elif os.path.exists('/app/DeepPostures_MAE/MSSE-2021-pt'):
+    sys.path.append('/app/DeepPostures_MAE/MSSE-2021-pt')
 else:
     raise FileNotFoundError("MSSE-2021-pt directory not found.")
 from commons import get_dataloaders_dist,data_aug
