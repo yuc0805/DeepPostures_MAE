@@ -26,7 +26,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 import timm
-from config import FT_DATASET_CONFIG
+from config import FT_LONG_DATASET_CONFIG
 from util.datasets import data_aug#iWatch_HDf5, data_aug,collate_fn,resample_aug
 import util.misc as misc
 from util.misc import NativeScalerWithGradNormCount as NativeScaler
@@ -389,12 +389,12 @@ if __name__ == '__main__':
     initial_timestamp = datetime.datetime.now()
     
 
-    args.in_chans = FT_DATASET_CONFIG[args.ds_name]['in_chans']
-    args.nb_classes = FT_DATASET_CONFIG[args.ds_name]['nb_classes']
-    args.blr = FT_DATASET_CONFIG[args.ds_name]["blr"]
-    args.batch_size = FT_DATASET_CONFIG[args.ds_name]["bs"]
-    args.input_size = FT_DATASET_CONFIG[args.ds_name]["input_size"]
-    args.weight_decay = FT_DATASET_CONFIG[args.ds_name]["weight_decay"]
+    args.in_chans = FT_LONG_DATASET_CONFIG[args.ds_name]['in_chans']
+    args.nb_classes = FT_LONG_DATASET_CONFIG[args.ds_name]['nb_classes']
+    args.blr = FT_LONG_DATASET_CONFIG[args.ds_name]["blr"]
+    args.batch_size = FT_LONG_DATASET_CONFIG[args.ds_name]["bs"]
+    args.input_size = FT_LONG_DATASET_CONFIG[args.ds_name]["input_size"]
+    args.weight_decay = FT_LONG_DATASET_CONFIG[args.ds_name]["weight_decay"]
     args.remark = args.remark + f'LP_blr_{args.blr}_bs_{args.batch_size}_input_size_{args.input_size}'
     print(f'Start Training: {args.remark}')
     

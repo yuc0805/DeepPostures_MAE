@@ -242,8 +242,16 @@ def main(args):
         print(f"Balanced Accuracy of the network on the {len(dataset_val)} test images: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
         exit(0)
 
+    
+    
+    # hack, use only one logit for binary classification
+    if args.nb_classes == 2:
+        model.head = torch.nn.Sequential(torch.nn.BatchNorm1d(model.head.in_features, affine=False, eps=1e-6), torch.nn.Linear(model.head.in_features, 1))
+        criterion = torch.nn.BCEWithLogitsLoss()
+    else:
+        model.head = torch.nn.Sequential(torch.nn.BatchNorm1d(model.head.in_features, affine=False, eps=1e-6), model.head)
+        criterion = torch.nn.CrossEntropyLoss()
     #freeze weight
-    model.head = torch.nn.Sequential(torch.nn.BatchNorm1d(model.head.in_features, affine=False, eps=1e-6), model.head)
     for _, p in model.named_parameters():
         p.requires_grad = False
     for _, p in model.head.named_parameters():
@@ -284,7 +292,7 @@ def main(args):
 
     loss_scaler = NativeScaler()
 
-    criterion = torch.nn.CrossEntropyLoss()
+    
 
     print("criterion = %s" % str(criterion))
 

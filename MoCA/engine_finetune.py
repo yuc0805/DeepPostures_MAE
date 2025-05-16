@@ -53,14 +53,18 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         targets = targets.to(device, non_blocking=True)
 
         with torch.cuda.amp.autocast(enabled=False):
-            outputs = model(samples) #,mask_ratio=args.fintune_mask_ratio) # bs x num_classes
+            outputs = model(samples).squeeze() # bs x num_classes or (bs, )
             loss = criterion(outputs, targets)
 
         loss_value = loss.item()
 
-        acc1, _ = accuracy(outputs, targets, topk=(1, 3))
+        if args.nb_classes == 2:
+            preds = torch.round(torch.sigmoid(outputs))
+            acc1 = (preds == targets).float().mean()
+        else:
+            acc1, _ = accuracy(outputs, targets, topk=(1, 3))
+
         batch_size = samples.shape[0]
-    
         metric_logger.meters['train_acc1'].update(acc1.item(), n=batch_size)
 
         if not math.isfinite(loss_value):
@@ -142,16 +146,16 @@ def evaluate(args,data_loader, model, device):
         images = images.to(device, non_blocking=True)
         target = target.to(device, non_blocking=True)
 
-        # compute output
-        # with torch.cuda.amp.autocast():
-        
-        #output = model(images,mask_ratio=0)
-        output = model(images)
+        output = model(images).squeeze()
         loss = criterion(output, target)
 
-        acc1, _ = accuracy(output, target, topk=(1, 2))     
-
-        preds = output.argmax(dim=1)
+        if args.nb_classes == 2:
+            preds = torch.round(torch.sigmoid(output))
+            acc1 = (preds == target).float().mean()
+        else:
+            acc1, _ = accuracy(output, target, topk=(1, 2))     
+            preds = output.argmax(dim=1)
+            
         recall_metric.update(preds, target)
         specificity_metric.update(preds, target)
         f1_metric.update(preds, target)
