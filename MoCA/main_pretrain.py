@@ -198,10 +198,11 @@ def main(args):
     misc.load_model(args=args, model_without_ddp=model_without_ddp, optimizer=optimizer, loss_scaler=loss_scaler)
    
     # fix a sample for plot ###########
-    # tmp_sample,_ = next(iter(data_loader_train))  
-    # tmp_sample = tmp_sample[1:2]
-    # print('tmp_sample shape: ',tmp_sample.shape)
-    root = "/niddk-data-central/iWatch/pre_processed_seg/H/train.hdf5"
+    if args.data_path == '/niddk-data-central/iWatch/pre_processed_seg/H':
+        root = "/niddk-data-central/iWatch/pre_processed_seg/H/train.hdf5"
+    else:
+        root = "/niddk-data-central/iWatch/pre_processed_seg/W/train.hdf5"
+
     with h5py.File(root, "r") as f:
         idx = 500674
         tmp_sample = f['x'][idx]  # (100, 3)
