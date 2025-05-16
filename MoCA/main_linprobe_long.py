@@ -90,6 +90,7 @@ def get_args_parser():
                         
 
     # Dataset parameters
+    parser.add_argument('--CHAP', type=int, default=0)
     parser.add_argument('--data_path', default='/niddk-data-central/iWatch/pre_processed_seg/W', type=str, # changed
                         help='dataset path')
     

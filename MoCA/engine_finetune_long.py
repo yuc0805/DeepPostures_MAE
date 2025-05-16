@@ -51,12 +51,15 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         batch_size = targets.shape[0] 
         targets = targets.view(-1).squeeze().float() #(BS*42,)
         
-        if False:
+        if args.CHAP:
             samples = rearrange(samples, 'b w l c -> (b w) 1 l c ')
             
         with torch.cuda.amp.autocast(enabled=False):
             outputs = model(samples)
-            outputs = rearrange(outputs, 'b w c -> (b w) c').squeeze()
+            if args.CHAP:
+                outputs = outputs.view(-1)
+            else:
+                outputs = rearrange(outputs, 'b w c -> (b w) c').squeeze()
 
             loss = criterion(outputs, targets)
 
@@ -145,12 +148,15 @@ def evaluate(args,data_loader, model, device):
         batch_size = target.shape[0]
         target = target.view(-1).squeeze().float() #(BS*42,)
 
-        if False: # CHAP
+        if args.CHAP: # CHAP
             samples = rearrange(samples, 'b w l c -> (b w) 1 l c ')
             
         with torch.cuda.amp.autocast(enabled=False):
             outputs = model(samples)
-            outputs = rearrange(outputs, 'b w c -> (b w) c').squeeze()
+            if args.CHAP:
+                outputs = outputs.view(-1)
+            else:
+                outputs = rearrange(outputs, 'b w c -> (b w) c').squeeze()
 
             loss = criterion(outputs, target)
         

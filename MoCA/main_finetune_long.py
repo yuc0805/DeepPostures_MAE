@@ -39,7 +39,10 @@ from engine_finetune_long import train_one_epoch, evaluate
 
 import pickle
 import sys
-sys.path.append('/app/DeepPostures_MAE/MSSE-2021-pt')
+if os.path.exists('/DeepPostures_MAE/MSSE-2021-pt'):
+    sys.path.append('/DeepPostures_MAE/MSSE-2021-pt')
+elif os.path.exists('app/DeepPostures_MAE/MSSE-2021-pt'):
+    sys.path.append('app/DeepPostures_MAE/MSSE-2021-pt')
 from commons import get_dataloaders_dist,data_aug
 import random
 from einops import rearrange
@@ -84,7 +87,7 @@ def get_args_parser():
 
     parser.add_argument('--warmup_epochs', type=int, default=2, metavar='N',
                         help='epochs to warmup LR')
-    
+    parser.add_argument('--CHAP', type=int, default=0)
 
     # * Finetuning params
     parser.add_argument('--checkpoint', default='/home/jovyan/persistent-data/MAE_Accelerometer/experiments/661169(p200_10_alt_0.0005)/checkpoint-3999.pth', 
@@ -260,16 +263,17 @@ def main(args):
     #     p.requires_grad = True
 
     # CHAP replicate #######
-    model = CNNBiLSTMModel(2,42,2)
-    
-    if os.path.exists("/DeepPostures_MAE/MSSE-2021-pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"):
-        transfer_learning_model_path = "/DeepPostures_MAE/MSSE-2021-pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"
-    elif os.path.exists("app/DeepPostures_MAE/MSSE-2021-pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"):
-        transfer_learning_model_path = "app/DeepPostures_MAE/MSSE-2021-pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"
-    else:
-        raise FileNotFoundError("CHAP_ALL_ADULTS.pth not found in any known location.")
+    if args.CHAP:
+        model = CNNBiLSTMModel(2,42,2)
+        
+        if os.path.exists("/DeepPostures_MAE/MSSE-2021-pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"):
+            transfer_learning_model_path = "/DeepPostures_MAE/MSSE-2021-pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"
+        elif os.path.exists("app/DeepPostures_MAE/MSSE-2021-pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"):
+            transfer_learning_model_path = "app/DeepPostures_MAE/MSSE-2021-pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"
+        else:
+            raise FileNotFoundError("CHAP_ALL_ADULTS.pth not found in any known location.")
 
-    load_model_weights(model, transfer_learning_model_path, weights_only=False)
+        load_model_weights(model, transfer_learning_model_path, weights_only=False)
     #######################
 
     print("Model = %s" % str(model))
@@ -435,6 +439,9 @@ torchrun --nproc_per_node=4  -m main_linprobe_long \
 torchrun --nproc_per_node=4  -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_pt/W" \
---remark CHAP
+--remark CHAP_Debug \
+--lr 1e-4 \
+--CHAP 1
+
 
 '''
