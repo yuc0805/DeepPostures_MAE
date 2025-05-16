@@ -39,7 +39,7 @@ from engine_finetune_long import train_one_epoch, evaluate
 
 import pickle
 import sys
-sys.path.append('/DeepPostures_MAE/MSSE-2021-pt')
+sys.path.append('/app/DeepPostures_MAE/MSSE-2021-pt')
 from commons import get_dataloaders_dist,data_aug
 import random
 from einops import rearrange
