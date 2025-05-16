@@ -124,7 +124,7 @@ def evaluate(args,data_loader, model, device):
     # switch to evaluation mode
     model.eval()
 
-    confmat_metric = ConfusionMatrix(num_classes=args.nb_classes).to(device)
+    confmat_metric = ConfusionMatrix(task="multiclass", num_classes=args.nb_classes).to(device)
     recall_metric = MulticlassRecall(args.nb_classes,
                             average='weighted',
                             zero_division=0).to(device)

@@ -22,7 +22,8 @@ import torch.backends.cudnn as cudnn
 import wandb
 from util.datasets import iWatch_HDf5, data_aug,collate_fn
 import timm
-
+import seaborn as sns
+import matplotlib.pyplot as plt
 from timm.models.layers import trunc_normal_
 # from timm.data.mixup import Mixup
 # from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
@@ -330,8 +331,13 @@ def main(args):
 
 
         if log_writer is not None:
-            confmat_metric = test_stats['confmat']
-            fig, ax = confmat_metric.plot()
+            confmat = test_stats['confmat']
+            confmat = confmat.cpu().numpy()
+            fig, ax = plt.subplots(figsize=(8, 6))
+            sns.heatmap(confmat, annot=True, fmt='d', cmap='Blues', cbar=False, ax=ax,xticklabels=['sitting','non-sitting'], yticklabels=['sitting','non-sitting'])
+            ax.set_xlabel('Predicted')
+            ax.set_ylabel('True')
+            ax.set_title('Confusion Matrix')
             log_writer.log({'perf/test_acc1': test_stats['acc1'], 
                             'perf/bal_acc': test_stats['bal_acc'],
                             'perf/f1': test_stats['f1'],
@@ -339,14 +345,14 @@ def main(args):
                             'perf/confmat': wandb.Image(fig), 
                             'epoch': epoch})
 
-        log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
-                     **{f'test_{k}': v for k, v in test_stats.items()},
-                     'epoch': epoch,
-                     'n_parameters': n_parameters}
+        # log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
+        #              **{f'test_{k}': v for k, v in test_stats.items()},
+        #              'epoch': epoch,
+        #              'n_parameters': n_parameters}
 
-        if args.output_dir and misc.is_main_process():
-            with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
-                f.write(json.dumps(log_stats) + "\n")
+        # if args.output_dir and misc.is_main_process():
+        #     with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
+        #         f.write(json.dumps(log_stats) + "\n")
 
     if log_writer is not None:
         log_writer.log({f"best_epoch_{k}": v for k, v in best_metric.items()})
@@ -390,7 +396,7 @@ torchrun --nproc_per_node=4  -m main_finetune \
 --ds_name iwatch \
 --finetune "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Hipps_5_mask_0.75_bs_256_blr_None_epoch_100/2025-04-23_20-41/checkpoint-20.pth" \
 --data_path "/niddk-data-central/iWatch/pre_processed_seg/H" \
---remark Hip_20epoch
+--remark Debug
 
 
 torchrun --nproc_per_node=4  -m main_finetune \

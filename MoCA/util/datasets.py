@@ -100,7 +100,7 @@ class iWatch_HDf5(Dataset):
         if self.subset is not None:
             return self.subset
         
-        return 4000 #len(self.x_data)
+        return len(self.x_data)
 
     def __getitem__(self, idx):
         self._ensure_open()                     # open once per worker
