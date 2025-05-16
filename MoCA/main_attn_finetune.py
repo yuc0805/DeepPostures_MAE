@@ -203,8 +203,8 @@ def main(args):
         with open("/niddk-data-central/iWatch/support_files/iwatch_split_dict.pkl", "rb") as f:
             split_data = pickle.load(f)
 
-        train_subjects = split_data["train"][:2]
-        valid_subjects = split_data["val"][:2]
+        train_subjects = split_data["train"]
+        valid_subjects = split_data["val"]
         
 
         random.shuffle(train_subjects)
