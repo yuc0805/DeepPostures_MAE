@@ -18,7 +18,7 @@ import torch
 from timm.data import Mixup
 from timm.utils import accuracy
 from torchmetrics.classification import MulticlassRecall, MulticlassSpecificity,MulticlassF1Score
-
+from torchmetrics import ConfusionMatrix
 import util.misc as misc
 from einops import rearrange
 # import util.lr_sched as lr_sched
@@ -127,7 +127,7 @@ def evaluate(args,data_loader, model, device):
 
     # switch to evaluation mode
     model.eval()
-
+    confmat_metric = ConfusionMatrix(task="multiclass", num_classes=args.nb_classes).to(device)
     recall_metric = MulticlassRecall(args.nb_classes,
                             average='weighted',
                             zero_division=0).to(device)
@@ -157,6 +157,7 @@ def evaluate(args,data_loader, model, device):
         recall_metric.update(preds, target)
         specificity_metric.update(preds, target)
         f1_metric.update(preds, target)
+        confmat_metric.update(preds, target)
 
         batch_size = samples.shape[0]
         metric_logger.update(loss=loss.item())
@@ -168,6 +169,7 @@ def evaluate(args,data_loader, model, device):
     # Compute metrics
     recall_tm = recall_metric.compute().item()
     specificity_tm = specificity_metric.compute().item()
+    confmat = confmat_metric.compute()
     bal_acc = 100 * (recall_tm + specificity_tm) / 2
     f1 = 100 * f1_metric.compute().item()
 
@@ -177,6 +179,7 @@ def evaluate(args,data_loader, model, device):
     eval_stats = {k: meter.global_avg for k, meter in metric_logger.meters.items()}
     eval_stats['f1']=f1
     eval_stats['bal_acc']=bal_acc
+    eval_stats['confmat']=confmat
 
     return eval_stats
 
