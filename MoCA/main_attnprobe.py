@@ -23,7 +23,7 @@ import torch.nn as nn
 import wandb
 from timm.scheduler.cosine_lr import CosineLRScheduler
 import timm
-from config import ATTN_DATASET_CONFIG
+from config import ATTN_LP_DATASET_CONFIG
 import util.misc as misc
 from util.misc import NativeScalerWithGradNormCount as NativeScaler
 from timm.optim import create_optimizer_v2
@@ -356,13 +356,13 @@ def main(args):
             ax.set_xlabel('Predicted')
             ax.set_ylabel('True')
             ax.set_title('Confusion Matrix')
-
             log_writer.log({'perf/test_acc1': test_stats['acc1'], 
                             'perf/bal_acc': test_stats['bal_acc'],
                             'perf/f1': test_stats['f1'],
-                            'perf/test_loss': test_stats['loss'], 
+                            'perf/test_loss': test_stats['loss'],
+                            'perf/confmat': wandb.Image(fig), 
                             'epoch': epoch})
-
+            
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
                      **{f'test_{k}': v for k, v in test_stats.items()},
                      'epoch': epoch,
@@ -388,12 +388,12 @@ if __name__ == '__main__':
     initial_timestamp = datetime.datetime.now()
     
 
-    args.in_chans = ATTN_DATASET_CONFIG[args.ds_name]['in_chans']
-    args.nb_classes = ATTN_DATASET_CONFIG[args.ds_name]['nb_classes']
-    args.blr = ATTN_DATASET_CONFIG[args.ds_name]["blr"]
-    args.batch_size = ATTN_DATASET_CONFIG[args.ds_name]["bs"]
-    args.input_size = ATTN_DATASET_CONFIG[args.ds_name]["input_size"]
-    args.weight_decay = ATTN_DATASET_CONFIG[args.ds_name]["weight_decay"]
+    args.in_chans = ATTN_LP_DATASET_CONFIG[args.ds_name]['in_chans']
+    args.nb_classes = ATTN_LP_DATASET_CONFIG[args.ds_name]['nb_classes']
+    args.blr = ATTN_LP_DATASET_CONFIG[args.ds_name]["blr"]
+    args.batch_size = ATTN_LP_DATASET_CONFIG[args.ds_name]["bs"]
+    args.input_size = ATTN_LP_DATASET_CONFIG[args.ds_name]["input_size"]
+    args.weight_decay = ATTN_LP_DATASET_CONFIG[args.ds_name]["weight_decay"]
     args.remark = args.remark + f'LP_blr_{args.blr}_bs_{args.batch_size}_input_size_{args.input_size}'
     print(f'Start Training: {args.remark}')
     
