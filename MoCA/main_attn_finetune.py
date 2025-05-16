@@ -23,7 +23,7 @@ import torch.nn as nn
 import wandb
 from timm.scheduler.cosine_lr import CosineLRScheduler
 import timm
-from config import FT_DATASET_CONFIG
+from config import ATTN_FT_DATASET_CONFIG
 import matplotlib.pyplot as plt
 import seaborn as sns
 import util.misc as misc
@@ -369,14 +369,14 @@ def main(args):
                             'perf/confmat': wandb.Image(fig), 
                             'epoch': epoch})
 
-        log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
-                     **{f'test_{k}': v for k, v in test_stats.items()},
-                     'epoch': epoch,
-                     'n_parameters': n_parameters}
+        # log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
+        #              **{f'test_{k}': v for k, v in test_stats.items()},
+        #              'epoch': epoch,
+        #              'n_parameters': n_parameters}
 
-        if args.output_dir and misc.is_main_process():
-            with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
-                f.write(json.dumps(log_stats) + "\n")
+        # if args.output_dir and misc.is_main_process():
+        #     with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
+        #         f.write(json.dumps(log_stats) + "\n")
     if log_writer is not None:
         log_writer.log({f"best_epoch_{k}": v for k, v in best_metric.items()})
 
@@ -394,12 +394,12 @@ if __name__ == '__main__':
     initial_timestamp = datetime.datetime.now()
     
 
-    args.in_chans = FT_DATASET_CONFIG[args.ds_name]['in_chans']
-    args.nb_classes = FT_DATASET_CONFIG[args.ds_name]['nb_classes']
-    args.blr = FT_DATASET_CONFIG[args.ds_name]["blr"]
-    args.batch_size = FT_DATASET_CONFIG[args.ds_name]["bs"]
-    args.input_size = FT_DATASET_CONFIG[args.ds_name]["input_size"]
-    args.weight_decay = FT_DATASET_CONFIG[args.ds_name]["weight_decay"]
+    args.in_chans = ATTN_FT_DATASET_CONFIG[args.ds_name]['in_chans']
+    args.nb_classes = ATTN_FT_DATASET_CONFIG[args.ds_name]['nb_classes']
+    args.blr = ATTN_FT_DATASET_CONFIG[args.ds_name]["blr"]
+    args.batch_size = ATTN_FT_DATASET_CONFIG[args.ds_name]["bs"]
+    args.input_size = ATTN_FT_DATASET_CONFIG[args.ds_name]["input_size"]
+    args.weight_decay = ATTN_FT_DATASET_CONFIG[args.ds_name]["weight_decay"]
     args.remark = args.remark + f'LP_blr_{args.blr}_bs_{args.batch_size}_input_size_{args.input_size}'
     print(f'Start Training: {args.remark}')
     
