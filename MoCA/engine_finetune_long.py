@@ -21,6 +21,8 @@ from torchmetrics.classification import MulticlassRecall, MulticlassSpecificity,
 from torchmetrics import ConfusionMatrix
 import util.misc as misc
 from einops import rearrange
+
+from sklearn.metrics import confusion_matrix
 # import util.lr_sched as lr_sched
 
 
@@ -51,21 +53,43 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
 
         samples = samples.float().to(device, non_blocking=True) # BS, 42, 100, 3
         targets = targets.to(device, non_blocking=True) # BS,42
+        batch_size = targets.shape[0] 
+        if True: #CHAP
+            criterion = torch.nn.BCEWithLogitsLoss()
+            samples = rearrange(samples, 'b w l c -> (b w) 1 l c ')
+            outputs = model(samples) # (BS, W)
+            outputs = outputs.view(-1)
+            targets = targets.view(-1)
 
-        with torch.cuda.amp.autocast(enabled=False):
-            outputs = model(samples) # BS,42,2
+            targets_one_hot = torch.nn.functional.one_hot(
+                targets.long(), num_classes=args.nb_classes
+            )
+            targets = targets_one_hot.view(-1, args.nb_classes)
+            targets = torch.argmax(targets, dim=1).to(torch.float32)
+            # Calulate accuracy
+            preds = torch.round(torch.sigmoid(outputs))
+            acc1 = (preds == targets).float().mean()
 
-            outputs = outputs.view(-1, outputs.size(-1))  # (BS * 42, 2)
-            targets = targets.view(-1)  
-
+            targets = targets.view(batch_size, -1)
+            outputs = outputs.view(batch_size, -1)
             loss = criterion(outputs, targets)
 
-        loss_value = loss.item()
+            loss_value = loss.item()
+        else:
+            with torch.cuda.amp.autocast(enabled=False):
+                outputs = model(samples) # BS,42,2
 
-        acc1, _ = accuracy(outputs, targets, topk=(1, 3))
-        batch_size = samples.shape[0]
-    
-        metric_logger.meters['train_acc1'].update(acc1.item(), n=batch_size)
+                outputs = outputs.view(-1, outputs.size(-1))  # (BS * 42, 2)
+                targets = targets.view(-1)  
+
+                loss = criterion(outputs, targets)
+
+            loss_value = loss.item()
+
+            acc1, _ = accuracy(outputs, targets, topk=(1, 3))
+            batch_size = samples.shape[0]
+        
+            metric_logger.meters['train_acc1'].update(acc1.item(), n=batch_size)
 
         if not math.isfinite(loss_value):
             print("Loss is {}, stopping training".format(loss_value))
@@ -142,18 +166,39 @@ def evaluate(args,data_loader, model, device):
     for samples,target in data_loader:
         samples = samples.float().to(device, non_blocking=True)
         target = target.to(device, non_blocking=True)
+        batch_size = target.shape[0]
+        if True: #CHAP
+            criterion = torch.nn.BCEWithLogitsLoss()
+            samples = rearrange(samples, 'b w l c -> (b w) 1 l c ')
+            outputs = model(samples) # (BS, W)
+            outputs = outputs.view(-1)
+            target = target.view(-1)
 
+            target_one_hot = torch.nn.functional.one_hot(
+                target.long(), num_classes=args.nb_classes
+            )
+            target = target_one_hot.view(-1, args.nb_classes)
+            target = torch.argmax(target, dim=1).to(torch.float32)
+            # Calulate accuracy
+            preds = torch.round(torch.sigmoid(outputs))
+            acc1 = (preds == target).float().mean()
+
+            loss = criterion(outputs.view(batch_size, -1), target.view(batch_size, -1))
+
+
+        else:
         # compute output
-        output = model(samples)
+            output = model(samples)
 
-        output = output.view(-1, output.size(-1))  # (BS * 42, 2)
-        target = target.view(-1) 
-        
-        loss = criterion(output, target)
+            output = output.view(-1, output.size(-1))  # (BS * 42, 2)
+            target = target.view(-1) 
+            
+            loss = criterion(output, target)
 
-        acc1, _ = accuracy(output, target, topk=(1, 2))     
+            acc1, _ = accuracy(output, target, topk=(1, 2))     
 
-        preds = output.argmax(dim=1)
+            preds = output.argmax(dim=1)
+
         recall_metric.update(preds, target)
         specificity_metric.update(preds, target)
         f1_metric.update(preds, target)
