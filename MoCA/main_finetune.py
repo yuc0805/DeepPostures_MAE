@@ -396,7 +396,7 @@ torchrun --nproc_per_node=4  -m main_finetune \
 --ds_name iwatch \
 --finetune "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Hipps_5_mask_0.75_bs_256_blr_None_epoch_100/2025-04-23_20-41/checkpoint-20.pth" \
 --data_path "/niddk-data-central/iWatch/pre_processed_seg/H" \
---remark Debug
+--remark Hip_20epoch
 
 
 torchrun --nproc_per_node=4  -m main_finetune \
@@ -404,6 +404,21 @@ torchrun --nproc_per_node=4  -m main_finetune \
 --finetune "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Wristps_5_mask_0.75_bs_256_blr_None_epoch_100/2025-04-25_04-07/checkpoint-20.pth" \
 --data_path "/niddk-data-central/iWatch/pre_processed_seg/W" \
 --remark Wrist_20epoch 
+
+
+###
+
+torchrun --nproc_per_node=4  -m main_finetune \
+--ds_name iwatch \
+--finetune "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Hipps_5_mask_0.75_bs_512_blr_None_epoch_50/2025-05-05_01-23/checkpoint-49.pth"  \
+--data_path "/niddk-data-central/iWatch/pre_processed_seg/H" \
+--remark Hip_50epoch
+
+torchrun --nproc_per_node=4  -m main_finetune \
+--ds_name iwatch \
+--finetune "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Wristps_5_mask_0.75_bs_512_blr_None_epoch_50/2025-05-05_01-30/checkpoint-49.pth"  \
+--data_path "/niddk-data-central/iWatch/pre_processed_seg/W" \
+--remark Wrist_50epoch
 
 
 '''
