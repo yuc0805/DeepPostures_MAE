@@ -185,8 +185,8 @@ def main(args):
         with open("/niddk-data-central/iWatch/support_files/iwatch_split_dict.pkl", "rb") as f:
             split_data = pickle.load(f)
 
-        train_subjects = split_data["train"][:2]
-        valid_subjects = split_data["val"][:2]
+        train_subjects = split_data["train"]
+        valid_subjects = split_data["val"]
         
 
         random.shuffle(train_subjects)
@@ -425,6 +425,6 @@ torchrun --nproc_per_node=4  -m main_linprobe_long \
 torchrun --nproc_per_node=4  -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_pt/W" \
---remark CHAP_debug
+--remark CHAP
 
 '''
