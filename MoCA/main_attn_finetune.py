@@ -415,11 +415,19 @@ if __name__ == '__main__':
 
 '''
 
-torchrun --nproc_per_node=4  -m main_finetune_long \
+torchrun --nproc_per_node=4  -m main_attn_finetune \
 --ds_name iwatch \
 --checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Wristps_5_mask_0.75_bs_256_blr_None_epoch_100/2025-04-25_04-07/checkpoint-20.pth" \
 --data_path "/niddk-data-central/iWatch/pre_processed_pt/W" \
 --remark Wrist_20epoch \
 --num_attn_layer 2
+
+torchrun --nproc_per_node=4  -m main_attn_finetune \
+--ds_name iwatch \
+--checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Wristps_5_mask_0.75_bs_256_blr_None_epoch_100/2025-04-25_04-07/checkpoint-20.pth" \
+--data_path "/niddk-data-central/iWatch/pre_processed_pt/W" \
+--remark Debug \
+--num_attn_layer 2 \
+--epochs 2
 
 '''
