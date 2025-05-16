@@ -32,7 +32,7 @@ from timm.optim import create_optimizer_v2
 from util.pos_embed import interpolate_pos_embed
 import util.lr_decay as lrd  # for optimizer
 import models_vit
-
+from models_mae import AttentionProbeModel
 from engine_finetune_long import train_one_epoch, evaluate
 import sys
 if os.path.exists('/DeepPostures_MAE/MSSE-2021-pt'):
@@ -140,43 +140,6 @@ def get_args_parser():
 
     return parser    
 
-class AttentionProbeModel(nn.Module):
-    def __init__(self, base_model, window_size=42,num_classes=2,num_layer=1,
-                 hidden_dim=256):
-        super(AttentionProbeModel, self).__init__()
-        self.base_model = base_model
-        self.base_model.head = nn.Identity()  # Remove the original head
-        self.window_size = window_size
-        self.proj = nn.Linear(self.base_model.embed_dim, hidden_dim)
-        encoder_layer = nn.TransformerEncoderLayer(
-            d_model=hidden_dim,
-            nhead=8,
-            dim_feedforward=hidden_dim*2,
-            batch_first=True
-        )
-        self.attn = nn.TransformerEncoder(encoder_layer, num_layers=num_layer)
-        if num_classes == 2:
-            self.head = nn.Linear(hidden_dim, 1)    
-        else:
-            self.head = nn.Linear(hidden_dim, num_classes)
-
-    def forward(self, x):
-        '''
-        input: x [BS, 42, 100, 3]
-        '''
-        
-        # get feature for each window
-        x = rearrange(x, 'b w l c -> (b w) c l') # BS*42, 3,100
-        x = x.unsqueeze(1)  # BS*42, 1, 3, 100
-        
-        x = self.base_model(x) # BS*42, 768
-
-        x = rearrange(x, '(b w) c -> b w c', b=x.shape[0]//self.window_size, w=self.window_size) # BS, 42, 768
-        x = self.proj(x) # BS, 42, 256
-        x = self.attn(x) # BS, 42, 256
-        x = self.head(x) # BS, 42, num_classes
-
-        return x
 
 def main(args):
     

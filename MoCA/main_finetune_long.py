@@ -315,12 +315,12 @@ def main(args):
         criterion = torch.nn.BCEWithLogitsLoss()
     else:
         criterion = torch.nn.CrossEntropyLoss()
-    # scheduler = CosineLRScheduler(
-    # optimizer,
-    # t_initial=args.epochs,
-    # warmup_t=args.warmup_epochs,
-    # warmup_lr_init=args.min_lr,
-    # t_in_epochs=True)
+        # scheduler = CosineLRScheduler(
+        # optimizer,
+        # t_initial=args.epochs,
+        # warmup_t=args.warmup_epochs,
+        # warmup_lr_init=args.min_lr,
+        # t_in_epochs=True)
 
     print("criterion = %s" % str(criterion))
 
