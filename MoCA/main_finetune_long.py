@@ -301,12 +301,12 @@ def main(args):
     loss_scaler = NativeScaler()
 
     criterion = torch.nn.CrossEntropyLoss()
-    scheduler = CosineLRScheduler(
-    optimizer,
-    t_initial=args.epochs,
-    warmup_t=args.warmup_epochs,
-    warmup_lr_init=args.min_lr,
-    t_in_epochs=True)
+    # scheduler = CosineLRScheduler(
+    # optimizer,
+    # t_initial=args.epochs,
+    # warmup_t=args.warmup_epochs,
+    # warmup_lr_init=args.min_lr,
+    # t_in_epochs=True)
 
     print("criterion = %s" % str(criterion))
 
@@ -332,7 +332,7 @@ def main(args):
         test_stats = evaluate(args,data_loader_val, model, device)
         print(f"Balanced Accuracy of the network on test images: {test_stats['bal_acc']:.5f} and F1 score of {test_stats['f1']:.5f}%")
 
-        scheduler.step(epoch)
+        #scheduler.step(epoch)
         # save the best epoch
         if max_accuracy < test_stats["bal_acc"]:
             max_accuracy = test_stats["bal_acc"]
