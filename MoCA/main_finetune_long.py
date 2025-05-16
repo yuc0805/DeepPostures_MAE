@@ -261,7 +261,14 @@ def main(args):
 
     # CHAP replicate #######
     model = CNNBiLSTMModel(2,42,2)
-    transfer_learning_model_path = "/DeepPostures_MAE/MSSE-2021-pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"
+    
+    if os.path.exists("/DeepPostures_MAE/MSSE-2021-pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"):
+        transfer_learning_model_path = "/DeepPostures_MAE/MSSE-2021-pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"
+    elif os.path.exists("app/DeepPostures_MAE/MSSE-2021-pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"):
+        transfer_learning_model_path = "app/DeepPostures_MAE/MSSE-2021-pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"
+    else:
+        raise FileNotFoundError("CHAP_ALL_ADULTS.pth not found in any known location.")
+
     load_model_weights(model, transfer_learning_model_path, weights_only=False)
     #######################
 
@@ -300,7 +307,10 @@ def main(args):
 
     loss_scaler = NativeScaler()
 
-    criterion = torch.nn.CrossEntropyLoss()
+    if args.nb_classes == 2:
+        criterion = torch.nn.BCEWithLogitsLoss()
+    else:
+        criterion = torch.nn.CrossEntropyLoss()
     # scheduler = CosineLRScheduler(
     # optimizer,
     # t_initial=args.epochs,

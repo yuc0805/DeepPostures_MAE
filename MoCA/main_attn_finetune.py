@@ -35,7 +35,12 @@ import models_vit
 
 from engine_finetune_long import train_one_epoch, evaluate
 import sys
-sys.path.append('/app/DeepPostures_MAE/MSSE-2021-pt')
+if os.path.exists('/DeepPostures_MAE/MSSE-2021-pt'):
+    sys.path.append('/DeepPostures_MAE/MSSE-2021-pt')
+elif os.path.exists('app/DeepPostures_MAE/MSSE-2021-pt'):
+    sys.path.append('app/DeepPostures_MAE/MSSE-2021-pt')
+else:
+    raise FileNotFoundError("MSSE-2021-pt directory not found.")
 from commons import get_dataloaders_dist,data_aug
 import random
 from einops import rearrange
@@ -149,7 +154,10 @@ class AttentionProbeModel(nn.Module):
             batch_first=True
         )
         self.attn = nn.TransformerEncoder(encoder_layer, num_layers=num_layer)
-        self.head = nn.Linear(hidden_dim, num_classes)
+        if num_classes == 2:
+            self.head = nn.Linear(hidden_dim, 1)    
+        else:
+            self.head = nn.Linear(hidden_dim, num_classes)
 
     def forward(self, x):
         '''
@@ -195,8 +203,8 @@ def main(args):
         with open("/niddk-data-central/iWatch/support_files/iwatch_split_dict.pkl", "rb") as f:
             split_data = pickle.load(f)
 
-        train_subjects = split_data["train"]
-        valid_subjects = split_data["val"]
+        train_subjects = split_data["train"][:2]
+        valid_subjects = split_data["val"][:2]
         
 
         random.shuffle(train_subjects)
@@ -304,7 +312,10 @@ def main(args):
 
     loss_scaler = NativeScaler()
 
-    criterion = torch.nn.CrossEntropyLoss()
+    if args.nb_classes == 2:
+        criterion = torch.nn.BCEWithLogitsLoss()
+    else:
+        criterion = torch.nn.CrossEntropyLoss()
 
     scheduler = CosineLRScheduler(
     optimizer,
