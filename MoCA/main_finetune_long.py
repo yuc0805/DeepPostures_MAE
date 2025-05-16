@@ -209,7 +209,7 @@ def main(args):
     if args.log_dir is not None and not args.eval and global_rank == 0:  
         wandb.login(key='32b6f9d5c415964d38bfbe33c6d5c407f7c19743')
         log_writer = wandb.init(
-            project='MoCA-Long-iWatch-LP',  # Specify your project
+            project='MoCA-Long-iWatch-FT',  # Specify your project
             config= vars(args),
             dir=args.log_dir,
             name=args.remark,)
