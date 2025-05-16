@@ -330,10 +330,13 @@ def main(args):
 
 
         if log_writer is not None:
+            confmat_metric = test_stats['confmat']
+            fig, ax = confmat_metric.plot()
             log_writer.log({'perf/test_acc1': test_stats['acc1'], 
                             'perf/bal_acc': test_stats['bal_acc'],
                             'perf/f1': test_stats['f1'],
-                            'perf/test_loss': test_stats['loss'], 
+                            'perf/test_loss': test_stats['loss'],
+                            'perf/confmat': wandb.Image(fig), 
                             'epoch': epoch})
 
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
