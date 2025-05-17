@@ -34,7 +34,7 @@ from timm.optim import create_optimizer_v2
 from util.pos_embed import interpolate_pos_embed
 import util.lr_decay as lrd  # for optimizer
 import models_vit
-
+from models_mae import LinearProbeModel
 from engine_finetune_long import train_one_epoch, evaluate
 
 import pickle
@@ -135,30 +135,6 @@ def get_args_parser():
     return parser    
 
 
-class LinearProbeModel(nn.Module):
-    def __init__(self, backbone, num_classes=2):
-        super(LinearProbeModel, self).__init__()
-        # make sure head is clean
-        num_feats = backbone.head.in_features 
-        backbone.head = nn.Identity()
-        self.backbone = backbone
-
-        self.head = nn.Linear(num_feats, num_classes)
-
-    def forward(self, x):
-        '''
-        input: x: (BS, 42,100,3)
-        '''
-        x = rearrange(x, 'b w l c -> b c (w l)') # BS, 3, 4200
-        x = x.unsqueeze(1)  # BS, 1, 3, 4200
-        b,_,c,_ = x.shape
-        x = self.backbone.forward_features(x) # BS, nvar*42, 768
-        x = rearrange(x, 'b (c w) d -> b w c d',c=c) # BS, 42, nvar,768
-        x = x.mean(dim=2) # BS, 42, 768
-        
-        x = self.head(x) # BS, 42, 2
-
-        return x
 
 def main(args):
     
@@ -220,48 +196,6 @@ def main(args):
     else:
         log_writer = None
 
-
-    # backbone = models_vit.__dict__[args.model](
-    #         img_size=args.input_size, patch_size=[1, int(args.patch_size)], 
-    #         num_classes=args.nb_classes, in_chans=1, 
-    #         global_pool=False,use_cls=False)
-
-    # # # load weight
-    # if not args.eval:
-    #     print('Loading pre-trained checkpoint from',args.checkpoint)
-    #     checkpoint = torch.load(args.checkpoint,map_location='cpu')
-    #     checkpoint_model = checkpoint['model']
-    #     interpolate_pos_embed(backbone, checkpoint_model,orig_size=(3,42),
-    #                           new_size=(args.input_size[0],int(args.input_size[1]//args.patch_size)))
-        
-
-    #     #print(checkpoint_model.keys())
-    #     decoder_keys = [k for k in checkpoint_model.keys() if 'decoder' in k]
-    #     for key in decoder_keys:
-    #         del checkpoint_model[key]
-
-    #     print('shape after interpolate:',checkpoint_model['pos_embed'].shape)
-    #     msg = backbone.load_state_dict(checkpoint_model, strict=False)
-    #     print(msg)
-    # else:
-    #     checkpoint = torch.load(args.eval,map_location='cpu')
-    #     checkpoint_model = checkpoint['model']
-    #     print(checkpoint['args'])
-    #     msg = backbone.load_state_dict(checkpoint_model, strict=True)
-    #     backbone.to(device)
-    #     test_stats = evaluate(args,data_loader_val, backbone, device)
-    #     print(f"Balanced Accuracy of the network on the {len(dataset_val)} test images: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
-    #     exit(0)
-
-    # model = LinearProbeModel(backbone, num_classes=args.nb_classes)
-    # #freeze weight
-    # # model.head = torch.nn.Sequential(torch.nn.BatchNorm1d(model.head.in_features, affine=False, eps=1e-6), model.head)
-
-    # for _, p in model.named_parameters():
-    #     p.requires_grad = False
-    # for _, p in model.head.named_parameters():
-    #     p.requires_grad = True
-
     # CHAP replicate #######
     if args.CHAP:
         model = CNNBiLSTMModel(2,42,2)
@@ -275,6 +209,40 @@ def main(args):
 
         load_model_weights(model, transfer_learning_model_path, weights_only=False)
     #######################
+    else:
+        backbone = models_vit.__dict__[args.model](
+        img_size=args.input_size, patch_size=[1, int(args.patch_size)], 
+        num_classes=args.nb_classes, in_chans=1, 
+        global_pool=False,use_cls=False)
+
+        # # load weight
+        if not args.eval:
+            print('Loading pre-trained checkpoint from',args.checkpoint)
+            checkpoint = torch.load(args.checkpoint,map_location='cpu')
+            checkpoint_model = checkpoint['model']
+            interpolate_pos_embed(backbone, checkpoint_model,orig_size=(3,42),
+                                new_size=(args.input_size[0],int(args.input_size[1]//args.patch_size)))
+            
+
+            #print(checkpoint_model.keys())
+            decoder_keys = [k for k in checkpoint_model.keys() if 'decoder' in k]
+            for key in decoder_keys:
+                del checkpoint_model[key]
+
+            print('shape after interpolate:',checkpoint_model['pos_embed'].shape)
+            msg = backbone.load_state_dict(checkpoint_model, strict=False)
+            print(msg)
+        else:
+            checkpoint = torch.load(args.eval,map_location='cpu')
+            checkpoint_model = checkpoint['model']
+            print(checkpoint['args'])
+            msg = backbone.load_state_dict(checkpoint_model, strict=True)
+            backbone.to(device)
+            test_stats = evaluate(args,data_loader_val, backbone, device)
+            print(f"Balanced Accuracy of the network: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
+            exit(0)
+
+    model = LinearProbeModel(backbone, num_classes=args.nb_classes)
 
     print("Model = %s" % str(model))
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -315,12 +283,16 @@ def main(args):
         criterion = torch.nn.BCEWithLogitsLoss()
     else:
         criterion = torch.nn.CrossEntropyLoss()
-        # scheduler = CosineLRScheduler(
-        # optimizer,
-        # t_initial=args.epochs,
-        # warmup_t=args.warmup_epochs,
-        # warmup_lr_init=args.min_lr,
-        # t_in_epochs=True)
+    
+    if not args.CHAP:
+        scheduler = CosineLRScheduler(
+        optimizer,
+        t_initial=args.epochs,
+        warmup_t=args.warmup_epochs,
+        warmup_lr_init=args.min_lr,
+        t_in_epochs=True)
+    else:
+        scheduler = None
 
     print("criterion = %s" % str(criterion))
 
@@ -346,7 +318,8 @@ def main(args):
         test_stats = evaluate(args,data_loader_val, model, device)
         print(f"Balanced Accuracy of the network on test images: {test_stats['bal_acc']:.5f} and F1 score of {test_stats['f1']:.5f}%")
 
-        #scheduler.step(epoch)
+        if scheduler is not None:
+            scheduler.step(epoch)
         # save the best epoch
         if max_accuracy < test_stats["bal_acc"]:
             max_accuracy = test_stats["bal_acc"]

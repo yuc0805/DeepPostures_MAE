@@ -495,6 +495,33 @@ class AttentionProbeModel(nn.Module):
 
         return x
 
+class LinearProbeModel(nn.Module):
+    def __init__(self, backbone, num_classes=2):
+        super(LinearProbeModel, self).__init__()
+        # make sure head is clean
+        num_feats = backbone.head.in_features 
+        backbone.head = nn.Identity()
+        self.backbone = backbone
+        if num_classes == 2:
+            self.head = nn.Linear(num_feats, 1)
+        else:
+            self.head = nn.Linear(num_feats, num_classes)
+
+    def forward(self, x):
+        '''
+        input: x: (BS, 42,100,3)
+        '''
+        x = rearrange(x, 'b w l c -> b c (w l)') # BS, 3, 4200
+        x = x.unsqueeze(1)  # BS, 1, 3, 4200
+        b,_,c,_ = x.shape
+        x = self.backbone.forward_features(x) # BS, nvar*42, 768
+        x = rearrange(x, 'b (c w) d -> b w c d',c=c) # BS, 42, nvar,768
+        x = x.mean(dim=2) # BS, 42, 768
+        
+        x = self.head(x) # BS, 42, 
+
+        return x
+    
 
 if __name__ == "__main__":
     model = MaskedAutoencoderViT().to('cuda')

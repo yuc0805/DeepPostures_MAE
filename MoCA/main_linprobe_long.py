@@ -34,7 +34,7 @@ from timm.optim import create_optimizer_v2
 from util.pos_embed import interpolate_pos_embed
 import util.lr_decay as lrd  # for optimizer
 import models_vit
-
+from models_mae import LinearProbeModel
 from engine_finetune_long import train_one_epoch, evaluate
 
 import pickle
@@ -134,30 +134,7 @@ def get_args_parser():
     return parser    
 
 
-class LinearProbeModel(nn.Module):
-    def __init__(self, backbone, num_classes=2):
-        super(LinearProbeModel, self).__init__()
-        # make sure head is clean
-        num_feats = backbone.head.in_features 
-        backbone.head = nn.Identity()
-        self.backbone = backbone
 
-        self.head = nn.Linear(num_feats, num_classes)
-
-    def forward(self, x):
-        '''
-        input: x: (BS, 42,100,3)
-        '''
-        x = rearrange(x, 'b w l c -> b c (w l)') # BS, 3, 4200
-        x = x.unsqueeze(1)  # BS, 1, 3, 4200
-        b,_,c,_ = x.shape
-        x = self.backbone.forward_features(x) # BS, nvar*42, 768
-        x = rearrange(x, 'b (c w) d -> b w c d',c=c) # BS, 42, nvar,768
-        x = x.mean(dim=2) # BS, 42, 768
-        
-        x = self.head(x) # BS, 42, 2
-
-        return x
 
 def main(args):
     
@@ -253,9 +230,6 @@ def main(args):
         exit(0)
 
     model = LinearProbeModel(backbone, num_classes=args.nb_classes)
-    #freeze weight
-    # model.head = torch.nn.Sequential(torch.nn.BatchNorm1d(model.head.in_features, affine=False, eps=1e-6), model.head)
-
     for _, p in model.named_parameters():
         p.requires_grad = False
     for _, p in model.head.named_parameters():
@@ -296,7 +270,10 @@ def main(args):
 
     loss_scaler = NativeScaler()
 
-    criterion = torch.nn.CrossEntropyLoss()
+    if args.nb_classes == 2:
+        criterion = torch.nn.BCEWithLogitsLoss()
+    else:
+        criterion = torch.nn.CrossEntropyLoss()
     scheduler = CosineLRScheduler(
     optimizer,
     t_initial=args.epochs,
