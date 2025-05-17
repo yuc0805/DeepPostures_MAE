@@ -409,6 +409,11 @@ if __name__ == '__main__':
     args.batch_size = FT_LONG_DATASET_CONFIG[args.ds_name]["bs"]
     args.input_size = FT_LONG_DATASET_CONFIG[args.ds_name]["input_size"]
     args.weight_decay = FT_LONG_DATASET_CONFIG[args.ds_name]["weight_decay"]
+
+    if args.CHAP:
+        args.lr = 1e-4
+        args.batch_size = 4
+        args.weight_decay = 1e-4
     args.remark = args.remark + f'LP_blr_{args.blr}_bs_{args.batch_size}_input_size_{args.input_size}'
     print(f'Start Training: {args.remark}')
     
