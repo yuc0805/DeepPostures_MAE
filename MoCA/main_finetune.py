@@ -78,7 +78,8 @@ def get_args_parser():
 
     parser.add_argument('--warmup_epochs', type=int, default=2, metavar='N',
                         help='epochs to warmup LR')
-
+    parser.add_argument('--pos_weight', type=float, default=1.0,
+                        help='positive weight for BCE loss')
     # * Finetuning params
     parser.add_argument('--finetune', default='unsyncmask_checkpoint-200.pth',
                         help='finetune from checkpoint')
@@ -239,14 +240,20 @@ def main(args):
         else:
             assert set(msg.missing_keys) == {'head.weight', 'head.bias'}
 
-        # manually initialize fc layer
-        trunc_normal_(model.head.weight, std=2e-5)
+    if args.nb_classes == 2:
+        model.head = torch.nn.Linear(model.head.in_features, 1)
+        criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([args.pos_weight], dtype=torch.float32).to(device))
+    else:
+        model.head = torch.nn.Sequential(torch.nn.BatchNorm1d(model.head.in_features, affine=False, eps=1e-6), model.head)
+        criterion = torch.nn.CrossEntropyLoss()
+    
+    # manually initialize fc layer
+    trunc_normal_(model.head.weight, std=2e-5)
+
 
     model.to(device)
-
     model_without_ddp = model
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    
     print("Model = %s" % str(model_without_ddp))
     print('number of params (M): %.2f' % (n_parameters / 1.e6))
 
@@ -274,15 +281,6 @@ def main(args):
         betas=(0.9, 0.95),
         layer_decay=args.layer_decay,)
     loss_scaler = NativeScaler()
-
-    # if mixup_fn is not None:
-    #     # smoothing is handled with mixup label transform
-    #     criterion = SoftTargetCrossEntropy()
-    # elif args.smoothing > 0.:
-    #     criterion = LabelSmoothingCrossEntropy(smoothing=args.smoothing)
-    # else:
-    criterion = torch.nn.CrossEntropyLoss()
-    print("criterion = %s" % str(criterion))
 
     misc.load_model(args=args, model_without_ddp=model_without_ddp, optimizer=optimizer, loss_scaler=loss_scaler) 
 

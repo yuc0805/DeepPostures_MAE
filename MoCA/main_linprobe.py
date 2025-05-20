@@ -82,6 +82,8 @@ def get_args_parser():
     # * Finetuning params
     parser.add_argument('--checkpoint', default='/home/jovyan/persistent-data/MAE_Accelerometer/experiments/661169(p200_10_alt_0.0005)/checkpoint-3999.pth', 
                         type=str,help='model checkpoint for evaluation') 
+    parser.add_argument('--pos_weight', type=float, default=1.0,
+                        help='positive weight for BCE loss')
                         
 
     # Dataset parameters
@@ -247,7 +249,7 @@ def main(args):
     # hack, use only one logit for binary classification
     if args.nb_classes == 2:
         model.head = torch.nn.Sequential(torch.nn.BatchNorm1d(model.head.in_features, affine=False, eps=1e-6), torch.nn.Linear(model.head.in_features, 1))
-        criterion = torch.nn.BCEWithLogitsLoss()
+        criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([args.pos_weight], dtype=torch.float32).to(device))
     else:
         model.head = torch.nn.Sequential(torch.nn.BatchNorm1d(model.head.in_features, affine=False, eps=1e-6), model.head)
         criterion = torch.nn.CrossEntropyLoss()

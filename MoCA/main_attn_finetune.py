@@ -92,6 +92,8 @@ def get_args_parser():
 
     parser.add_argument('--warmup_epochs', type=int, default=2, metavar='N',
                         help='epochs to warmup LR')
+    parser.add_argument('--pos_weight', type=float, default=1.0, 
+                        help='positive weight for BCE loss')
     
 
     # * Finetuning params
@@ -277,7 +279,7 @@ def main(args):
     loss_scaler = NativeScaler()
 
     if args.nb_classes == 2:
-        criterion = torch.nn.BCEWithLogitsLoss()
+        criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([args.pos_weight], dtype=torch.float32).to(device))
     else:
         criterion = torch.nn.CrossEntropyLoss()
 
