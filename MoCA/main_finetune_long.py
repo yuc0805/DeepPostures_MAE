@@ -168,8 +168,8 @@ def main(args):
         with open("/niddk-data-central/iWatch/support_files/iwatch_split_dict.pkl", "rb") as f:
             split_data = pickle.load(f)
 
-        train_subjects = split_data["train"][:2]
-        valid_subjects = split_data["val"][:2]
+        train_subjects = split_data["train"]
+        valid_subjects = split_data["val"]
         
 
         random.shuffle(train_subjects)
@@ -420,13 +420,14 @@ torchrun --nproc_per_node=4  -m main_finetune_long \
 --ds_name iwatch \
 --checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Hip-Longps_100_mask_0.75_bs_32_blr_None_epoch_50/2025-05-06_00-25/checkpoint-49.pth" \
 --data_path "/niddk-data-central/iWatch/pre_processed_pt/H" \
+--pos_weight 2.7953 \
 --remark Hip_Long_50epoch
 
 torchrun --nproc_per_node=4  -m main_finetune_long \
 --ds_name iwatch \
 --checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Wrist-Longps_100_mask_0.75_bs_32_blr_None_epoch_50/2025-05-06_00-22/checkpoint-49.pth" \
 --data_path "/niddk-data-central/iWatch/pre_processed_pt/W" \
---remark DEBUG_Wrist_Long_50epoch
+--remark Wrist_Long_50epoch
 
 torchrun --nproc_per_node=4  -m main_finetune_long \
 --ds_name iwatch \
