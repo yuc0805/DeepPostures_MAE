@@ -104,7 +104,7 @@ def plot_masked_series(mask, predict_series, target_series,
     mask_np   = mask.cpu().numpy().squeeze()
     pred_np   = predict_series.cpu().numpy().squeeze()
     target_np = target_series.cpu().numpy().squeeze()
-
+    nvar = target_np.shape[0]
     # replace infinities and NaNs
     pred_np   = np.nan_to_num(pred_np,
                               nan=0.0,
@@ -116,7 +116,7 @@ def plot_masked_series(mask, predict_series, target_series,
                               neginf=np.nanmin(target_np))
 
     # set up figure with extra height
-    fig, axs = plt.subplots(1, 3,
+    fig, axs = plt.subplots(1, nvar,
                             figsize=(15, 6),
                             sharey=True)
     fig.patch.set_facecolor('white')
@@ -129,7 +129,11 @@ def plot_masked_series(mask, predict_series, target_series,
                         wspace=0.3)
 
     if variate_labels is None:
-        variate_labels = ["Acc X", "Acc Y", "Acc Z"]
+        if nvar == 3:
+            variate_labels = ["Acc X", "Acc Y", "Acc Z"]
+        else:
+            variate_labels = ["Hip X", "Hip Y", "Hip Z", 
+                              "Wrist X", "Wrist Y", "Wrist Z", ]
 
     # shared y‑limits
     y_min = min(pred_np.min(), target_np.min())

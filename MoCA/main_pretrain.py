@@ -200,9 +200,10 @@ def main(args):
     # fix a sample for plot ###########
     if args.data_path == '/niddk-data-central/iWatch/pre_processed_seg/H':
         root = "/niddk-data-central/iWatch/pre_processed_seg/H/train.hdf5"
-    else:
+    elif args.data_path == '/niddk-data-central/iWatch/pre_processed_seg/W':
         root = "/niddk-data-central/iWatch/pre_processed_seg/W/train.hdf5"
-
+    else:
+        root = "/niddk-data-central/iWatch/pre_processed_seg/HW/10s_train.hdf5"
     with h5py.File(root, "r") as f:
         idx = 500674
         tmp_sample = f['x'][idx]  # (100, 3)
