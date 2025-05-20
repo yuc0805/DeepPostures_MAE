@@ -210,7 +210,6 @@ def main(args):
         idx = 3883
 
     with h5py.File(root, "r") as f:
-        
         tmp_sample = f['x'][idx]  # (100, 3)
         print('the index is', idx)  
         tmp_label = 'sitting' if f['y'][idx] == 0 else 'non-sitting' 
