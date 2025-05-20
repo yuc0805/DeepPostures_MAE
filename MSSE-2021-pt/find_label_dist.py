@@ -50,7 +50,9 @@ negative_count: 1276452
 pos_weight: tensor([2.7953])
 
 Wrist:
-
+positive_count: 467112
+negative_count: 1318728
+pos_weight: tensor([2.8232])
 
 
 
