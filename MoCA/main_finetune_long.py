@@ -82,6 +82,8 @@ def get_args_parser():
                         help='learning rate (absolute lr)')
     parser.add_argument('--blr', type=float, default=1e-2, metavar='LR',
                         help='base learning rate: absolute_lr = base_lr * total_batch_size / 256')
+    parser.add_argument('--layer_decay', type=float, default=0.75,
+                        help='layer-wise lr decay from ELECTRA/BEiT')
     parser.add_argument('--min_lr', type=float, default=1e-6, metavar='LR',
                         help='lower lr bound for cyclic schedulers that hit 0')
 
@@ -270,12 +272,22 @@ def main(args):
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
         model_without_ddp = model.module
 
-    optimizer = create_optimizer_v2(
+    if args.CHAP:
+        optimizer = create_optimizer_v2(
+            model_without_ddp,
+            opt='adamw',
+            lr=args.lr,
+            weight_decay=args.weight_decay,# default: 0 
+            betas=(0.9, 0.95))
+    else:
+        # add layer decay
+        optimizer = create_optimizer_v2(
         model_without_ddp,
         opt='adamw',
         lr=args.lr,
-        weight_decay=args.weight_decay,# default: 0 
-        betas=(0.9, 0.95))
+        weight_decay=args.weight_decay,
+        betas=(0.9, 0.95),
+        layer_decay=args.layer_decay,)
 
     loss_scaler = NativeScaler()
 
