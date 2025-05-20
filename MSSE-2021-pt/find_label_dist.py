@@ -27,8 +27,8 @@ for inputs, labels in data_loader_train:
     labels = labels.view(-1)
 
     # calculate the pos_weight
-    positive_count += (labels == 1).sum().item()
-    negative_count += (labels == 0).sum().item()
+    positive_count += (labels == 1).sum().item() # non-sitting
+    negative_count += (labels == 0).sum().item() # sitting, this dominates
 
 pos_weight = torch.tensor([negative_count / positive_count], dtype=torch.float32)
 print(f"positive_count: {positive_count}")
