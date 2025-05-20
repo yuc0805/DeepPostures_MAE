@@ -51,6 +51,9 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
 
         samples = samples.to(device, non_blocking=True)
         targets = targets.to(device, non_blocking=True)
+        if criterion.__class__.__name__ == 'BCEWithLogitsLoss':
+            targets = targets.float()
+
 
         with torch.cuda.amp.autocast(enabled=False):
             outputs = model(samples).squeeze() # bs x num_classes or (bs, )
@@ -120,7 +123,10 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
 
 @torch.no_grad()
 def evaluate(args,data_loader, model, device):
-    criterion = torch.nn.CrossEntropyLoss()
+    if args.nb_classes == 2:
+        criterion = torch.nn.BCEWithLogitsLoss()
+    else:
+        criterion = torch.nn.CrossEntropyLoss()
 
     metric_logger = misc.MetricLogger(delimiter="  ")
     header = 'Test:'
@@ -146,7 +152,12 @@ def evaluate(args,data_loader, model, device):
         images = images.to(device, non_blocking=True)
         target = target.to(device, non_blocking=True)
 
+        if criterion.__class__.__name__ == 'BCEWithLogitsLoss':
+            target = target.float()
+            
         output = model(images).squeeze()
+        print('output shape:', output.shape)
+        print('target shape:', target.shape)
         loss = criterion(output, target)
 
         if args.nb_classes == 2:

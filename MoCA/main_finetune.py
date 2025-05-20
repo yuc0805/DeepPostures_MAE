@@ -244,7 +244,6 @@ def main(args):
         model.head = torch.nn.Linear(model.head.in_features, 1)
         criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([args.pos_weight], dtype=torch.float32).to(device))
     else:
-        model.head = torch.nn.Sequential(torch.nn.BatchNorm1d(model.head.in_features, affine=False, eps=1e-6), model.head)
         criterion = torch.nn.CrossEntropyLoss()
     
     # manually initialize fc layer
@@ -416,7 +415,8 @@ torchrun --nproc_per_node=4  -m main_finetune \
 --ds_name iwatch \
 --finetune "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Wristps_5_mask_0.75_bs_512_blr_None_epoch_50/2025-05-05_01-30/checkpoint-49.pth"  \
 --data_path "/niddk-data-central/iWatch/pre_processed_seg/W" \
---remark Wrist_50epoch
+--remark DEBUG_Wrist_50epoch \
+--pos_weight 2.7953
 
 
 '''
