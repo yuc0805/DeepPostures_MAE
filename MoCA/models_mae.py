@@ -518,7 +518,7 @@ class LinearProbeModel(nn.Module):
         x = rearrange(x, 'b (c w) d -> b w c d',c=c) # BS, 42, nvar,768
         x = x.mean(dim=2) # BS, 42, 768
         
-        x = self.head(x) # BS, 42, 
+        x = self.head(x) # BS, 42, 1
 
         return x
     
