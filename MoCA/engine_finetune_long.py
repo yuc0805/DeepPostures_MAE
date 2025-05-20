@@ -49,7 +49,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         samples = samples.float().to(device, non_blocking=True) # BS, 42, 100, 3
         targets = targets.to(device, non_blocking=True) # BS,42
         batch_size = targets.shape[0] 
-        targets = targets.view(-1).squeeze() #(BS*42,)
+        targets = targets.contiguous().view(-1).squeeze() #(BS*42,)
         if criterion.__class__.__name__ == 'BCEWithLogitsLoss':
             targets = targets.float()
         
@@ -59,7 +59,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         with torch.cuda.amp.autocast(enabled=False):
             outputs = model(samples)
             if args.CHAP:
-                outputs = outputs.view(-1)
+                outputs = outputs.contiguous().view(-1)
             else:
                 outputs = rearrange(outputs, 'b w c -> (b w) c').squeeze()
 
@@ -125,7 +125,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
 
 @torch.no_grad()
 def evaluate(args,data_loader, model, device):
-    if args,nb_classes == 2:
+    if args.nb_classes == 2:
         criterion = torch.nn.BCEWithLogitsLoss()
     else:
         criterion = torch.nn.CrossEntropyLoss()
@@ -153,7 +153,8 @@ def evaluate(args,data_loader, model, device):
 
         if criterion.__class__.__name__ == 'BCEWithLogitsLoss':
             target = target.float()
-            
+            target = target.contiguous().view(-1).squeeze()
+
         batch_size = target.shape[0]
 
         if args.CHAP: # CHAP
@@ -162,7 +163,7 @@ def evaluate(args,data_loader, model, device):
         with torch.cuda.amp.autocast(enabled=False):
             outputs = model(samples)
             if args.CHAP:
-                outputs = outputs.view(-1)
+                outputs = outputs.contiguous().view(-1)
             else:
                 outputs = rearrange(outputs, 'b w c -> (b w) c').squeeze()
 
@@ -242,8 +243,8 @@ def evaluate_cm(data_loader, model, device, as_img=False, save_dir='./'):
 
         target = target.to(device, non_blocking=True)
         output = model(samples)
-        output = output.view(-1, output.size(-1))  # shape: (B*42, C)
-        target = target.view(-1)
+        output = output.contiguous().view(-1, output.size(-1))  # shape: (B*42, C)
+        target = target.contiguous().view(-1)
 
         loss = criterion(output, target)
 
