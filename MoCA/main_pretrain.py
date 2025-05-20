@@ -123,7 +123,8 @@ def main(args):
 
     dataset_train = iWatch_HDf5(root=args.data_path,
                                 set_type='train',
-                                transform=data_aug,)
+                                transform=data_aug,
+                                subset=2000)
 
     print('training sample: ',len(dataset_train))
 
@@ -200,12 +201,16 @@ def main(args):
     # fix a sample for plot ###########
     if args.data_path == '/niddk-data-central/iWatch/pre_processed_seg/H':
         root = "/niddk-data-central/iWatch/pre_processed_seg/H/train.hdf5"
+        idx = 500674
     elif args.data_path == '/niddk-data-central/iWatch/pre_processed_seg/W':
         root = "/niddk-data-central/iWatch/pre_processed_seg/W/train.hdf5"
-    else:
-        root = "/niddk-data-central/iWatch/pre_processed_seg/HW/10s_train.hdf5"
-    with h5py.File(root, "r") as f:
         idx = 500674
+    else:
+        root = "/niddk-data-central/iWatch/pre_processed_seg/HW/10s_train.h5"
+        idx = 3883
+
+    with h5py.File(root, "r") as f:
+        
         tmp_sample = f['x'][idx]  # (100, 3)
         print('the index is', idx)  
         tmp_label = 'sitting' if f['y'][idx] == 0 else 'non-sitting' 
@@ -309,4 +314,14 @@ torchrun --nproc_per_node=4 main_pretrain.py \
 --epochs 100 \
 --warmup_epochs 10 \
 --remark iWatch-Wrist
+
+torchrun --nproc_per_node=4 main_pretrain.py \
+--data_path /niddk-data-central/iWatch/pre_processed_seg/HW \
+--batch_size 256 \
+--world_size 4 \
+--epochs 100 \
+--warmup_epochs 10 \
+--remark DEBUGiWatch-HW \
+--nvar 6 
+
 '''
