@@ -38,7 +38,7 @@ def train_one_epoch(model: torch.nn.Module,
     if log_writer is not None:
         print('log_dir: {}'.format(log_writer.dir))
 
-    for data_iter_step, (samples, _) in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
+    for data_iter_step, (samples, y) in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
 
         # we use a per iteration (instead of per epoch) lr scheduler
         if data_iter_step % accum_iter == 0:
@@ -48,6 +48,17 @@ def train_one_epoch(model: torch.nn.Module,
         #print('input sample shape: ',samples.shape)
         loss, _, _ = model(samples, mask_ratio=args.mask_ratio,
                            masking_scheme=args.masking_scheme)
+        
+        if args.pos_weight is not None:
+            # y has two class, use the distribution of the class to assign weights to the loss function
+            # loss has shape (Bs,), y should too
+            assert loss.shape == y.shape
+            weights = torch.ones_like(loss)
+            weights[y == 1] = args.pos_weight 
+            loss = (loss * weights).mean()
+        else:
+            loss = loss.mean()
+            
         loss_value = loss.item()
 
         # FIXME: This might cause NCCL communication error

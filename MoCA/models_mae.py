@@ -65,8 +65,8 @@ class MaskedAutoencoderViT(nn.Module):
         self.decoder_norm = norm_layer(decoder_embed_dim)
         self.decoder_pred = nn.Linear(decoder_embed_dim, patch_size[0] * patch_size[1] * in_chans, bias=True) # decoder to patch
         # --------------------------------------------------------------------------
-        self.mse_loss = nn.MSELoss()
-
+        #self.mse_loss = nn.MSELoss()
+       
         self.initialize_weights()
 
     def initialize_weights(self):
@@ -436,15 +436,14 @@ class MaskedAutoencoderViT(nn.Module):
         imgs: bs x nvar x L
         pred: bs x nvar x num_patches x patch_size
         mask: bs x num_patches 
-
+    
        """
        # calculate loss for all time_step
        target = self.patchify(imgs) # bs x nvar x num_patches x patch_size
-       loss = self.mse_loss(pred, target)
-
-        # Only reconstruct mask patches
-        #loss = (loss * mask).sum() / mask.sum()  # mean loss on removed patches
-
+       #loss = self.mse_loss(pred, target)
+       loss = (pred - target) ** 2 # bs x nvar x num_patches x patch_size
+       loss = loss.mean(dim=[1, 2, 3]) #(Bs, )
+           
        return loss
     
     def forward(self, imgs,  mask_ratio=0.75,
