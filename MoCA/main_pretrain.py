@@ -125,7 +125,7 @@ def main(args):
 
     dataset_train = iWatch_HDf5(root=args.data_path,
                                 set_type='train',
-                                transform=data_aug,subset=5000)
+                                transform=data_aug,)
 
     print('training sample: ',len(dataset_train))
 
