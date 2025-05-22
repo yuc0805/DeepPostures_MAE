@@ -125,7 +125,7 @@ def main(args):
 
     dataset_train = iWatch_HDf5(root=args.data_path,
                                 set_type='train',
-                                transform=data_aug,)
+                                transform=data_aug,subset=5000)
 
     print('training sample: ',len(dataset_train))
 
@@ -313,7 +313,8 @@ torchrun --nproc_per_node=4 main_pretrain.py \
 --world_size 4 \
 --epochs 100 \
 --warmup_epochs 10 \
---remark iWatch-Wrist
+--remark DEBUG-iWatch-Wrist \
+--pos_weight 2.8 
 
 torchrun --nproc_per_node=4 main_pretrain.py \
 --data_path /niddk-data-central/iWatch/pre_processed_seg/HW \

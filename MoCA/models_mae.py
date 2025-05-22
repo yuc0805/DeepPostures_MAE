@@ -434,15 +434,15 @@ class MaskedAutoencoderViT(nn.Module):
     def forward_loss(self, imgs, pred, mask):
        """
         imgs: bs x nvar x L
-        pred: bs x nvar x num_patches x patch_size
+        pred: bs x num_patches x patch_size
         mask: bs x num_patches 
     
        """
        # calculate loss for all time_step
-       target = self.patchify(imgs) # bs x nvar x num_patches x patch_size
+       target = self.patchify(imgs) # bs x num_patches x patch_size
        #loss = self.mse_loss(pred, target)
-       loss = (pred - target) ** 2 # bs x nvar x num_patches x patch_size
-       loss = loss.mean(dim=[1, 2, 3]) #(Bs, )
+       loss = (pred - target) ** 2 # bs x num_patches x patch_size
+       loss = loss.mean(dim=[1, 2]) #(Bs, )
            
        return loss
     
