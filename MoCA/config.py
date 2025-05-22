@@ -23,7 +23,7 @@ FT_LONG_DATASET_CONFIG = {
 
 ATTN_LP_DATASET_CONFIG = {
     # Baseline, Transfer Learning
-    "iwatch": {"in_chans": 3, "nb_classes": 2, "blr": 1e-3,'bs':32,'input_size':[3,100],'weight_decay':1e-3}, 
+    "iwatch": {"in_chans": 3, "nb_classes": 2, "blr": 2e-3,'bs':32,'input_size':[3,100],'weight_decay':5e-4}, 
     
     }
 
