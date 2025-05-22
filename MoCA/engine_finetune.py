@@ -156,8 +156,6 @@ def evaluate(args,data_loader, model, device):
             target = target.float()
             
         output = model(images).squeeze()
-        print('output shape:', output.shape)
-        print('target shape:', target.shape)
         loss = criterion(output, target)
 
         if args.nb_classes == 2:
