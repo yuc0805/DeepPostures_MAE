@@ -55,7 +55,8 @@ def get_args_parser():
                         help='Input size "')
     parser.add_argument('--patch_size', type=int, default=5, 
                         help='Patch size')
-
+    parser.add_argument('--in_chans', type=int, default=3,
+                        help='Number of input channels')
     parser.add_argument('--drop_path', type=float, default=0.1, metavar='PCT',
                         help='Drop path rate (default: 0.1)')
 
@@ -65,7 +66,7 @@ def get_args_parser():
                         help='Clip gradient norm (default: None, no clipping)')
     parser.add_argument('--weight_decay', type=float, default=0.05,
                         help='weight decay (default: 0.05)')
-
+    
     parser.add_argument('--lr', type=float, default=None, metavar='LR',
                         help='learning rate (absolute lr)')
     parser.add_argument('--blr', type=float, default=1e-3, metavar='LR',
@@ -228,7 +229,7 @@ def main(args):
                 del checkpoint_model[k]
 
         # interpolate position embedding
-        interpolate_pos_embed(model, checkpoint_model,orig_size=(3,20), # FIXME: can also be [6,20] if using both HIP and Wrist
+        interpolate_pos_embed(model, checkpoint_model,orig_size=(args.in_chans,int(100//args.patch_size)), 
                               new_size=(args.input_size[0],int(args.input_size[1]//args.patch_size)))
 
         # load pre-trained model
@@ -368,12 +369,12 @@ if __name__ == '__main__':
 
     initial_timestamp = datetime.datetime.now()
         
-    args.in_chans = 1
     args.nb_classes = FT_DATASET_CONFIG[args.ds_name]['nb_classes']
     args.blr = FT_DATASET_CONFIG[args.ds_name]["blr"]
         
     args.batch_size = FT_DATASET_CONFIG[args.ds_name]["bs"]
-    args.input_size = FT_DATASET_CONFIG[args.ds_name]["input_size"]
+    input_size = FT_DATASET_CONFIG[args.ds_name]["input_size"]
+    args.input_size = [args.in_chans, input_size[1]]
     args.weight_decay = FT_DATASET_CONFIG[args.ds_name]["weight_decay"] if 'weight_decay' in FT_DATASET_CONFIG[args.ds_name] else args.weight_decay
     args.remark = args.remark + f'FT_blr_{args.blr}_bs_{args.batch_size}_wd_{args.weight_decay}'
     print(f'Start Training: {args.remark}')
@@ -417,6 +418,13 @@ torchrun --nproc_per_node=4  -m main_finetune \
 --data_path "/niddk-data-central/iWatch/pre_processed_seg/W" \
 --remark DEBUG_Wrist_50epoch \
 --pos_weight 2.7953
+
+torchrun --nproc_per_node=2  -m main_finetune \
+--ds_name iwatch \
+--finetune "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-HW-balanceps_5_mask_0.75_bs_128_blr_None_epoch_50/2025-05-22_15-42/checkpoint-49.pth" \
+--data_path "/niddk-data-central/iWatch/pre_processed_seg/HW" \
+--in_chans 6 \
+--remark DEBUG_HW
 
 
 '''

@@ -221,11 +221,9 @@ def main(args):
         print('Loading pre-trained checkpoint from',args.checkpoint)
         checkpoint = torch.load(args.checkpoint,map_location='cpu')
         checkpoint_model = checkpoint['model']
-        interpolate_pos_embed(model, checkpoint_model,orig_size=(3,20), # FIXME: can also be [6,20] if using both HIP and Wrist
+        interpolate_pos_embed(model, checkpoint_model,orig_size=(args.in_chans,int(100//args.patch_size)), 
                               new_size=(args.input_size[0],int(args.input_size[1]//args.patch_size)))
-        # interpolate_pos_embed(model, checkpoint_model,orig_size=(6,10), # FIXME: can also be [6,20] if using both HIP and Wrist
-        #                       new_size=(args.input_size[0],int(args.input_size[1]//args.patch_size)))
-
+                              
         #print(checkpoint_model.keys())
         decoder_keys = [k for k in checkpoint_model.keys() if 'decoder' in k]
         for key in decoder_keys:
@@ -376,11 +374,13 @@ if __name__ == '__main__':
     initial_timestamp = datetime.datetime.now()
     
 
-    args.in_chans = LP_DATASET_CONFIG[args.ds_name]['in_chans']
+    #args.in_chans = LP_DATASET_CONFIG[args.ds_name]['in_chans']
     args.nb_classes = LP_DATASET_CONFIG[args.ds_name]['nb_classes']
     args.blr = LP_DATASET_CONFIG[args.ds_name]["blr"]
     args.batch_size = LP_DATASET_CONFIG[args.ds_name]["bs"]
-    args.input_size = LP_DATASET_CONFIG[args.ds_name]["input_size"]
+    input_size = LP_DATASET_CONFIG[args.ds_name]["input_size"]
+    args.input_size = [args.in_chans, input_size[1]]
+
     args.weight_decay = LP_DATASET_CONFIG[args.ds_name]["weight_decay"]
     args.remark = args.remark + f'LP_blr_{args.blr}_bs_{args.batch_size}_input_size_{args.input_size}'
     print(f'Start Training: {args.remark}')
@@ -396,6 +396,8 @@ if __name__ == '__main__':
 
 
 '''
+
+
 
 torchrun --nproc_per_node=4  -m main_linprobe \
 --ds_name iwatch \
@@ -422,5 +424,12 @@ python -m main_linprobe \
 --checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Hipps_5_mask_0.75_bs_512_blr_None_epoch_50/2025-05-05_01-23/checkpoint-49.pth" \
 --data_path "/niddk-data-central/iWatch/pre_processed_seg/H" \
 --remark Debug 
+
+torchrun --nproc_per_node=2  -m main_linprobe \
+--ds_name iwatch \
+--checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-HW-balanceps_5_mask_0.75_bs_128_blr_None_epoch_50/2025-05-22_15-42/checkpoint-49.pth" \
+--data_path "/niddk-data-central/iWatch/pre_processed_seg/HW" \
+--in_chans 6 \
+--remark DEBUG_HW
 
 '''
