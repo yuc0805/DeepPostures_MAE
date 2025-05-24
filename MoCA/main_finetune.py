@@ -376,6 +376,11 @@ if __name__ == '__main__':
     input_size = FT_DATASET_CONFIG[args.ds_name]["input_size"]
     args.input_size = [args.in_chans, input_size[1]]
     args.weight_decay = FT_DATASET_CONFIG[args.ds_name]["weight_decay"] if 'weight_decay' in FT_DATASET_CONFIG[args.ds_name] else args.weight_decay
+
+    if args.in_chans == 6:
+        args.batch_size = args.batch_size // 2
+        args.accum_iter = args.accum_iter * 2
+
     args.remark = args.remark + f'FT_blr_{args.blr}_bs_{args.batch_size}_wd_{args.weight_decay}'
     print(f'Start Training: {args.remark}')
 
