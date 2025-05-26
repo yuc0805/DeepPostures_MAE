@@ -225,11 +225,17 @@ def get_dataloaders_dist(
             bi_lstm_win_size,
             train_subjects,
         )
+        
+        shuffled_train_data = BufferedShuffleDataset(train_data, buffer_size=2*batch_size)
         train_dataloader = DataLoader(
-            train_data, batch_size=batch_size, pin_memory=True
-        )
+            shuffled_train_data, 
+            batch_size=batch_size, 
+            pin_memory=True,
+            num_workers=2, 
+            worker_init_fn=worker_init_fn)
 
     if valid_subjects:
+        # validation data does not need to be shuffled
         valid_data = IterDatasetDist(
             window_generator,
             rank,
@@ -239,8 +245,12 @@ def get_dataloaders_dist(
             valid_subjects,
         )
         valid_dataloader = DataLoader(
-            valid_data, batch_size=batch_size, pin_memory=True
+            valid_data, 
+            batch_size=batch_size, 
+            pin_memory=True,
+            num_workers=2, 
         )
+        
     if test_subjects:
         test_data = IterDatasetDist(
             window_generator,
@@ -294,6 +304,51 @@ def get_dataloaders(
 
     return train_dataloader, valid_dataloader, test_dataloader
 
+
+# Copyright 2025 Leo Chen
+# All rights reserved.
+from torch.utils.data import IterableDataset
+import random
+
+def worker_init_fn(worker_id):
+    # usage: worker_init_fn is used to set the random seed for each worker
+    # This ensures that each worker has a different random seed
+    # and can produce different random numbers
+    # This is important for data augmentation and shuffling
+
+    seed = torch.initial_seed() % 2**32
+    random.seed(seed)
+
+class BufferedShuffleDataset(IterableDataset):
+    '''
+    Useage: wrapper class for shuffling data in an iterable dataset
+    Tips: buffer_size dependes on CPU memory, try to start with 2*batch_size
+    '''
+    def __init__(self, dataset, buffer_size):
+        super().__init__()
+        self.dataset = dataset
+        self.buffer_size = buffer_size
+
+    def __iter__(self):
+        buffer = []
+        iterator = iter(self.dataset)
+        try:
+            for _ in range(self.buffer_size):
+                buffer.append(next(iterator))
+        except StopIteration:
+            pass  # In case the dataset has fewer items than the buffer size
+
+        while buffer:
+            try:
+                item = next(iterator)
+                idx = random.randint(0, len(buffer) - 1)
+                yield buffer[idx]
+                buffer[idx] = item
+            except StopIteration:
+                break
+
+        while buffer:
+            yield buffer.pop(random.randint(0, len(buffer) - 1))
 
 def data_aug(x):
     '''
