@@ -373,7 +373,11 @@ if __name__ == '__main__':
     args.blr = ATTN_FT_DATASET_CONFIG[args.ds_name]["blr"]
     if args.batch_size is None:
         args.batch_size = ATTN_FT_DATASET_CONFIG[args.ds_name]["bs"]
+        if args.in_chans == 6:
+            args.batch_size = int(args.batch_size / 2)
+            args.accum_iter = 2*args.accum_iter
     
+
     input_size = ATTN_FT_DATASET_CONFIG[args.ds_name]["input_size"]
     args.input_size = [args.in_chans, input_size[1]]
     args.weight_decay = ATTN_FT_DATASET_CONFIG[args.ds_name]["weight_decay"]
@@ -406,7 +410,7 @@ torchrun --nproc_per_node=2  -m main_attn_finetune \
 --remark Debug \
 --num_attn_layer 2 \
 --in_chans 6 \
---epochs 2
+--epochs 20
 
 
 
