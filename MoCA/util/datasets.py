@@ -6,29 +6,30 @@ import pickle
 import torch
 import torch.nn.functional as F
 from scipy.signal import resample
+from transforms3d.axangles import axangle2mat
 
-# def resample_aug(x,is_train=True,target_sr=50):
-#     """
-#     Resample input x from its original sampling rate to target_sr.
-#     Input shape: (T, C), e.g., (100, 3)
-#     Output shape: (new_T, C), e.g., (50, 3) if target_sr is 50
 
-#     Args:
-#         x (torch.Tensor): input tensor of shape (T, C)
-#         is_train (bool): flag for whether augmentation is applied (optional use)
-#         target_sr (int): target sampling rate
+def rotation_axis(sample):
+    """
 
-#     Returns:
-#         torch.Tensor: resampled tensor of shape (new_T, C)
-#     """
-#     T, C = x.shape
-#     new_T = int(T * target_sr / 100)
-#     sample_X = resample(x, new_T, axis=0)
-
-#     if is_train:
-#         sample_X = data_aug(sample_X)
+    Rotate the input sample along a random axis by a random angle.
+    Modified from: OxWearables. (2022). 
+    ssl-wearables: Self-supervised learning for wearable sensor data. 
+    GitHub repository. https://github.com/OxWearables/ssl-wearables/blob/main/sslearning/data/datautils.py
     
-#     return sample_X
+    Args:
+        sample (numpy.ndarray): Input sample of shape (T, C), where T is the number of time steps and C is the number of channels.
+    
+    Returns:
+        numpy.ndarray: Rotated sample of the same shape as input.
+    """
+    sample = np.swapaxes(sample, 0, 1)
+    angle = np.random.uniform(low=-np.pi, high=np.pi)
+    axis = np.random.uniform(low=-1, high=1, size=sample.shape[1])
+    rotation_matrix = axangle2mat(axis, angle)
+    sample = np.matmul(sample, rotation_matrix)
+    sample = np.swapaxes(sample, 0, 1)
+    return sample
 
 def data_aug(x):
     """
@@ -39,24 +40,30 @@ def data_aug(x):
         x_aug: numpy array of the same shape with augmentations applied
 
     Augmentations [1]:
-        - Channel permutation
         - Gaussian noise (jittering)
         - Global scaling
         - Segment permutation
+        - Channel permutation: invariant to the order of channels, because different device manafacturers may have different channel orders
+        - Axis flipping: we want the model invariant to subject that wear the device differently
     
-    Notes: Should not apply normalization for activity data [2]
+    Notes: 
+        -Should not apply normalization for activity data [2]
+
 
     Reference:
         [1] https://shamilmamedov.com/blog/2023/da-time-series/
         [2] https://www.mdpi.com/1999-5903/12/11/194
+
     """
 
     x = x.astype(np.float32).copy()
+    # rotation
+    x = rotation_axis(x) 
 
     # channel permutation
     perm = np.random.permutation(x.shape[1])
     x = x[:, perm]
-
+           
     # jittering
     x += np.random.normal(loc=0.0, scale=0.05, size=x.shape)
 
