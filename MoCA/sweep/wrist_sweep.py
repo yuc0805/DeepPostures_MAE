@@ -27,3 +27,4 @@ if __name__ == "__main__":
     main()
 
 
+# wandb sweep wrist_sweep.yaml
