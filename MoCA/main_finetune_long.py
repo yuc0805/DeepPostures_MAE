@@ -246,7 +246,7 @@ def main(args):
             print(f"Balanced Accuracy of the network: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
             exit(0)
 
-    model = LinearProbeModel(backbone, num_classes=args.nb_classes)
+        model = LinearProbeModel(backbone, num_classes=args.nb_classes)
 
     print("Model = %s" % str(model))
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -435,6 +435,11 @@ torchrun --nproc_per_node=4  -m main_finetune_long \
 --remark Debug \
 --lr 1e-4 
 
-
+torchrun --nproc_per_node=4  -m main_finetune_long \
+--ds_name iwatch \
+--data_path "/niddk-data-central/iWatch/pre_processed_pt/W" \
+--pos_weight 2.8232 \
+--remark NEW_CHAP_wrist \
+--CHAP 1 
 
 '''
