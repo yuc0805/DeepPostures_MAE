@@ -65,55 +65,104 @@ def save_samples_from_iter(preprocessed_dir,
 
 def _flush_to_h5(f_out, x_list, y_list, ts_list, subj_list, first_write):
     """
-    Flatten windows along the time axis and write to HDF5 so that
+    Write data as (BS, window_size, 100, 3) without flattening.
     """
-    # concatenate along the time axis
-    x_arr = np.concatenate(x_list, axis=0)   # (sum(window), 100, 3)
-    y_arr = np.concatenate(y_list, axis=0)   # (sum(window),)
-    ts_arr = np.concatenate(ts_list, axis=0) # (sum(window),)
-    subj_arr = np.array(
-        [sid for sid, arr in zip(subj_list, x_list) for _ in range(arr.shape[0])],
-        dtype=h5py.string_dtype(encoding='utf-8')
-    )
+    x_arr = np.stack(x_list, axis=0)   # (BS, window_size, 100, 3)
+    y_arr = np.stack(y_list, axis=0)   # (BS, window_size)
+    ts_arr = np.stack(ts_list, axis=0) # (BS, window_size)
+    subj_arr = np.array(subj_list, dtype=h5py.string_dtype(encoding='utf-8'))  # (BS,)
 
     if first_write:
         f_out.create_dataset(
             'x',
             data=x_arr,
             maxshape=(None,) + x_arr.shape[1:],
-            chunks=(min(1000, x_arr.shape[0]),) + x_arr.shape[1:],
+            chunks=(min(100, x_arr.shape[0]),) + x_arr.shape[1:],
             compression='gzip'
         )
         f_out.create_dataset(
             'y',
             data=y_arr,
-            maxshape=(None,),
-            chunks=(min(1000, y_arr.shape[0]),),
+            maxshape=(None,) + y_arr.shape[1:],
+            chunks=(min(100, y_arr.shape[0]),) + y_arr.shape[1:],
             compression='gzip'
         )
         f_out.create_dataset(
             'timestamp',
             data=ts_arr,
-            maxshape=(None,),
-            chunks=(min(1000, ts_arr.shape[0]),),
+            maxshape=(None,) + ts_arr.shape[1:],
+            chunks=(min(100, ts_arr.shape[0]),) + ts_arr.shape[1:],
             compression='gzip'
         )
         f_out.create_dataset(
             'subject_id',
             data=subj_arr,
             maxshape=(None,),
-            chunks=(min(1000, subj_arr.shape[0]),),
+            chunks=(min(100, subj_arr.shape[0]),),
             dtype=h5py.string_dtype(encoding='utf-8'),
             compression='gzip'
         )
     else:
-        for name, arr in zip(['x','y','timestamp','subject_id'],
+        for name, arr in zip(['x', 'y', 'timestamp', 'subject_id'],
                              [x_arr, y_arr, ts_arr, subj_arr]):
             ds = f_out[name]
             old = ds.shape[0]
             new = old + arr.shape[0]
-            ds.resize(new, axis=0)
+            ds.resize((new,) + ds.shape[1:])
             ds[old:new] = arr
+
+
+# def _flush_to_h5(f_out, x_list, y_list, ts_list, subj_list, first_write):
+#     """
+#     Flatten windows along the time axis and write to HDF5 so that
+#     """
+#     # concatenate along the time axis
+#     x_arr = np.concatenate(x_list, axis=0)   # (sum(window), 100, 3)
+#     y_arr = np.concatenate(y_list, axis=0)   # (sum(window),)
+#     ts_arr = np.concatenate(ts_list, axis=0) # (sum(window),)
+#     subj_arr = np.array(
+#         [sid for sid, arr in zip(subj_list, x_list) for _ in range(arr.shape[0])],
+#         dtype=h5py.string_dtype(encoding='utf-8')
+#     )
+
+#     if first_write:
+#         f_out.create_dataset(
+#             'x',
+#             data=x_arr,
+#             maxshape=(None,) + x_arr.shape[1:],
+#             chunks=(min(1000, x_arr.shape[0]),) + x_arr.shape[1:],
+#             compression='gzip'
+#         )
+#         f_out.create_dataset(
+#             'y',
+#             data=y_arr,
+#             maxshape=(None,),
+#             chunks=(min(1000, y_arr.shape[0]),),
+#             compression='gzip'
+#         )
+#         f_out.create_dataset(
+#             'timestamp',
+#             data=ts_arr,
+#             maxshape=(None,),
+#             chunks=(min(1000, ts_arr.shape[0]),),
+#             compression='gzip'
+#         )
+#         f_out.create_dataset(
+#             'subject_id',
+#             data=subj_arr,
+#             maxshape=(None,),
+#             chunks=(min(1000, subj_arr.shape[0]),),
+#             dtype=h5py.string_dtype(encoding='utf-8'),
+#             compression='gzip'
+#         )
+#     else:
+#         for name, arr in zip(['x','y','timestamp','subject_id'],
+#                              [x_arr, y_arr, ts_arr, subj_arr]):
+#             ds = f_out[name]
+#             old = ds.shape[0]
+#             new = old + arr.shape[0]
+#             ds.resize(new, axis=0)
+#             ds[old:new] = arr
 
 
 if __name__ == "__main__":
@@ -128,21 +177,21 @@ if __name__ == "__main__":
 
     # write out one HDF5 per split, flattened along the time axis
     save_samples_from_iter(pre_processed_dir,
-                           "/niddk-data-central/iWatch/pre_processed_seg/H",
+                           "/niddk-data-central/iWatch/pre_processed_long_seg/H",
                            valid_subjects,
                            window_size=42,
                            flush_threshold=1000)
 
-    # save_samples_from_iter(pre_processed_dir,
-    #                        "/niddk-data-central/iWatch/pre_processed_seg/H",
-    #                        train_subjects,
-    #                        window_size=42,
-    #                        flush_threshold=1000)
+    save_samples_from_iter(pre_processed_dir,
+                           "/niddk-data-central/iWatch/pre_processed_long_seg/H",
+                           train_subjects,
+                           window_size=42,
+                           flush_threshold=1000)
 
-    # save_samples_from_iter(pre_processed_dir,
-    #                        "/niddk-data-central/iWatch/pre_processed_seg/H",
-    #                        test_subjects,
-    #                        window_size=42,
-    #                        flush_threshold=1000)
+    save_samples_from_iter(pre_processed_dir,
+                           "/niddk-data-central/iWatch/pre_processed_long_seg/H",
+                           test_subjects,
+                           window_size=42,
+                           flush_threshold=1000)
 
     print("Done!")

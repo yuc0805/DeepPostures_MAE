@@ -286,15 +286,18 @@ def get_dataloaders(
             window_generator, pre_processed_dir, bi_lstm_win_size, train_subjects
         )
         train_dataloader = DataLoader(
-            train_data, batch_size=batch_size, pin_memory=True
+            train_data, batch_size=batch_size, pin_memory=True,
+            drop_last=True,  # Drop the last incomplete batch
         )
 
     if valid_subjects:
         valid_data = IterDataset(
-            window_generator, pre_processed_dir, bi_lstm_win_size, valid_subjects
+            window_generator, pre_processed_dir, bi_lstm_win_size, valid_subjects,
+            drop_last=False,
         )
         valid_dataloader = DataLoader(
-            valid_data, batch_size=batch_size, pin_memory=True
+            valid_data, batch_size=batch_size, pin_memory=True,
+            drop_last=False,
         )
     if test_subjects:
         test_data = IterDataset(
