@@ -53,7 +53,7 @@ from utils import load_model_weights
 
 def get_args_parser():
     parser = argparse.ArgumentParser('MAE linear probing for image classification', add_help=False)
-    parser.add_argument('--batch_size', default=128, type=int,
+    parser.add_argument('--batch_size', default=None, type=int,
                         help='Batch size per GPU (effective batch size is batch_size * accum_iter * # gpus')
     parser.add_argument('--epochs', default=20, type=int)
     parser.add_argument('--accum_iter', default=1, type=int,
@@ -62,12 +62,12 @@ def get_args_parser():
     # Model parameters
     parser.add_argument('--model', default='vit_base_patch16', type=str, metavar='MODEL',
                         help='Name of model to train')
-    parser.add_argument('--input_size', type=int, default=4200, 
+    parser.add_argument('--input_size', type=int, default=None, 
                         help='Input size "')
     parser.add_argument('--patch_size', type=int, default=100, 
                         help='Patch size')
 
-    parser.add_argument('--in_chans', default=3, type=int,  # changed - added
+    parser.add_argument('--in_chans', default=None, type=int,  # changed - added
                         help='number of channels')
     parser.add_argument('--remark', default='Debug',type=str,
                         help='model_remark')
@@ -75,12 +75,12 @@ def get_args_parser():
     # Optimizer parameters
     parser.add_argument('--clip_grad', type=float, default=None, metavar='NORM',
                         help='Clip gradient norm (default: None, no clipping)')
-    parser.add_argument('--weight_decay', type=float, default=0,
+    parser.add_argument('--weight_decay', type=float, default=None,
                         help='weight decay (default: 0 for linear probe following MoCo v1)')
 
     parser.add_argument('--lr', type=float, default=None, metavar='LR',
                         help='learning rate (absolute lr)')
-    parser.add_argument('--blr', type=float, default=1e-2, metavar='LR',
+    parser.add_argument('--blr', type=float, default=None, metavar='LR', # default 1e-2
                         help='base learning rate: absolute_lr = base_lr * total_batch_size / 256')
     parser.add_argument('--layer_decay', type=float, default=0.75,
                         help='layer-wise lr decay from ELECTRA/BEiT')
@@ -102,7 +102,7 @@ def get_args_parser():
     parser.add_argument('--data_path', default='/niddk-data-central/iWatch/pre_processed_seg/W', type=str, # changed
                         help='dataset path')
     
-    parser.add_argument('--nb_classes', default=7, type=int, # changed
+    parser.add_argument('--nb_classes', default=None, type=int, # changed
                         help='number of the classification types')
 
     parser.add_argument('--output_dir', default='/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt',
@@ -389,13 +389,19 @@ if __name__ == '__main__':
 
     initial_timestamp = datetime.datetime.now()
     
+    if args.in_chans is None:
+        args.in_chans = FT_LONG_DATASET_CONFIG[args.ds_name]['in_chans']
+    if args.nb_classes is None:
+        args.nb_classes = FT_LONG_DATASET_CONFIG[args.ds_name]['nb_classes']
+    if args.blr is None:
+        args.blr = FT_LONG_DATASET_CONFIG[args.ds_name]["blr"]
+    if args.batch_size is None:
+        args.batch_size = FT_LONG_DATASET_CONFIG[args.ds_name]["bs"]
+    if args.input_size is None:
+        args.input_size = FT_LONG_DATASET_CONFIG[args.ds_name]["input_size"]
+    if args.weight_decay is None:
+        args.weight_decay = FT_LONG_DATASET_CONFIG[args.ds_name]["weight_decay"]
 
-    args.in_chans = FT_LONG_DATASET_CONFIG[args.ds_name]['in_chans']
-    args.nb_classes = FT_LONG_DATASET_CONFIG[args.ds_name]['nb_classes']
-    args.blr = FT_LONG_DATASET_CONFIG[args.ds_name]["blr"]
-    args.batch_size = FT_LONG_DATASET_CONFIG[args.ds_name]["bs"]
-    args.input_size = FT_LONG_DATASET_CONFIG[args.ds_name]["input_size"]
-    args.weight_decay = FT_LONG_DATASET_CONFIG[args.ds_name]["weight_decay"]
 
     #if args.CHAP:
         # args.lr = 1e-4

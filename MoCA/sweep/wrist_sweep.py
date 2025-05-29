@@ -17,6 +17,7 @@ def main():
         "--blr", str(config.blr),
         "--weight_decay", str(config.weight_decay),
         "--pos_weight", "2.8232",
+        "--batch_size", "16",
         # Add other necessary arguments here
     ]
 
