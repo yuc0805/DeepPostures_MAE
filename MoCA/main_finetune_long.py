@@ -211,7 +211,7 @@ def main(args):
         else:
             raise FileNotFoundError("CHAP_ALL_ADULTS.pth not found in any known location.")
 
-        load_model_weights(model, transfer_learning_model_path, weights_only=False)
+        msg = load_model_weights(model, transfer_learning_model_path, weights_only=False)
     #######################
     else:
         backbone = models_vit.__dict__[args.model](
@@ -298,15 +298,15 @@ def main(args):
     else:
         criterion = torch.nn.CrossEntropyLoss()
     
-    if not args.CHAP:
-        scheduler = CosineLRScheduler(
-        optimizer,
-        t_initial=args.epochs,
-        warmup_t=args.warmup_epochs,
-        warmup_lr_init=args.min_lr,
-        t_in_epochs=True)
-    else:
-        scheduler = None
+    #if not args.CHAP:
+    scheduler = CosineLRScheduler(
+    optimizer,
+    t_initial=args.epochs,
+    warmup_t=args.warmup_epochs,
+    warmup_lr_init=args.min_lr,
+    t_in_epochs=True)
+    # else:
+    #     scheduler = None
 
     print("criterion = %s" % str(criterion))
 
@@ -397,10 +397,10 @@ if __name__ == '__main__':
     args.input_size = FT_LONG_DATASET_CONFIG[args.ds_name]["input_size"]
     args.weight_decay = FT_LONG_DATASET_CONFIG[args.ds_name]["weight_decay"]
 
-    if args.CHAP:
-        args.lr = 1e-4
-        args.batch_size = 4
-        args.weight_decay = 1e-4
+    #if args.CHAP:
+        # args.lr = 1e-4
+        # args.batch_size = 4
+        # args.weight_decay = 1e-4
     args.remark = args.remark + f'LP_blr_{args.blr}_bs_{args.batch_size}_input_size_{args.input_size}'
     print(f'Start Training: {args.remark}')
     

@@ -25,7 +25,8 @@ def write_metrics_to_csv(metrics, csv_file, write_header=True):
 
 # Function to load model weights
 def load_model_weights(model, file_path, weights_only=True):
-    model.load_state_dict(torch.load(file_path, weights_only=weights_only))
+    msg = model.load_state_dict(torch.load(file_path, weights_only=weights_only))
+    print(msg)
     print(f"Weights loaded from {file_path}")
 
 

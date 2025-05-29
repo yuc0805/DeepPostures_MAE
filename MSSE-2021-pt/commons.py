@@ -231,8 +231,8 @@ def get_dataloaders_dist(
             shuffled_train_data, 
             batch_size=batch_size, 
             pin_memory=True,
-            num_workers=2, 
-            worker_init_fn=worker_init_fn)
+            num_workers=4, 
+            worker_init_fn=worker_init_fn) 
 
     if valid_subjects:
         # validation data does not need to be shuffled
