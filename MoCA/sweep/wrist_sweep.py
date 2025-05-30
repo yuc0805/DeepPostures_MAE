@@ -18,6 +18,7 @@ def main():
         "--weight_decay", str(config.weight_decay),
         "--pos_weight", "2.8232",
         "--batch_size", "16",
+        "--epochs", "40",
         # Add other necessary arguments here
     ]
 
