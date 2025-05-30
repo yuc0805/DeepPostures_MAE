@@ -1,7 +1,7 @@
 program: wrist_sweep.py
 method: bayes
 metric:
-  name: bal_acc
+  name: perf/bal_acc
   goal: maximize
 parameters:
   blr:
