@@ -53,15 +53,15 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         if criterion.__class__.__name__ == 'BCEWithLogitsLoss':
             targets = targets.float()
         
-        if args.CHAP:
+        if args.model == 'CNNBiLSTMModel':
             samples = rearrange(samples, 'b w l c -> (b w) 1 l c ')
             
         with torch.cuda.amp.autocast(enabled=False):
             outputs = model(samples)
-            if args.CHAP:
+            if args.model == 'CNNBiLSTMModel':
                 outputs = outputs.view(-1)
             else:
-                outputs = rearrange(outputs, 'b w c -> (b w) c').squeeze()
+                outputs = rearrange(outputs, 'b w c -> (b w) c').squeeze(-1)
 
             loss = criterion(outputs, targets)
 
@@ -157,15 +157,15 @@ def evaluate(args,data_loader, model, device):
 
         batch_size = target.shape[0]
 
-        if args.CHAP: # CHAP
+        if args.model == 'CNNBiLSTMModel': # CHAP
             samples = rearrange(samples, 'b w l c -> (b w) 1 l c ')
             
         with torch.cuda.amp.autocast(enabled=False):
             outputs = model(samples)
-            if args.CHAP:
+            if args.model == 'CNNBiLSTMModel':
                 outputs = outputs.view(-1)
             else:
-                outputs = rearrange(outputs, 'b w c -> (b w) c').squeeze()
+                outputs = rearrange(outputs, 'b w c -> (b w) c').squeeze(-1)
 
             loss = criterion(outputs, target)
         

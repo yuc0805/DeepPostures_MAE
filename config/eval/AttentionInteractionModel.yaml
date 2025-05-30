@@ -1,0 +1,16 @@
+model:
+  name: AttentionInteractionModel
+  hidden_dim: 256
+  num_heads: 8
+  num_layers: 2
+  ffn_multiplier: 2
+  transfer_learning_model_path: "/app/DeepPostures_MAE/MSSE-2021-pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"
+
+# optimizer:
+#   name: adamw
+#   lr: 0.001
+#   weight_decay: 0.05
+
+# data:
+#   train_path: /mnt/data/train
+#   val_path: /mnt/data/val

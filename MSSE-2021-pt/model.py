@@ -16,7 +16,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
-
+from einops import rearrange
 
 """
 Pytorch model implementation
@@ -133,7 +133,7 @@ class CNNBiLSTMModel(nn.Module):
         cnn_output = cnn_output.view(-1, self.bi_lstm_win_size, 256 * self.amp_factor)
 
         # BiLSTM forward pass
-        lstm_output, _ = self.bil_lstm(cnn_output) # # BS,window_size, 256
+        lstm_output, _ = self.bil_lstm(cnn_output) # BS,window_size, 256
 
         # Concatenate both directions is not needed as pytorch automatically concat them and sends the result
         # Fully connected layer
@@ -142,3 +142,41 @@ class CNNBiLSTMModel(nn.Module):
         # Reshape to get logits
         logits = fc_output.view(-1, self.bi_lstm_win_size) # Bs, Window_size
         return logits
+
+# Leo
+class AttentionInteractionModel(nn.Module):
+    def __init__(self, base_model, base_model_hidden_dim=512,
+                 window_size=42,num_classes=2,num_layer=1,
+                 hidden_dim=256,num_heads=8,ffn_multiplier=2):
+        super(AttentionInteractionModel, self).__init__()
+        self.base_model = base_model
+        self.window_size = window_size
+        self.proj = nn.Linear(base_model_hidden_dim, hidden_dim)
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=hidden_dim,
+            nhead=num_heads,
+            dim_feedforward=hidden_dim*ffn_multiplier,
+            batch_first=True
+        )
+        self.attn = nn.TransformerEncoder(encoder_layer, num_layers=num_layer)
+        if num_classes == 2:
+            self.head = nn.Linear(hidden_dim, 1)    
+        else:
+            self.head = nn.Linear(hidden_dim, num_classes)
+
+    def forward(self, x):
+        '''
+        input: x [BS, 42, 100, 3]
+        '''
+        B, W, _, _ = x.shape
+        x = rearrange(x, 'b w l c -> (b w) 1 l c' )
+        x = self.base_model(x) # BS*window_size,base_model_hidden_dim
+        x = rearrange(x, '(b w) d -> b w d', b=B, w=W)
+
+        x = self.proj(x)
+        print(f"Shape after projection: {x.shape}")
+
+        x = self.attn(x) # BS, 42, 256
+        x = self.head(x) # BS, 42, num_classes
+
+        return x

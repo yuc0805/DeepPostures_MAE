@@ -363,3 +363,15 @@ def get_next_run_number(log_dir):
     else:
         run_numbers = [int(run.split('_')[-1]) for run in existing_runs if run.split('_')[-1].isdigit()]
         return max(run_numbers) + 1
+
+
+# for configs
+def flatten_config_dict(d, parent_key='', sep='.'):
+    items = []
+    for k, v in d.items():
+        new_key = f"{parent_key}{sep}{k}" if parent_key else k
+        if isinstance(v, dict):
+            items.extend(flatten_config_dict(v, new_key, sep=sep).items())
+        else:
+            items.append((new_key, v))
+    return dict(items)

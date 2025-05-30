@@ -48,11 +48,14 @@ import random
 from einops import rearrange
 from tqdm import tqdm
 
-from model import CNNBiLSTMModel
+from model import CNNBiLSTMModel,CNNModel,AttentionInteractionModel
 from utils import load_model_weights
+from omegaconf import OmegaConf
 
 def get_args_parser():
     parser = argparse.ArgumentParser('MAE linear probing for image classification', add_help=False)
+    parser.add_argument('config', default=None, type=str,
+                        help='path to config file (default: None, use default config)')
     parser.add_argument('--batch_size', default=None, type=int,
                         help='Batch size per GPU (effective batch size is batch_size * accum_iter * # gpus')
     parser.add_argument('--epochs', default=20, type=int)
@@ -89,7 +92,6 @@ def get_args_parser():
 
     parser.add_argument('--warmup_epochs', type=int, default=2, metavar='N',
                         help='epochs to warmup LR')
-    parser.add_argument('--CHAP', type=int, default=0)
     parser.add_argument('--pos_weight', type=float, default=1.0, 
                         help='positive weight for BCE loss')
 
@@ -135,12 +137,21 @@ def get_args_parser():
     parser.add_argument('--dist_on_itp', action='store_true')
     parser.add_argument('--dist_url', default='env://',
                         help='url used to set up distributed training')
-
+    
     return parser    
 
 
 
 def main(args):
+    args_dict = vars(args)
+    if args.config:
+        cfg = OmegaConf.load(args.config)
+        cfg_dict = OmegaConf.to_container(cfg, resolve=True)
+        flat_cfg = misc.flatten_config_dict(cfg_dict)  # flatten the config dict
+    else:
+        flat_cfg = {}
+
+    combined_config = {**args_dict, **flat_cfg}
     
 
     misc.init_distributed_mode(args)
@@ -193,15 +204,16 @@ def main(args):
         wandb.login(key='32b6f9d5c415964d38bfbe33c6d5c407f7c19743')
         log_writer = wandb.init(
             project='MoCA-Long-iWatch-FT',  # Specify your project
-            config= vars(args),
+            config= combined_config,
             dir=args.log_dir,
             name=args.remark,)
       
     else:
         log_writer = None
 
+    # TODO: package below into a model factory function
     # CHAP replicate #######
-    if args.CHAP:
+    if args.model == 'CNNBiLSTMModel':
         model = CNNBiLSTMModel(2,42,2)
         
         if os.path.exists("/DeepPostures_MAE/MSSE-2021-pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"):
@@ -212,6 +224,22 @@ def main(args):
             raise FileNotFoundError("CHAP_ALL_ADULTS.pth not found in any known location.")
 
         msg = load_model_weights(model, transfer_learning_model_path, weights_only=False)
+    elif cfg.model.name == 'AttentionInteractionModel':
+        base_model = CNNModel(amp_factor=2)
+        if cfg.model.transfer_learning_model_path:
+            msg = load_model_weights(model, cfg.model.transfer_learning_model_path, weights_only=False)
+            print(msg)
+
+        base_model_hidden_dim = base_model.fc.out_features # 512
+        model = AttentionInteractionModel(base_model=base_model,
+                                          base_model_hidden_dim=base_model_hidden_dim,
+                                          num_layer=cfg.model.num_layer,
+                                          hidden=cfg.model.hidden_dim,
+                                          num_heads=cfg.model.num_heads,
+                                          ffn_multiplier=cfg.model.ffn_multiplier,)
+
+        
+
     #######################
     else:
         backbone = models_vit.__dict__[args.model](
@@ -274,7 +302,7 @@ def main(args):
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
         model_without_ddp = model.module
 
-    if args.CHAP:
+    if args.model == 'CNNBiLSTMModel':
         optimizer = create_optimizer_v2(
             model_without_ddp,
             opt='adamw',
@@ -356,17 +384,8 @@ def main(args):
                             'perf/bal_acc': test_stats['bal_acc'],
                             'perf/f1': test_stats['f1'],
                             'perf/test_loss': test_stats['loss'], 
-                            #'perf/confmat': wandb.Image(fig), 
                             'epoch': epoch})
 
-        # log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
-        #              **{f'test_{k}': v for k, v in test_stats.items()},
-        #              'epoch': epoch,
-        #              'n_parameters': n_parameters}
-
-        # if args.output_dir and misc.is_main_process():
-        #     with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
-        #         f.write(json.dumps(log_stats) + "\n")
     if log_writer is not None:
         confmat = best_metric['confmat']
         confmat = confmat.cpu().numpy()
@@ -451,7 +470,7 @@ torchrun --nproc_per_node=4  -m main_finetune_long \
 --data_path "/niddk-data-central/iWatch/pre_processed_pt/W" \
 --pos_weight 2.8232 \
 --remark NEW_CHAP_wrist \
---CHAP 1 \
+--model CNNBiLSTMModel \
 --epochs 50 
 
 '''
