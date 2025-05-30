@@ -54,7 +54,7 @@ from omegaconf import OmegaConf
 
 def get_args_parser():
     parser = argparse.ArgumentParser('MAE linear probing for image classification', add_help=False)
-    parser.add_argument('config', default=None, type=str,
+    parser.add_argument('--config', default=None, type=str,
                         help='path to config file (default: None, use default config)')
     parser.add_argument('--batch_size', default=None, type=int,
                         help='Batch size per GPU (effective batch size is batch_size * accum_iter * # gpus')
@@ -225,16 +225,20 @@ def main(args):
 
         msg = load_model_weights(model, transfer_learning_model_path, weights_only=False)
     elif cfg.model.name == 'AttentionInteractionModel':
-        base_model = CNNModel(amp_factor=2)
+        base_model = CNNBiLSTMModel(2,42,2)
         if cfg.model.transfer_learning_model_path:
-            msg = load_model_weights(model, cfg.model.transfer_learning_model_path, weights_only=False)
+            
+            msg = load_model_weights(base_model, cfg.model.transfer_learning_model_path, weights_only=False)
             print(msg)
+        
+        # we only need the CNN extractor
+        base_model = base_model.cnn_model
 
         base_model_hidden_dim = base_model.fc.out_features # 512
         model = AttentionInteractionModel(base_model=base_model,
                                           base_model_hidden_dim=base_model_hidden_dim,
-                                          num_layer=cfg.model.num_layer,
-                                          hidden=cfg.model.hidden_dim,
+                                          num_layer=cfg.model.num_layers,
+                                          hidden_dim=cfg.model.hidden_dim,
                                           num_heads=cfg.model.num_heads,
                                           ffn_multiplier=cfg.model.ffn_multiplier,)
 
@@ -469,8 +473,8 @@ torchrun --nproc_per_node=4  -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_pt/W" \
 --pos_weight 2.8232 \
---remark NEW_CHAP_wrist \
---model CNNBiLSTMModel \
---epochs 50 
+--epochs 50 \
+--config /DeepPostures_MAE/config/eval/AttentionInteractionModel.yaml \
+--remark DEBUGAttentionInteractionModel
 
 '''
