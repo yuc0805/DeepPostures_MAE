@@ -174,8 +174,6 @@ class AttentionInteractionModel(nn.Module):
         x = rearrange(x, '(b w) d -> b w d', b=B, w=W)
 
         x = self.proj(x)
-        print(f"Shape after projection: {x.shape}")
-
         x = self.attn(x) # BS, 42, 256
         x = self.head(x) # BS, 42, num_classes
 
