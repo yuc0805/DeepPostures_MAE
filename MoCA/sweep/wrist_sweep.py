@@ -19,6 +19,7 @@ def main():
         "--pos_weight", "2.8232",
         "--batch_size", "16",
         "--epochs", "40",
+        "--CHAP","1",
         # Add other necessary arguments here
     ]
 
@@ -29,4 +30,5 @@ if __name__ == "__main__":
     main()
 
 
-# wandb sweep wrist_sweep.yaml
+# wandb sweep sweep/wrist_sweep.yaml
+# wandb agent leo085/DeepPostures_MAE-MoCA/bizjzc3j

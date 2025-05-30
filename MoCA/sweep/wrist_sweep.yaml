@@ -1,12 +1,12 @@
-program: wrist_sweep.py
+program: sweep/wrist_sweep.py
 method: bayes
 metric:
   name: perf/bal_acc
   goal: maximize
 parameters:
   blr:
-    min: 1e-5
-    max: 1e-2
+    min: 0.00001
+    max: 0.01
   weight_decay:
     min: 0.0
     max: 0.1
