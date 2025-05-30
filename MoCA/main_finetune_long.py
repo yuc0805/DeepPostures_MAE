@@ -342,6 +342,7 @@ def main(args):
             best_metric['bal_acc'] = test_stats['bal_acc']
             best_metric['acc1'] = test_stats['acc1']
             best_metric['f1'] = test_stats['f1']
+            best_metric['confmat'] = test_stats['confmat']
 
             if args.output_dir:
                 misc.save_model(
@@ -351,18 +352,11 @@ def main(args):
         print(f'Max Balanced accuracy: {max_accuracy:.2f}%')
 
         if log_writer is not None:
-            confmat = test_stats['confmat']
-            confmat = confmat.cpu().numpy()
-            fig, ax = plt.subplots(figsize=(8, 6))
-            sns.heatmap(confmat, annot=True, fmt='d', cmap='Blues', cbar=False, ax=ax,xticklabels=['sitting','non-sitting'], yticklabels=['sitting','non-sitting'])
-            ax.set_xlabel('Predicted')
-            ax.set_ylabel('True')
-            ax.set_title('Confusion Matrix')
             log_writer.log({'perf/test_acc1': test_stats['acc1'], 
                             'perf/bal_acc': test_stats['bal_acc'],
                             'perf/f1': test_stats['f1'],
                             'perf/test_loss': test_stats['loss'], 
-                            'perf/confmat': wandb.Image(fig), 
+                            #'perf/confmat': wandb.Image(fig), 
                             'epoch': epoch})
 
         # log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
@@ -374,7 +368,18 @@ def main(args):
         #     with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
         #         f.write(json.dumps(log_stats) + "\n")
     if log_writer is not None:
-        log_writer.log({f"best_epoch_{k}": v for k, v in best_metric.items()})
+        confmat = best_metric['confmat']
+        confmat = confmat.cpu().numpy()
+        fig, ax = plt.subplots(figsize=(8, 6))
+        sns.heatmap(confmat, annot=True, fmt='d', cmap='Blues', cbar=False, ax=ax,xticklabels=['sitting','non-sitting'], yticklabels=['sitting','non-sitting'])
+        ax.set_xlabel('Predicted')
+        ax.set_ylabel('True')
+        ax.set_title('Confusion Matrix')
+        log_writer.log({"best_epoch_bal_acc": best_metric['bal_acc'],
+                        "best_epoch_acc1": best_metric['acc1'],
+                        "best_epoch_f1": best_metric['f1'],
+                        "best_epoch": best_metric['epoch'],
+                        "best_epoch_confmat": wandb.Image(best_metric['confmat'])})
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
