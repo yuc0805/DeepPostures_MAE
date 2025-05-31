@@ -1,7 +1,7 @@
 program: sweep/wrist_sweep.py
 method: bayes
 metric:
-  name: perf/bal_acc
+  name: best_epoch_bal_acc
   goal: maximize
 parameters:
   blr:
