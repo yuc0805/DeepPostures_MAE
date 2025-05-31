@@ -402,7 +402,7 @@ def main(args):
                         "best_epoch_acc1": best_metric['acc1'],
                         "best_epoch_f1": best_metric['f1'],
                         "best_epoch": best_metric['epoch'],
-                        "best_epoch_confmat": wandb.Image(best_metric['confmat'])})
+                        "best_epoch_confmat": wandb.Image(fig)})
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
