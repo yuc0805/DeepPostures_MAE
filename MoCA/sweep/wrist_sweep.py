@@ -19,7 +19,7 @@ def main():
         "--pos_weight", "2.8232",
         "--batch_size", "16",
         "--epochs", "40",
-        "--CHAP","1",
+        "--model","CNNBiLSTMModel",
         # Add other necessary arguments here
     ]
 
