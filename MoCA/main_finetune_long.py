@@ -475,6 +475,9 @@ torchrun --nproc_per_node=4  -m main_finetune_long \
 --pos_weight 2.8232 \
 --epochs 50 \
 --config /DeepPostures_MAE/config/eval/AttentionInteractionModel.yaml \
---remark DEBUGAttentionInteractionModel
+--remark Scratch-AttentionInteractionModel \
+--batch_size 16 \
+--blr 1e-3 \
+--weight_decay 1e-2 \
 
 '''
