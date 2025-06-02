@@ -196,7 +196,7 @@ def main(args):
         pin_memory=args.pin_mem,
         drop_last=True,
     )
-    
+
     data_loader_val = torch.utils.data.DataLoader(
         dataset_val, 
         batch_size=args.batch_size,
@@ -495,9 +495,10 @@ torchrun --nproc_per_node=4  -m main_finetune_long \
 
 torchrun --nproc_per_node=4  -m main_finetune_long \
 --ds_name iwatch \
---data_path "/niddk-data-central/iWatch/pre_processed_pt/W" \
+--data_path "/niddk-data-central/iWatch/pre_processed_long_seg/H" \
 --remark Debug \
 --lr 1e-4 
+--model CNNBiLSTMModel
 
 torchrun --nproc_per_node=4  -m main_finetune_long \
 --ds_name iwatch \

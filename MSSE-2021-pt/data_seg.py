@@ -167,7 +167,7 @@ def _flush_to_h5(f_out, x_list, y_list, ts_list, subj_list, first_write):
 
 if __name__ == "__main__":
     split_data_file = "/niddk-data-central/iWatch/support_files/iwatch_split_dict.pkl"
-    pre_processed_dir = '/niddk-data-central/iWatch/pre_processed_pt/H'
+    pre_processed_dir = '/niddk-data-central/iWatch/pre_processed_pt/W'
 
     with open(split_data_file, "rb") as f:
         split_data = pickle.load(f)
@@ -177,19 +177,19 @@ if __name__ == "__main__":
 
     # write out one HDF5 per split, flattened along the time axis
     save_samples_from_iter(pre_processed_dir,
-                           "/niddk-data-central/iWatch/pre_processed_long_seg/H/10s_val.h5",
+                           "/niddk-data-central/iWatch/pre_processed_long_seg/W/10s_val.h5",
                            valid_subjects,
                            window_size=42,
                            flush_threshold=1000)
 
     save_samples_from_iter(pre_processed_dir,
-                           "/niddk-data-central/iWatch/pre_processed_long_seg/H/10s_train.h5",
+                           "/niddk-data-central/iWatch/pre_processed_long_seg/W/10s_train.h5",
                            train_subjects,
                            window_size=42,
                            flush_threshold=1000)
 
     save_samples_from_iter(pre_processed_dir,
-                           "/niddk-data-central/iWatch/pre_processed_long_seg/H/10s_test.h5",
+                           "/niddk-data-central/iWatch/pre_processed_long_seg/W/10s_test.h5",
                            test_subjects,
                            window_size=42,
                            flush_threshold=1000)
