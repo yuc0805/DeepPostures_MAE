@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 
 import timm
 from config import FT_LONG_DATASET_CONFIG
-from util.datasets import data_aug#iWatch_HDf5, data_aug,collate_fn,resample_aug
+from util.datasets import data_aug, iWatch #iWatch_HDf5, data_aug,collate_fn,resample_aug
 import util.misc as misc
 from util.misc import NativeScalerWithGradNormCount as NativeScaler
 from timm.optim import create_optimizer_v2
@@ -171,34 +171,64 @@ def main(args):
 
     print('Using dataset',args.ds_name)
 
+    dataset_train = iWatch(
+        set_type='train',
+        data_path=args.data_path,
+        transform=data_aug,)
+    dataset_val = iWatch(
+        set_type='val',
+        data_path=args.data_path,
+        transform=None,)
+    print("Dataset train size: %d" % len(dataset_train))
+
     if True:  # args.distributed:
         num_tasks = misc.get_world_size()
         global_rank = misc.get_rank()
+        sampler_train = torch.utils.data.DistributedSampler(
+            dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True
+        )
+        print("Sampler_train = %s" % str(sampler_train))
+    
+    data_loader_train = torch.utils.data.DataLoader(
+        dataset_train, sampler=sampler_train,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+        pin_memory=args.pin_mem,
+        drop_last=True,
+    )
+    
+    data_loader_val = torch.utils.data.DataLoader(
+        dataset_val, 
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+        pin_memory=args.pin_mem,
+        shuffle=False,
+    )
 
-    if args.ds_name == 'iwatch':
-        with open("/niddk-data-central/iWatch/support_files/iwatch_split_dict.pkl", "rb") as f:
-            split_data = pickle.load(f)
+    # if args.ds_name == 'iwatch':
+    #     with open("/niddk-data-central/iWatch/support_files/iwatch_split_dict.pkl", "rb") as f:
+    #         split_data = pickle.load(f)
 
-        train_subjects = split_data["train"]
-        valid_subjects = split_data["val"]
+    #     train_subjects = split_data["train"]
+    #     valid_subjects = split_data["val"]
         
 
-        random.shuffle(train_subjects)
-        random.shuffle(valid_subjects)
+    #     random.shuffle(train_subjects)
+    #     random.shuffle(valid_subjects)
 
-        data_loader_train, data_loader_val, _ = get_dataloaders_dist(
-        pre_processed_dir=args.data_path,
-        bi_lstm_win_size=42, # chap_adult
-        batch_size=args.batch_size,
-        train_subjects=train_subjects,
-        valid_subjects=valid_subjects,
-        test_subjects=None,
-        rank=global_rank,
-        world_size=num_tasks,
-        transform=data_aug,)
+    #     data_loader_train, data_loader_val, _ = get_dataloaders_dist(
+    #     pre_processed_dir=args.data_path,
+    #     bi_lstm_win_size=42, # chap_adult
+    #     batch_size=args.batch_size,
+    #     train_subjects=train_subjects,
+    #     valid_subjects=valid_subjects,
+    #     test_subjects=None,
+    #     rank=global_rank,
+    #     world_size=num_tasks,
+    #     transform=data_aug,)        
 
-    else:
-        raise NotImplementedError('The specified dataset is not implemented.')
+    # else:
+    #     raise NotImplementedError('The specified dataset is not implemented.')
 
     if args.log_dir is not None and not args.eval and global_rank == 0:  
         wandb.login(key='32b6f9d5c415964d38bfbe33c6d5c407f7c19743')
@@ -347,8 +377,8 @@ def main(args):
     max_accuracy = 0.0
     best_metric = {'epoch':0, 'acc1':0.0, 'bal_acc':0.0, 'f1':0.0}
     for epoch in range(args.start_epoch, args.epochs):
-        # if args.distributed: 
-        #     data_loader_train.sampler.set_epoch(epoch)
+        if args.distributed: 
+            data_loader_train.sampler.set_epoch(epoch)
         train_stats = train_one_epoch(
             model, criterion, data_loader_train,
             optimizer, epoch, loss_scaler,

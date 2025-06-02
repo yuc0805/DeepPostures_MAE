@@ -79,54 +79,86 @@ def data_aug(x):
     return x
 
 
-
-import h5py
-class iWatch_HDf5(Dataset):
-    def __init__(self,
-                 root='/niddk-data-central/iWatch/pre_processed_seg/H',
+class iWatch(Dataset):
+    def __init__(self, 
+                 root='/niddk-data-central/iWatch/pre_processed_long_seg',
                  set_type='train',
-                 transform=None,
-                 subset=None):
-        self.file_path = os.path.join(root, f"10s_{set_type}.h5")
+                 transform=None,):
+        self.file_path = os.path.join(root, f"10s_{set_type}.pkl")
         self.transform = transform
-        # these will be set in the worker when first accessed
-        self.h5_file = None
-        self.x_data = None
-        self.y_data = None
-        self.subset= subset
-    def _ensure_open(self):
-        # called inside worker on first __getitem__
-        if self.h5_file is None:
-            self.h5_file = h5py.File(self.file_path, 'r')
-            self.x_data = self.h5_file['x']
-            self.y_data = self.h5_file['y']
+        with open(self.file_path, 'rb') as f:
+            self.data = pickle.load(f)
+
 
     def __len__(self):
-        # we open here if not already, so that len() works in main process
-        self._ensure_open()
-        if self.subset is not None:
-            return self.subset
-        
-        return len(self.x_data)
+        return len(self.data)
 
     def __getitem__(self, idx):
-        self._ensure_open()                     # open once per worker
-        x = self.x_data[idx]                    # shape: (100, 3)
+        x = self.data[idx]['x']  # shape: (42, 100, 3)
+        y = self.data[idx]['y']  # shape: (42,)
+
+        output = np.empty_like(x)  # np array has same dimension as x
         if self.transform is not None:
-            x = self.transform(x) # shape: (100, 3)
+            x_aug = np.empty_like(x)
+            for i in range(x.shape[0]):
+                x_aug[i] = self.transform(x[i].T).T
+        else:
+            x_aug = x.copy()  # safer to avoid pointer aliasing
+
+        x_aug = torch.from_numpy(x_aug)
+        y = torch.tensor(y, dtype=torch.long)
+
+        return x_aug, y
+
+    
+# Dataset for (BS, 100,3)
+# import h5py
+# class iWatch_HDf5(Dataset):
+#     def __init__(self,
+#                  root='/niddk-data-central/iWatch/pre_processed_seg/H',
+#                  set_type='train',
+#                  transform=None,
+#                  subset=None):
+#         self.file_path = os.path.join(root, f"10s_{set_type}.h5")
+#         self.transform = transform
+#         # these will be set in the worker when first accessed
+#         self.h5_file = None
+#         self.x_data = None
+#         self.y_data = None
+#         self.subset= subset
+#     def _ensure_open(self):
+#         # called inside worker on first __getitem__
+#         if self.h5_file is None:
+#             self.h5_file = h5py.File(self.file_path, 'r')
+#             self.x_data = self.h5_file['x']
+#             self.y_data = self.h5_file['y']
+
+#     def __len__(self):
+#         # we open here if not already, so that len() works in main process
+#         self._ensure_open()
+#         if self.subset is not None:
+#             return self.subset
         
-        x = torch.from_numpy(x).permute(1, 0)  # shape: (3, 100)
-        x = x.unsqueeze(0)                      # shape: (1, 3, 100)
+#         return len(self.x_data)
 
-        y = int(self.y_data[idx])               
-        return x, torch.tensor(y, dtype=torch.long)
+#     def __getitem__(self, idx):
+#         self._ensure_open()                     # open once per worker
+#         x = self.x_data[idx]                    # shape: (100, 3)
+#         if self.transform is not None:
+#             x = self.transform(x) # shape: (100, 3)
+        
+#         x = torch.from_numpy(x).permute(1, 0)  # shape: (3, 100)
+#         x = x.unsqueeze(0)                      # shape: (1, 3, 100)
 
-    def __del__(self):
-        if getattr(self, 'h5_file', None) is not None:
-            try:
-                self.h5_file.close()
-            except Exception:
-                pass
+#         y = int(self.y_data[idx])               
+#         return x, torch.tensor(y, dtype=torch.long)
+
+#     def __del__(self):
+#         if getattr(self, 'h5_file', None) is not None:
+#             try:
+#                 self.h5_file.close()
+#             except Exception:
+#                 pass
 
 
 def collate_fn(batch):

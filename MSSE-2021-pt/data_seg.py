@@ -21,8 +21,8 @@ def save_samples_from_iter(preprocessed_dir,
       timestamp   float64, shape (N_time,)
       subject_id  utf-8 str, shape (N_time,)
     """
-    os.makedirs(out_dir, exist_ok=True)
-    out_h5_path = os.path.join(out_dir, '10s_val.h5')
+    #os.makedirs(out_dir, exist_ok=True)
+    out_h5_path = out_dir#os.path.join(out_dir, '10s_val.h5')
 
     x_buf, y_buf, ts_buf, subj_buf = [], [], [], []
     first_write = True
@@ -177,19 +177,19 @@ if __name__ == "__main__":
 
     # write out one HDF5 per split, flattened along the time axis
     save_samples_from_iter(pre_processed_dir,
-                           "/niddk-data-central/iWatch/pre_processed_long_seg/H",
+                           "/niddk-data-central/iWatch/pre_processed_long_seg/H/10s_val.h5",
                            valid_subjects,
                            window_size=42,
                            flush_threshold=1000)
 
     save_samples_from_iter(pre_processed_dir,
-                           "/niddk-data-central/iWatch/pre_processed_long_seg/H",
+                           "/niddk-data-central/iWatch/pre_processed_long_seg/H/10s_train.h5",
                            train_subjects,
                            window_size=42,
                            flush_threshold=1000)
 
     save_samples_from_iter(pre_processed_dir,
-                           "/niddk-data-central/iWatch/pre_processed_long_seg/H",
+                           "/niddk-data-central/iWatch/pre_processed_long_seg/H/10s_test.h5",
                            test_subjects,
                            window_size=42,
                            flush_threshold=1000)
