@@ -353,28 +353,28 @@ class BufferedShuffleDataset(IterableDataset):
         while buffer:
             yield buffer.pop(random.randint(0, len(buffer) - 1))
 
-def data_aug(x):
-    '''
-    Inout: x: numpy array of shape (num_windows, 100, 3)
-    Output: x: numpy array of shape (num_windows, 100, 3) with data augmentation applied
+# def data_aug(x):
+#     '''
+#     Inout: x: numpy array of shape (num_windows, 100, 3)
+#     Output: x: numpy array of shape (num_windows, 100, 3) with data augmentation applied
 
-    https://shamilmamedov.com/blog/2023/da-time-series/
-    '''
+#     https://shamilmamedov.com/blog/2023/da-time-series/
+#     '''
 
-    num_windows, T, C = x.shape
-    x_aug = x.copy()
+#     num_windows, T, C = x.shape
+#     x_aug = x.copy()
 
-    # Channel swapping: apply one permutation across all windows
-    perm = np.random.permutation(C)
-    x_aug = x_aug[:, :, perm]
+#     # Channel swapping: apply one permutation across all windows
+#     perm = np.random.permutation(C)
+#     x_aug = x_aug[:, :, perm]
 
-    # Jittering: add Gaussian noise
-    noise_std = 0.05  # Adjust as needed
-    noise = np.random.normal(loc=0.0, scale=noise_std, size=x_aug.shape)
-    x_aug += noise
+#     # Jittering: add Gaussian noise
+#     noise_std = 0.05  # Adjust as needed
+#     noise = np.random.normal(loc=0.0, scale=noise_std, size=x_aug.shape)
+#     x_aug += noise
 
-    # Scaling: apply one random scalar per window
-    scaling_factors = np.random.normal(loc=1.0, scale=0.1, size=(num_windows, 1, 1))
-    x_aug *= scaling_factors
+#     # Scaling: apply one random scalar per window
+#     scaling_factors = np.random.normal(loc=1.0, scale=0.1, size=(num_windows, 1, 1))
+#     x_aug *= scaling_factors
 
-    return x_aug
+#     return x_aug

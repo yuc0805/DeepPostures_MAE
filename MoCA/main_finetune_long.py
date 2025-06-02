@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 
 import timm
 from config import FT_LONG_DATASET_CONFIG
-from util.datasets import data_aug, iWatch #iWatch_HDf5, data_aug,collate_fn,resample_aug
+from util.datasets import data_aug, iWatch 
 import util.misc as misc
 from util.misc import NativeScalerWithGradNormCount as NativeScaler
 from timm.optim import create_optimizer_v2
@@ -43,7 +43,7 @@ if os.path.exists('/DeepPostures_MAE/MSSE-2021-pt'):
     sys.path.append('/DeepPostures_MAE/MSSE-2021-pt')
 elif os.path.exists('/app/DeepPostures_MAE/MSSE-2021-pt'):
     sys.path.append('/app/DeepPostures_MAE/MSSE-2021-pt')
-from commons import get_dataloaders_dist,data_aug
+from commons import get_dataloaders_dist 
 import random
 from einops import rearrange
 from tqdm import tqdm
@@ -173,11 +173,11 @@ def main(args):
 
     dataset_train = iWatch(
         set_type='train',
-        data_path=args.data_path,
+        root=args.data_path,
         transform=data_aug,)
     dataset_val = iWatch(
         set_type='val',
-        data_path=args.data_path,
+        root=args.data_path,
         transform=None,)
     print("Dataset train size: %d" % len(dataset_train))
 
@@ -493,11 +493,11 @@ torchrun --nproc_per_node=4  -m main_finetune_long \
 --data_path "/niddk-data-central/iWatch/pre_processed_pt/W" \
 --remark Wrist_Long_50epoch
 
-torchrun --nproc_per_node=4  -m main_finetune_long \
+torchrun --nproc_per_node=4 -m main_finetune_long \
 --ds_name iwatch \
---data_path "/niddk-data-central/iWatch/pre_processed_long_seg/H" \
+--data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
 --remark Debug \
---lr 1e-4 
+--lr 1e-4 \
 --model CNNBiLSTMModel
 
 torchrun --nproc_per_node=4  -m main_finetune_long \

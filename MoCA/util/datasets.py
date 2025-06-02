@@ -23,12 +23,11 @@ def rotation_axis(sample):
     Returns:
         numpy.ndarray: Rotated sample of the same shape as input.
     """
-    sample = np.swapaxes(sample, 0, 1)
     angle = np.random.uniform(low=-np.pi, high=np.pi)
     axis = np.random.uniform(low=-1, high=1, size=sample.shape[1])
     rotation_matrix = axangle2mat(axis, angle)
     sample = np.matmul(sample, rotation_matrix)
-    sample = np.swapaxes(sample, 0, 1)
+
     return sample
 
 def data_aug(x):
@@ -79,29 +78,33 @@ def data_aug(x):
     return x
 
 
+import h5py
 class iWatch(Dataset):
     def __init__(self, 
                  root='/niddk-data-central/iWatch/pre_processed_long_seg',
                  set_type='train',
                  transform=None,):
-        self.file_path = os.path.join(root, f"10s_{set_type}.pkl")
+        self.file_path = os.path.join(root, f"10s_{set_type}.h5")
+        self.data_file = h5py.File(self.file_path, 'r')
+        self.x_data = self.data_file['x']       # shape: (N, 100, 3)
+        self.y_data = self.data_file['y'] 
+
         self.transform = transform
-        with open(self.file_path, 'rb') as f:
-            self.data = pickle.load(f)
+        
 
 
     def __len__(self):
-        return len(self.data)
+        return len(self.y_data)
 
     def __getitem__(self, idx):
-        x = self.data[idx]['x']  # shape: (42, 100, 3)
-        y = self.data[idx]['y']  # shape: (42,)
+        x = self.x_data[idx]  # shape: (42, 100, 3)
+        y = self.y_data[idx]  # shape: (42,)
 
         output = np.empty_like(x)  # np array has same dimension as x
         if self.transform is not None:
             x_aug = np.empty_like(x)
             for i in range(x.shape[0]):
-                x_aug[i] = self.transform(x[i].T).T
+                x_aug[i] = self.transform(x[i])
         else:
             x_aug = x.copy()  # safer to avoid pointer aliasing
 
