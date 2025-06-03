@@ -23,7 +23,7 @@ import util.misc as misc
 from einops import rearrange
 
 from sklearn.metrics import confusion_matrix
-# import util.lr_sched as lr_sched
+import util.lr_sched as lr_sched
 
 
 def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
@@ -45,7 +45,10 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         print('log_dir: {}'.format(log_writer.dir))
 
     
-    for data_iter_step, (samples, targets) in enumerate(data_loader):
+    for data_iter_step, (samples, targets) in enumerate(metric_logger.log_every(data_loader, print_freq, header)): #enumerate(data_loader):
+        if data_iter_step % accum_iter == 0:
+            lr_sched.adjust_learning_rate(optimizer, data_iter_step / len(data_loader) + epoch, args)
+
         samples = samples.float().to(device, non_blocking=True) # BS, 42, 100, 3
         targets = targets.to(device, non_blocking=True) # BS,42
         batch_size = targets.shape[0] 

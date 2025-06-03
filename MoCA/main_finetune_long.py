@@ -21,7 +21,7 @@ import torch
 import torch.backends.cudnn as cudnn
 import torch.nn as nn
 import wandb
-from timm.scheduler.cosine_lr import CosineLRScheduler
+# from timm.scheduler.cosine_lr import CosineLRScheduler
 import seaborn as sns
 import matplotlib.pyplot as plt
 
@@ -361,12 +361,12 @@ def main(args):
         criterion = torch.nn.CrossEntropyLoss()
     
     #if not args.CHAP:
-    scheduler = CosineLRScheduler(
-    optimizer,
-    t_initial=args.epochs,
-    warmup_t=args.warmup_epochs,
-    warmup_lr_init=args.min_lr,
-    t_in_epochs=True)
+    # scheduler = CosineLRScheduler(
+    # optimizer,
+    # t_initial=args.epochs,
+    # warmup_t=args.warmup_epochs,
+    # warmup_lr_init=args.min_lr,
+    # t_in_epochs=True)
     # else:
     #     scheduler = None
 
@@ -496,7 +496,7 @@ torchrun --nproc_per_node=4  -m main_finetune_long \
 torchrun --nproc_per_node=4 -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
---remark Debug \
+--remark NEW \
 --lr 1e-4 \
 --model CNNBiLSTMModel
 
