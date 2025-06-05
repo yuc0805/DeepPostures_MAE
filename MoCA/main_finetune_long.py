@@ -341,8 +341,7 @@ def main(args):
             model_without_ddp,
             opt='adamw',
             lr=args.lr,
-            weight_decay=args.weight_decay,# default: 0 
-            betas=(0.9, 0.95))
+            weight_decay=args.weight_decay,) # default: 0 )
     else:
         # add layer decay
         optimizer = create_optimizer_v2(
@@ -394,8 +393,8 @@ def main(args):
         test_stats = evaluate(args,data_loader_val, model, device)
         print(f"Balanced Accuracy of the network on test images: {test_stats['bal_acc']:.5f} and F1 score of {test_stats['f1']:.5f}%")
 
-        if scheduler is not None:
-            scheduler.step(epoch)
+        # if scheduler is not None:
+        #     scheduler.step(epoch)
         # save the best epoch
         if max_accuracy < test_stats["bal_acc"]:
             max_accuracy = test_stats["bal_acc"]
@@ -497,7 +496,7 @@ torchrun --nproc_per_node=4 -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
 --remark NEW \
---blr 1e-5 \
+--blr 1e-3 \
 --model CNNBiLSTMModel \
 --epochs 50 \
 --warmup_epochs 5 \
