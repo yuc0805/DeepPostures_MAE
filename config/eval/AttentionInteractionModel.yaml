@@ -1,6 +1,6 @@
 model:
   name: AttentionInteractionModel
-  hidden_dim: 256
+  hidden_dim: 768 #256
   num_heads: 8
   num_layers: 4
   ffn_multiplier: 4

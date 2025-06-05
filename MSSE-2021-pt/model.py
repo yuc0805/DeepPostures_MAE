@@ -156,7 +156,8 @@ class AttentionInteractionModel(nn.Module):
             d_model=hidden_dim,
             nhead=num_heads,
             dim_feedforward=hidden_dim*ffn_multiplier,
-            batch_first=True
+            batch_first=True,
+            activation=F.gelu,
         )
         self.attn = nn.TransformerEncoder(encoder_layer, num_layers=num_layer)
         if num_classes == 2:
