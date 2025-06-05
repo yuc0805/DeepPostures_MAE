@@ -74,7 +74,7 @@ def get_args_parser():
                         help='number of channels')
     parser.add_argument('--remark', default='Debug',type=str,
                         help='model_remark')
-
+    parser.add_argument('--use_data_aug',default=1,type=int)
     # Optimizer parameters
     parser.add_argument('--clip_grad', type=float, default=None, metavar='NORM',
                         help='Clip gradient norm (default: None, no clipping)')
@@ -170,11 +170,14 @@ def main(args):
     
 
     print('Using dataset',args.ds_name)
+    transform=None
+    if args.use_data_aug:
+        transform=data_aug
 
     dataset_train = iWatch(
         set_type='train',
         root=args.data_path,
-        transform=data_aug,)
+        transform=transform,)
     dataset_val = iWatch(
         set_type='val',
         root=args.data_path,

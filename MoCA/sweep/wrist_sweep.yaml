@@ -16,3 +16,5 @@ parameters:
     values: [4, 8, 16, 32, 64, 128, 256]
   pos_weight:
     values: [0, 2.8232]
+  use_data_aug:
+    values: [0, 1]

@@ -20,6 +20,7 @@ def main():
         "--batch_size", str(config.batch_size),
         "--epochs", "40",
         "--warmup_epochs", str(config.warmup_epochs),
+        "--use_data_aug", str(config.use_data_aug),
         "--model","CNNBiLSTMModel",
         # Add other necessary arguments here
     ]
