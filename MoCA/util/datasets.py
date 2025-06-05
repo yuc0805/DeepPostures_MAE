@@ -77,24 +77,42 @@ def data_aug(x):
 
     return x
 
-
 import h5py
 class iWatch(Dataset):
     def __init__(self, 
                  root='/niddk-data-central/iWatch/pre_processed_long_seg',
                  set_type='train',
-                 transform=None,):
+                 transform=None,
+                 weighted_sampling=False):
         self.file_path = os.path.join(root, f"10s_{set_type}.h5")
         self.data_file = h5py.File(self.file_path, 'r')
         self.x_data = self.data_file['x']       # shape: (N, 100, 3)
         self.y_data = self.data_file['y'] 
 
         self.transform = transform
-        
+
+    # def resample_epoch(self):
+    #     """
+    #     Build a new balanced index list by copying the minority label
+    #     with replacement until both labels have the same count, then shuffle.
+    #     """
+    #     labels = np.asarray(self.y_data, dtype=np.int64)
+    #     classes, counts = np.unique(labels, return_counts=True)
+    #     target = counts.max()                     # majority label size
+    #     new_idx = []
+    #     for c in classes:
+    #         idx_c = self.all_idx[labels == c]
+    #         if len(idx_c) < target:
+    #             extra = self.rng.choice(idx_c, size=target - len(idx_c), replace=True)
+    #             idx_c = np.concatenate([idx_c, extra])
+    #         new_idx.append(idx_c)
+    #     self.indices = np.concatenate(new_idx)
+    #     self.rng.shuffle(self.indices)
 
 
     def __len__(self):
         return len(self.y_data)
+    
 
     def __getitem__(self, idx):
         x = self.x_data[idx]  # shape: (42, 100, 3)

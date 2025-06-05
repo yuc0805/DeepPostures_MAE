@@ -36,6 +36,7 @@ import util.lr_decay as lrd  # for optimizer
 import models_vit
 from models_mae import LinearProbeModel
 from engine_finetune_long import train_one_epoch, evaluate
+from util.loss import BinaryFocalLoss
 
 import pickle
 import sys
@@ -94,6 +95,8 @@ def get_args_parser():
                         help='epochs to warmup LR')
     parser.add_argument('--pos_weight', type=float, default=1.0, 
                         help='positive weight for BCE loss')
+    parser.add_argument('--use_focal_loss', action='store_true',
+                    help='Use focal loss instead of BCEWithLogitsLoss')
 
     # * Finetuning params
     parser.add_argument('--checkpoint', default='/home/jovyan/persistent-data/MAE_Accelerometer/experiments/661169(p200_10_alt_0.0005)/checkpoint-3999.pth', 
@@ -355,8 +358,11 @@ def main(args):
 
     loss_scaler = NativeScaler()
 
-    if args.nb_classes == 2:
+    if args.use_focal_loss:
+        criterion = BinaryFocalLoss(alpha=0.25,gamma=2.0, reduction="mean").to(device) # alpha is for balance, gamma is to ignore easy sample
+    elif args.nb_classes == 2:
         criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([args.pos_weight], dtype=torch.float32).to(device))
+        
     else:
         criterion = torch.nn.CrossEntropyLoss()
     
@@ -506,13 +512,13 @@ torchrun --nproc_per_node=4 -m main_finetune_long \
 
 torchrun --nproc_per_node=4  -m main_finetune_long \
 --ds_name iwatch \
---data_path "/niddk-data-central/iWatch/pre_processed_pt/W" \
+--data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
 --pos_weight 2.8232 \
 --epochs 50 \
 --config /DeepPostures_MAE/config/eval/AttentionInteractionModel.yaml \
---remark Scratch-AttentionInteractionModel \
---batch_size 8 \
---accum_iter 2 \
+--warmup_epochs 10 \
+--remark AttentionInteractionModel \
+--batch_size 256 \
 --blr 1e-4 \
 --weight_decay 5e-2 \
 --layer_decay 0.6
