@@ -134,13 +134,11 @@ class iWatch(Dataset):
         x = self.x_data[idx]  # shape: (42, 100, 3)
         y = self.y_data[idx]  # shape: (42,)
 
-        output = np.empty_like(x)  # np array has same dimension as x
         if self.transform is not None:
-            x_aug = np.empty_like(x)
-            for i in range(x.shape[0]):
-                x_aug[i] = self.transform(x[i])
+            x_aug = [self.transform(x[i]) for i in range(x.shape[0])]
+            x_aug = np.stack(x_aug)  # This will raise error if shapes do not match, which is good
         else:
-            x_aug = x.copy()  # safer to avoid pointer aliasing
+            x_aug = x.copy()
 
         x_aug = torch.from_numpy(x_aug)
         y = torch.tensor(y, dtype=torch.long)
