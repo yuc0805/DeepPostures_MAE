@@ -71,3 +71,6 @@ torchrun --nproc_per_node=4 -m main_finetune_long \
 --num_attn_layer 2 \
 --pos_weight=2.7953 \
 --subset_ratio 1.0 
+
+# chmod +x script/moca_shallow_hip.sh
+# ./script/moca_shallow_hip.sh

@@ -139,5 +139,5 @@ torchrun --nproc_per_node=4 -m main_finetune_long \
 
 
 ##
-# chmod +x script/moca_shallow.sh
-# ./script/moca_shallow.sh
+# chmod +x script/moca_shallow_wrist.sh
+# ./script/moca_shallow_wrist.sh
