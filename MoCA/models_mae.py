@@ -458,7 +458,7 @@ class MaskedAutoencoderViT(nn.Module):
 
 class AttentionProbeModel(nn.Module):
     def __init__(self, base_model, window_size=42,num_classes=2,num_layer=1,
-                 hidden_dim=256):
+                 hidden_dim=256,dropout=0.1):
         super(AttentionProbeModel, self).__init__()
         self.base_model = base_model
         self.base_model.head = nn.Identity()  # Remove the original head
@@ -468,7 +468,8 @@ class AttentionProbeModel(nn.Module):
             d_model=hidden_dim,
             nhead=8,
             dim_feedforward=hidden_dim*2,
-            batch_first=True
+            batch_first=True,
+            dropout=dropout
         )
         self.attn = nn.TransformerEncoder(encoder_layer, num_layers=num_layer)
         if num_classes == 2:

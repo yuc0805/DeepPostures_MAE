@@ -543,8 +543,8 @@ torchrun --nproc_per_node=4  -m main_finetune_long \
 --config /DeepPostures_MAE/config/eval/AttentionInteractionModel.yaml \
 --warmup_epochs 10 \
 --remark AttentionInteractionModel \
---batch_size 8 \
---lr 1e-4 \
+--batch_size 256 \
+--blr 1e-4 \
 --weight_decay 5e-2 \
 --layer_decay 0.4
 
