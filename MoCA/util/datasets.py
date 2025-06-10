@@ -137,8 +137,8 @@ class iWatch(Dataset):
         y = self.y_data[idx]  # shape: (42,)
 
         if self.transform is not None:
-            x = x.reshape(-1, x.shape[-1]) # (4300,3)
-            x_aug = self.transform(x)
+            x_aug = x.reshape(-1, x.shape[-1]) # (4200,3)
+            x_aug = self.transform(x_aug)
             x_aug = x_aug.reshape(x.shape[0], x.shape[1], -1)  # Reshape back to (42, 100, 3)
 
         else:
