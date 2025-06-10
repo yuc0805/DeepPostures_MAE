@@ -299,7 +299,7 @@ def main(args):
         print('shape after interpolate:',checkpoint_model['pos_embed'].shape)
         msg = base_model.load_state_dict(checkpoint_model, strict=False)
         print(msg)
-        model = AttentionProbeModel(base_model, window_size=42,num_classes=args.nb_classes,hidden_dim=256,num_layer=args.num_attn_layer)
+        model = AttentionProbeModel(base_model, window_size=42,num_classes=args.nb_classes,hidden_dim=768,num_layer=args.num_attn_layer)
         
 
     #######################
