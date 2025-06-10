@@ -97,7 +97,8 @@ def get_args_parser():
                         help='positive weight for BCE loss')
     parser.add_argument('--use_focal_loss', action='store_true',
                     help='Use focal loss instead of BCEWithLogitsLoss')
-
+    parser.add_argument('--subset_ratio',type=float,default=1.0,
+                        help='Subset ratio for the dataset, default is 1.0 (use all data)')
     # * Finetuning params
     parser.add_argument('--checkpoint', default='/home/jovyan/persistent-data/MAE_Accelerometer/experiments/661169(p200_10_alt_0.0005)/checkpoint-3999.pth', 
                         type=str,help='model checkpoint for evaluation') 
@@ -180,12 +181,13 @@ def main(args):
     dataset_train = iWatch(
         set_type='train',
         root=args.data_path,
-        transform=transform,)
+        transform=transform,
+        subset_ratio=args.subset_ratio,)
     dataset_val = iWatch(
         set_type='val',
         root=args.data_path,
         transform=None,)
-    print("Dataset train size: %d" % len(dataset_train))
+    print(f"{args.subset_ratio} percent of train dataset, {len(dataset_train)} samples")
 
     if True:  # args.distributed:
         num_tasks = misc.get_world_size()
@@ -471,7 +473,7 @@ if __name__ == '__main__':
         # args.lr = 1e-4
         # args.batch_size = 4
         # args.weight_decay = 1e-4
-    args.remark = args.remark + f'LP_blr_{args.blr}_bs_{args.batch_size}_input_size_{args.input_size}'
+    args.remark = args.remark + f'set_{args.subset_ratio}_blr_{args.blr}_bs_{args.batch_size}_input_size_{args.input_size}'
     print(f'Start Training: {args.remark}')
     
     args.log_dir = os.path.join(args.log_dir,args.remark,f'{initial_timestamp.strftime("%Y-%m-%d_%H-%M")}')
@@ -502,7 +504,7 @@ torchrun --nproc_per_node=4  -m main_finetune_long \
 torchrun --nproc_per_node=4 -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
---remark NEW \
+--remark CHAP  \
 --blr 1e-3 \
 --model CNNBiLSTMModel \
 --epochs 50 \
