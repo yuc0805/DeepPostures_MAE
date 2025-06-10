@@ -510,7 +510,8 @@ torchrun --nproc_per_node=4 -m main_finetune_long \
 --epochs 50 \
 --warmup_epochs 5 \
 --batch_size 256 \
---weight_decay 5e-2
+--weight_decay 5e-2 \
+--subset_ratio 0.1 
 
 torchrun --nproc_per_node=4  -m main_finetune_long \
 --ds_name iwatch \

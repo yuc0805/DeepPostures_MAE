@@ -92,10 +92,12 @@ class iWatch(Dataset):
         
         self.transform = transform
 
-        self.indices = np.arange(len(self.subject_id))
+        
+        self.indices = np.arange(len(self.y_data))
 
         # each subject should have 10% so the distrbution for each subject is the same as before
         if subset_ratio < 1.0:
+            self.subject_id = self.data_file['subject_id']
             np.random.seed(42)
             final_indices = []
             subject_ids = np.unique(self.subject_id)
