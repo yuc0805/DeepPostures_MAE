@@ -7,7 +7,7 @@ import torch
 import torch.nn.functional as F
 from scipy.signal import resample
 from transforms3d.axangles import axangle2mat
-
+from einops import rearrange
 
 def rotation_axis(sample):
     """
@@ -70,10 +70,10 @@ def data_aug(x):
     x *= np.random.normal(loc=1.0, scale=0.1)
 
     # segment permute
-    seg_len =  x.shape[0] // 4 # 100//4
-    segments = np.split(x[:seg_len * 4, :], 4, axis=0)
-    perm = np.random.permutation(4)
-    x = np.concatenate([segments[i] for i in perm], axis=0)
+    # seg_len =  x.shape[0] // 4 # 100//4
+    # segments = np.split(x[:seg_len * 4, :], 4, axis=0)
+    # perm = np.random.permutation(4)
+    # x = np.concatenate([segments[i] for i in perm], axis=0)
 
     return x
 
@@ -137,8 +137,10 @@ class iWatch(Dataset):
         y = self.y_data[idx]  # shape: (42,)
 
         if self.transform is not None:
-            x_aug = [self.transform(x[i]) for i in range(x.shape[0])]
-            x_aug = np.stack(x_aug)  # This will raise error if shapes do not match, which is good
+            x = x.reshape(-1, x.shape[-1]) # (4300,3)
+            x_aug = self.transform(x)
+            x_aug = x_aug.reshape(x.shape[0], x.shape[1], -1)  # Reshape back to (42, 100, 3)
+
         else:
             x_aug = x.copy()
 
