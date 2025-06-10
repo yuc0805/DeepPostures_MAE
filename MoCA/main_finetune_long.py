@@ -76,7 +76,7 @@ def get_args_parser():
                         help='number of channels')
     parser.add_argument('--remark', default='Debug',type=str,
                         help='model_remark')
-    parser.add_argument('--use_data_aug',default=1,type=int)
+    parser.add_argument('--use_data_aug',default=0,type=int)
     # Optimizer parameters
     parser.add_argument('--clip_grad', type=float, default=None, metavar='NORM',
                         help='Clip gradient norm (default: None, no clipping)')
@@ -212,6 +212,7 @@ def main(args):
         batch_size=args.batch_size,
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
+        drop_last=False,
         shuffle=False,
     )
 
