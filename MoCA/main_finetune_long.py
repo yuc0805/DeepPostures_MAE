@@ -189,7 +189,7 @@ def main(args):
         set_type='val',
         root=args.data_path,
         transform=None,)
-    print(f"{args.subset_ratio} percent of train dataset, {len(dataset_train)} samples")
+    print(f"using {args.subset_ratio} of train dataset, {len(dataset_train)} samples")
 
     if True:  # args.distributed:
         num_tasks = misc.get_world_size()
