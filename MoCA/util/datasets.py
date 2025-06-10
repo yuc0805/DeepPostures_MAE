@@ -83,13 +83,29 @@ class iWatch(Dataset):
                  root='/niddk-data-central/iWatch/pre_processed_long_seg',
                  set_type='train',
                  transform=None,
-                 weighted_sampling=False):
+                 subset_ratio=1.0):
+        
         self.file_path = os.path.join(root, f"10s_{set_type}.h5")
         self.data_file = h5py.File(self.file_path, 'r')
-        self.x_data = self.data_file['x']       # shape: (N, 100, 3)
+        self.x_data = self.data_file['x']       # shape: (N,window, 100, 3)
         self.y_data = self.data_file['y'] 
-
+        
         self.transform = transform
+
+        self.indices = np.arange(len(self.subject_id))
+
+        # each subject should have 10% so the distrbution for each subject is the same as before
+        if subset_ratio < 1.0:
+            np.random.seed(42)
+            final_indices = []
+            subject_ids = np.unique(self.subject_id)
+            for sid in subject_ids:
+                subject_indices = np.where(self.subject_id[:] == sid)[0]
+                num_samples = max(1, int(len(subject_indices) * subset_ratio))
+                sampled = np.random.choice(subject_indices, num_samples, replace=False)
+                final_indices.extend(sampled)
+
+            self.indices = np.array(final_indices)
 
     # def resample_epoch(self):
     #     """
@@ -111,10 +127,10 @@ class iWatch(Dataset):
 
 
     def __len__(self):
-        return len(self.y_data)
-    
+        return len(self.indices)
 
     def __getitem__(self, idx):
+        idx = self.indices[idx]
         x = self.x_data[idx]  # shape: (42, 100, 3)
         y = self.y_data[idx]  # shape: (42,)
 
