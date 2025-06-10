@@ -37,6 +37,7 @@ import models_vit
 from models_mae import LinearProbeModel
 from engine_finetune_long import train_one_epoch, evaluate
 from util.loss import BinaryFocalLoss
+from models_mae import AttentionProbeModel
 
 import pickle
 import sys
@@ -81,7 +82,8 @@ def get_args_parser():
                         help='Clip gradient norm (default: None, no clipping)')
     parser.add_argument('--weight_decay', type=float, default=None,
                         help='weight decay (default: 0 for linear probe following MoCo v1)')
-
+    parser.add_argument('--num_attn_layer', type=int, default=1,
+                        help='number of attention layers in the AttentionProbeModel')
     parser.add_argument('--lr', type=float, default=None, metavar='LR',
                         help='learning rate (absolute lr)')
     parser.add_argument('--blr', type=float, default=None, metavar='LR', # default 1e-2
@@ -262,7 +264,7 @@ def main(args):
             raise FileNotFoundError("CHAP_ALL_ADULTS.pth not found in any known location.")
 
         msg = load_model_weights(model, transfer_learning_model_path, weights_only=False)
-    elif cfg.model.name == 'AttentionInteractionModel':
+    elif args.model == 'AttentionInteractionModel':
         base_model = CNNBiLSTMModel(2,42,2)
         if cfg.model.transfer_learning_model_path:
             msg = load_model_weights(base_model, cfg.model.transfer_learning_model_path, weights_only=False)
@@ -278,7 +280,25 @@ def main(args):
                                           hidden_dim=cfg.model.hidden_dim,
                                           num_heads=cfg.model.num_heads,
                                           ffn_multiplier=cfg.model.ffn_multiplier,)
+    elif args.model == 'shallow-moca':
+        base_model = models_vit.__dict__['vit_base_patch16'](
+            img_size=[3,100], patch_size=[1, 5], 
+            num_classes=args.nb_classes, in_chans=1, 
+            global_pool=False)
+        
+        checkpoint = torch.load(args.checkpoint,map_location='cpu')
+        checkpoint_model = checkpoint['model']
+        # interpolate_pos_embed(base_model, checkpoint_model,orig_size=(args.in_chans,int(100//args.patch_size)), 
+        #                       new_size=(args.input_size[0],int(args.input_size[1]//args.patch_size)))
+        #print(checkpoint_model.keys())
+        decoder_keys = [k for k in checkpoint_model.keys() if 'decoder' in k]
+        for key in decoder_keys:
+            del checkpoint_model[key]
 
+        print('shape after interpolate:',checkpoint_model['pos_embed'].shape)
+        msg = base_model.load_state_dict(checkpoint_model, strict=False)
+        print(msg)
+        model = AttentionProbeModel(base_model, window_size=42,num_classes=args.nb_classes,hidden_dim=256,num_layer=args.num_attn_layer)
         
 
     #######################
