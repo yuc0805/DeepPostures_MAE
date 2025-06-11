@@ -281,6 +281,38 @@ def main(args):
                                           hidden_dim=cfg.model.hidden_dim,
                                           num_heads=cfg.model.num_heads,
                                           ffn_multiplier=cfg.model.ffn_multiplier,)
+    elif args.model == 'MoCABiLSTMModel':
+        # prepare interaction layer
+        base_model = CNNBiLSTMModel(2,42,2) # hidden_size=256*2 = 512
+        if cfg.interaction_layer.transfer_learning_model_path:
+            msg = load_model_weights(base_model, cfg.model.transfer_learning_model_path, weights_only=False)
+            print(msg)
+        interaction_layer = base_model.bi_lstm
+
+        # prepare feature extractor
+        feature_extractor = models_vit.__dict__['vit_base_patch16'](
+            img_size=[cfg.feature_extractor.nvar,cfg.feature_extractor.length],  #[3,100]
+            patch_size=[1, cfg.feature_extractor.patch_size],  #[1,5]
+            num_classes=args.nb_classes, 
+            in_chans=1, 
+            global_pool=False)
+        if cfg.feature_extractor.transfer_learning_model_path:
+            print('Loading transfer learning model for interaction layer from', cfg.interaction_layer.transfer_learning_model_path)
+            checkpoint = torch.laod(cfg.feature_extractor.transfer_learning_model_path,map_location='cpu',weights_only=False)
+            checkpoint_model = checkpoint['model']
+            decoder_keys = [k for k in checkpoint_model.keys() if 'decoder' in k]
+            for key in decoder_keys:
+                del checkpoint_model[key]
+            msg = feature_extractor.load_state_dict(checkpoint_model, strict=False)
+            print('msg')
+        feature_extractor.head = nn.Identity()  # remove the head
+
+        # assemble model
+        model = MoCABiLSTMModel(
+            feature_extractor=feature_extractor,
+            interaction_layer=interaction_layer,
+            num_classes=args.nb_classes,
+            window_size=42,)
     elif args.model == 'shallow-moca':
         base_model = models_vit.__dict__['vit_base_patch16'](
             img_size=[3,100], patch_size=[1, 5], 

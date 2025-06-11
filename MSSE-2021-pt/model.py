@@ -179,3 +179,38 @@ class AttentionInteractionModel(nn.Module):
         x = self.head(x) # BS, 42, num_classes
 
         return x
+
+ class MoCABiLSTMModel(nn.Module):
+    def __init__(self, feature_extractor, interaction_layer,win_size=42, num_classes=2):
+        super(MoCABiLSTMModel, self).__init__()
+        '''
+        feature extractor: A ViT model
+        interaction_layer: A Transformer layer or a BiLSTM layer
+        win_size: The window size for the sample. i.e. (BS,win_size, L, nvar)
+        '''
+        self.feature_extractor = feature_extractor
+        self.interaction_layer = interaction_layer
+        self.proj = nn.Linear(self.feature_extractor.hidden_size, self.interaction_layer.hidden_size)
+
+        # hardcode for two classes for now
+        assert self.num_classes == 2 
+        self.output_proj = nn.Linear(self.interaction_layer.hidden_size, 1)  
+
+    def forward(self, x):
+        '''
+        input: x [BS, 42, 100, 3]
+        '''
+        B, W, _, _ = x.shape
+        # MoCA input needs BS*42, 1, 3, 100
+        x = rearrange(x, 'b w l c -> (b w) 1 c l' )
+        x = self.feature_extractor(x) # BS*window_size, hidden_size
+        x = rearrange(x, '(b w) d -> b w d', b=B, w=W)
+        x = self.proj(x)
+        x,_ = self.interaction_layer(x) # bs, win_size, hidden_size
+        x = self.output_proj(x) # bs, win_size, 1
+
+        logits = x.view(-1, W)
+
+        return logits  # BS, win_size
+
+        

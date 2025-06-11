@@ -455,7 +455,6 @@ class MaskedAutoencoderViT(nn.Module):
         loss = self.forward_loss(imgs, pred, mask)
         return loss, pred, mask
 
-
 class AttentionProbeModel(nn.Module):
     def __init__(self, base_model, window_size=42,num_classes=2,num_layer=1,
                  hidden_dim=256,dropout=0.1):
@@ -521,7 +520,10 @@ class LinearProbeModel(nn.Module):
         x = self.head(x) # BS, 42, 1
 
         return x
-    
+
+
+
+
 
 if __name__ == "__main__":
     model = MaskedAutoencoderViT().to('cuda')
