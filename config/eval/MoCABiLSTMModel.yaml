@@ -1,0 +1,8 @@
+feature_extractor:
+  nvar: 3
+  length: 100
+  patch_size: 5
+  transfer_learning_model_path: "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Wristps_5_mask_0.75_bs_512_blr_None_epoch_50/2025-05-05_01-30/checkpoint-49.pth"
+
+interaction_layer:
+  transfer_learning_model_path: "/DeepPostures_MAE/MSSE-2021-pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"
