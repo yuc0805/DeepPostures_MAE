@@ -15,6 +15,7 @@ import json
 import os
 import time
 from pathlib import Path
+import copy
 
 import numpy as np
 import torch
@@ -436,10 +437,13 @@ def main(args):
     print(f"Start training for {args.epochs} epochs")
     start_time = time.time()
     max_accuracy = 0.0
-    best_metric = {'epoch':0, 'acc1':0.0, 'bal_acc':0.0, 'f1':0.0}
+    best_metric = {'epoch': 0, 'acc1': 0.0, 'bal_acc': 0.0, 'f1': 0.0}
+    save_buffer = None
+
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed: 
             data_loader_train.sampler.set_epoch(epoch)
+
         train_stats = train_one_epoch(
             model, criterion, data_loader_train,
             optimizer, epoch, loss_scaler,
@@ -447,17 +451,10 @@ def main(args):
             log_writer=log_writer,
             args=args, device=device,
         )
-        if args.output_dir and (epoch + 1 == args.epochs):
-            misc.save_model(
-                args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
-                loss_scaler=loss_scaler, epoch=epoch)
 
-        test_stats = evaluate(args,data_loader_val, model, device)
+        test_stats = evaluate(args, data_loader_val, model, device)
         print(f"Balanced Accuracy of the network on test images: {test_stats['bal_acc']:.5f} and F1 score of {test_stats['f1']:.5f}%")
 
-        # if scheduler is not None:
-        #     scheduler.step(epoch)
-        # save the best epoch
         if max_accuracy < test_stats["bal_acc"]:
             max_accuracy = test_stats["bal_acc"]
 
@@ -467,33 +464,58 @@ def main(args):
             best_metric['f1'] = test_stats['f1']
             best_metric['confmat'] = test_stats['confmat']
 
-            if args.output_dir:
-                misc.save_model(
-                    args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
-                    loss_scaler=loss_scaler, epoch="best")
-
-        print(f'Max Balanced accuracy: {max_accuracy:.2f}%')
+            # Save best state_dicts
+            save_buffer = {
+                'model': copy.deepcopy(model.state_dict()),
+                'model_without_ddp': copy.deepcopy(model_without_ddp.state_dict()),
+                'optimizer': copy.deepcopy(optimizer.state_dict()),
+                'loss_scaler': copy.deepcopy(loss_scaler.state_dict())
+            }
 
         if log_writer is not None:
-            log_writer.log({'perf/test_acc1': test_stats['acc1'], 
-                            'perf/bal_acc': test_stats['bal_acc'],
-                            'perf/f1': test_stats['f1'],
-                            'perf/test_loss': test_stats['loss'], 
-                            'epoch': epoch})
+            log_writer.log({
+                'perf/test_acc1': test_stats['acc1'], 
+                'perf/bal_acc': test_stats['bal_acc'],
+                'perf/f1': test_stats['f1'],
+                'perf/test_loss': test_stats['loss'], 
+                'epoch': epoch
+            })
 
+    # Save final model
+    if args.output_dir:
+        misc.save_model(
+            args=args, model=model, model_without_ddp=model_without_ddp,
+            optimizer=optimizer, loss_scaler=loss_scaler, epoch=epoch)
+
+        if save_buffer is not None:
+            print(f"Saving best model from epoch {best_metric['epoch']} with balanced accuracy {best_metric['bal_acc']:.4f}")
+
+            # Reload state dicts into model before saving
+            model.load_state_dict(save_buffer['model'])
+            model_without_ddp.load_state_dict(save_buffer['model_without_ddp'])
+            optimizer.load_state_dict(save_buffer['optimizer'])
+            loss_scaler.load_state_dict(save_buffer['loss_scaler'])
+
+            misc.save_model(
+                args=args, model=model, model_without_ddp=model_without_ddp,
+                optimizer=optimizer, loss_scaler=loss_scaler, epoch='best')
+
+    # Logging confusion matrix
     if log_writer is not None:
-        confmat = best_metric['confmat']
-        confmat = confmat.cpu().numpy()
+        confmat = best_metric['confmat'].cpu().numpy()
         fig, ax = plt.subplots(figsize=(8, 6))
-        sns.heatmap(confmat, annot=True, fmt='d', cmap='Blues', cbar=False, ax=ax,xticklabels=['sitting','non-sitting'], yticklabels=['sitting','non-sitting'])
+        sns.heatmap(confmat, annot=True, fmt='d', cmap='Blues', cbar=False, ax=ax,
+                    xticklabels=['sitting', 'non-sitting'], yticklabels=['sitting', 'non-sitting'])
         ax.set_xlabel('Predicted')
         ax.set_ylabel('True')
         ax.set_title('Confusion Matrix')
-        log_writer.log({"best_epoch_bal_acc": best_metric['bal_acc'],
-                        "best_epoch_acc1": best_metric['acc1'],
-                        "best_epoch_f1": best_metric['f1'],
-                        "best_epoch": best_metric['epoch'],
-                        "best_epoch_confmat": wandb.Image(fig)})
+        log_writer.log({
+            "best_epoch_bal_acc": best_metric['bal_acc'],
+            "best_epoch_acc1": best_metric['acc1'],
+            "best_epoch_f1": best_metric['f1'],
+            "best_epoch": best_metric['epoch'],
+            "best_epoch_confmat": wandb.Image(fig)
+        })
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
