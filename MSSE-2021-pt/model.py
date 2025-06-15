@@ -17,7 +17,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 from einops import rearrange
-
+from .utils import get_2d_sincos_pos_embed
 """
 Pytorch model implementation
 """
@@ -152,6 +152,8 @@ class AttentionInteractionModel(nn.Module):
         self.base_model = base_model
         self.window_size = window_size
         self.proj = nn.Linear(base_model_hidden_dim, hidden_dim)
+        self.pos_embed = nn.Parameter(torch.zeros(1,window_size, hidden_dim),requires_grad=False) 
+        
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=hidden_dim,
             nhead=num_heads,
@@ -164,6 +166,13 @@ class AttentionInteractionModel(nn.Module):
             self.head = nn.Linear(hidden_dim, 1)    
         else:
             self.head = nn.Linear(hidden_dim, num_classes)
+
+        self.initialize_weights()
+
+    def initialize_weights(self):
+        pos_embed = get_2d_sincos_pos_embed(self.pos_embed.shape[-1], [1, int(self.patch_embed.num_patches)], cls_token=False)
+        self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
+        
 
     def forward(self, x):
         '''
