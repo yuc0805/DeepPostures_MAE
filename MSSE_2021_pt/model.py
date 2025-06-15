@@ -17,8 +17,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 from einops import rearrange
+import os
 import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from MoCA.util.pos_embed import get_2d_sincos_pos_embed
 """
 Pytorch model implementation

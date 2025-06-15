@@ -46,7 +46,9 @@ import sys
 #     sys.path.append('/DeepPostures_MAE/MSSE-2021-pt')
 # elif os.path.exists('/app/DeepPostures_MAE/MSSE-2021-pt'):
 #     sys.path.append('/app/DeepPostures_MAE/MSSE-2021-pt')
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+print('Adding path to sys.path:', path)
+sys.path.append(path)
 from MSSE_2021_pt.commons import get_dataloaders_dist 
 import random
 from einops import rearrange
