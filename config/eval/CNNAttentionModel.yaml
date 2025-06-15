@@ -5,7 +5,8 @@ model:
   num_layers: 4
   ffn_multiplier: 4
   transfer_learning_model_path: "/DeepPostures_MAE/MSSE_2021_pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"
-
+  drop_path_rate: 0.4 # default 0.1
+  
 # optimizer:
 #   name: adamw
 #   lr: 0.001

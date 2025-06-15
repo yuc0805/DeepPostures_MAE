@@ -150,7 +150,8 @@ class CNNBiLSTMModel(nn.Module):
 class CNNAttentionModel(nn.Module):
     def __init__(self, base_model, base_model_hidden_dim=512,
                  window_size=42,num_classes=2,num_layer=1,
-                 hidden_dim=256,num_heads=8,ffn_multiplier=2):
+                 hidden_dim=256,num_heads=8,ffn_multiplier=2,
+                 drop_path_rate=0.1,):
         super(CNNAttentionModel, self).__init__()
         self.base_model = base_model
         self.window_size = window_size
@@ -163,6 +164,7 @@ class CNNAttentionModel(nn.Module):
             dim_feedforward=hidden_dim*ffn_multiplier,
             batch_first=True,
             activation=F.gelu,
+            dropout=drop_path_rate
         )
         self.attn = nn.TransformerEncoder(encoder_layer, num_layers=num_layer)
         if num_classes == 2:

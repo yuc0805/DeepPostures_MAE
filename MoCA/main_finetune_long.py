@@ -216,7 +216,7 @@ def main(args):
         batch_size=args.batch_size,
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
-        drop_last=True, # make cuda happy
+        drop_last=False, 
         shuffle=False,
     )
 
@@ -284,7 +284,8 @@ def main(args):
                                           num_layer=cfg.model.num_layers,
                                           hidden_dim=cfg.model.hidden_dim,
                                           num_heads=cfg.model.num_heads,
-                                          ffn_multiplier=cfg.model.ffn_multiplier,)
+                                          ffn_multiplier=cfg.model.ffn_multiplier,
+                                          drop_path_rate=cfg.model.drop_path_rate,)
     elif args.model == 'MoCABiLSTMModel':
         # prepare interaction layer
         base_model = CNNBiLSTMModel(2,42,2) # hidden_size=256*2 = 512
@@ -603,7 +604,8 @@ torchrun --nproc_per_node=2  -m main_finetune_long \
 --batch_size 128  \
 --blr 1e-4 \
 --weight_decay 5e-2 \
---layer_decay 0.4 
+--layer_decay 0.4 \
+--use_focal_loss
 
 
 
