@@ -42,17 +42,18 @@ from models_mae import AttentionProbeModel
 
 import pickle
 import sys
-if os.path.exists('/DeepPostures_MAE/MSSE-2021-pt'):
-    sys.path.append('/DeepPostures_MAE/MSSE-2021-pt')
-elif os.path.exists('/app/DeepPostures_MAE/MSSE-2021-pt'):
-    sys.path.append('/app/DeepPostures_MAE/MSSE-2021-pt')
-from commons import get_dataloaders_dist 
+# if os.path.exists('/DeepPostures_MAE/MSSE-2021-pt'):
+#     sys.path.append('/DeepPostures_MAE/MSSE-2021-pt')
+# elif os.path.exists('/app/DeepPostures_MAE/MSSE-2021-pt'):
+#     sys.path.append('/app/DeepPostures_MAE/MSSE-2021-pt')
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+from MSSE_2021_pt.commons import get_dataloaders_dist 
 import random
 from einops import rearrange
 from tqdm import tqdm
 
-from model import CNNBiLSTMModel,CNNModel,CNNAttentionModel,MoCABiLSTMModel
-from utils import load_model_weights
+from MSSE_2021_pt.model import CNNBiLSTMModel,CNNModel,CNNAttentionModel,MoCABiLSTMModel
+from MSSE_2021_pt.utils import load_model_weights
 from omegaconf import OmegaConf
 
 def get_args_parser():
