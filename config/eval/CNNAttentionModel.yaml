@@ -4,7 +4,7 @@ model:
   num_heads: 8
   num_layers: 4
   ffn_multiplier: 4
-  transfer_learning_model_path: "/DeepPostures_MAE/MSSE-2021-pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"
+  transfer_learning_model_path: "/DeepPostures_MAE/MSSE_2021_pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"
 
 # optimizer:
 #   name: adamw
