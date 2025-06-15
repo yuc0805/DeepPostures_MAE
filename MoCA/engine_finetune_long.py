@@ -53,7 +53,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         targets = targets.to(device, non_blocking=True) # BS,42
         batch_size = targets.shape[0] 
         targets = targets.view(-1).squeeze() #(BS*42,)
-        if criterion.__class__.__name__ == 'BCEWithLogitsLoss':
+        if True #criterion.__class__.__name__ == 'BCEWithLogitsLoss':
             targets = targets.float()
         
         if args.model == 'CNNBiLSTMModel':
@@ -154,7 +154,7 @@ def evaluate(args,data_loader, model, device):
         samples = samples.float().to(device, non_blocking=True)
         target = target.to(device, non_blocking=True)
 
-        if criterion.__class__.__name__ == 'BCEWithLogitsLoss':
+        if True: #criterion.__class__.__name__ == 'BCEWithLogitsLoss':
             target = target.float()
             target = target.view(-1).squeeze()
 
