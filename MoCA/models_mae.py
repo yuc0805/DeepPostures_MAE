@@ -463,6 +463,8 @@ class AttentionProbeModel(nn.Module):
         self.base_model.head = nn.Identity()  # Remove the original head
         self.window_size = window_size
         self.proj = nn.Linear(self.base_model.embed_dim, hidden_dim)
+        self.pos_embed = nn.Parameter(torch.zeros(1,window_size, hidden_dim),requires_grad=False) 
+
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=hidden_dim,
             nhead=8,
@@ -476,6 +478,12 @@ class AttentionProbeModel(nn.Module):
         else:
             self.head = nn.Linear(hidden_dim, num_classes)
 
+        self.initialize_weights()
+
+    def initialize_weights(self):
+        pos_embed = get_2d_sincos_pos_embed(self.pos_embed.shape[-1], [1, int(self.patch_embed.num_patches)], cls_token=False)
+        self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
+
     def forward(self, x):
         '''
         input: x [BS, 42, 100, 3]
@@ -488,7 +496,9 @@ class AttentionProbeModel(nn.Module):
         x = self.base_model(x) # BS*42, 768
 
         x = rearrange(x, '(b w) c -> b w c', b=x.shape[0]//self.window_size, w=self.window_size) # BS, 42, 768
+    
         x = self.proj(x) # BS, 42, 256
+        x = x + self.pos_embed # BS, 42, hidden_dim
         x = self.attn(x) # BS, 42, 256
         x = self.head(x) # BS, 42, num_classes
 
