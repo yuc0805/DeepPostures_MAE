@@ -182,7 +182,7 @@ class AttentionInteractionModel(nn.Module):
         x = rearrange(x, 'b w l c -> (b w) 1 l c' )
         x = self.base_model(x) # BS*window_size,base_model_hidden_dim
         x = rearrange(x, '(b w) d -> b w d', b=B, w=W)
-
+        x = x + self.pos_embed # BS, 42, hidden_dim
         x = self.proj(x)
         x = self.attn(x) # BS, 42, 256
         x = self.head(x) # BS, 42, num_classes
