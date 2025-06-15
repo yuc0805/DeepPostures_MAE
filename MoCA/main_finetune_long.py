@@ -600,11 +600,10 @@ torchrun --nproc_per_node=2  -m main_finetune_long \
 --config /DeepPostures_MAE/config/eval/CNNAttentionModel.yaml \
 --warmup_epochs 10 \
 --remark CNNAttentionModel \
---batch_size 64  \
+--batch_size 128  \
 --blr 1e-4 \
 --weight_decay 5e-2 \
---layer_decay 0.4 \
---accum_iter 2 
+--layer_decay 0.4 
 
 
 
