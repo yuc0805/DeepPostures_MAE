@@ -42,10 +42,10 @@ from models_mae import AttentionProbeModel
 
 import pickle
 import sys
-# if os.path.exists('/DeepPostures_MAE/MSSE-2021-pt'):
-#     sys.path.append('/DeepPostures_MAE/MSSE-2021-pt')
-# elif os.path.exists('/app/DeepPostures_MAE/MSSE-2021-pt'):
-#     sys.path.append('/app/DeepPostures_MAE/MSSE-2021-pt')
+# if os.path.exists('/DeepPostures_MAE/MSSE_2021_pt'):
+#     sys.path.append('/DeepPostures_MAE/MSSE_2021_pt')
+# elif os.path.exists('/app/DeepPostures_MAE/MSSE_2021_pt'):
+#     sys.path.append('/app/DeepPostures_MAE/MSSE_2021_pt')
 path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 print('Adding path to sys.path:', path)
 sys.path.append(path)
@@ -261,10 +261,10 @@ def main(args):
     if args.model == 'CNNBiLSTMModel':
         model = CNNBiLSTMModel(2,42,2)
         
-        if os.path.exists("/DeepPostures_MAE/MSSE-2021-pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"):
-            transfer_learning_model_path = "/DeepPostures_MAE/MSSE-2021-pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"
-        elif os.path.exists("/app/DeepPostures_MAE/MSSE-2021-pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"):
-            transfer_learning_model_path = "/app/DeepPostures_MAE/MSSE-2021-pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"
+        if os.path.exists("/DeepPostures_MAE/MSSE_2021_pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"):
+            transfer_learning_model_path = "/DeepPostures_MAE/MSSE_2021_pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"
+        elif os.path.exists("/app/DeepPostures_MAE/MSSE_2021_pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"):
+            transfer_learning_model_path = "/app/DeepPostures_MAE/MSSE_2021_pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"
         else:
             raise FileNotFoundError("CHAP_ALL_ADULTS.pth not found in any known location.")
 
@@ -591,7 +591,7 @@ torchrun --nproc_per_node=4 -m main_finetune_long \
 --weight_decay 5e-2 \
 --subset_ratio 0.1 
 
-torchrun --nproc_per_node=4  -m main_finetune_long \
+torchrun --nproc_per_node=2  -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
 --pos_weight 2.8232 \
@@ -600,10 +600,11 @@ torchrun --nproc_per_node=4  -m main_finetune_long \
 --config /DeepPostures_MAE/config/eval/CNNAttentionModel.yaml \
 --warmup_epochs 10 \
 --remark CNNAttentionModel \
---batch_size 64 \
+--batch_size 64  \
 --blr 1e-4 \
 --weight_decay 5e-2 \
---layer_decay 0.4
+--layer_decay 0.4 \
+--accum_iter 2 
 
 
 
