@@ -144,11 +144,11 @@ class CNNBiLSTMModel(nn.Module):
         return logits
 
 # Leo
-class AttentionInteractionModel(nn.Module):
+class CNNAttentionModel(nn.Module):
     def __init__(self, base_model, base_model_hidden_dim=512,
                  window_size=42,num_classes=2,num_layer=1,
                  hidden_dim=256,num_heads=8,ffn_multiplier=2):
-        super(AttentionInteractionModel, self).__init__()
+        super(CNNAttentionModel, self).__init__()
         self.base_model = base_model
         self.window_size = window_size
         self.proj = nn.Linear(base_model_hidden_dim, hidden_dim)

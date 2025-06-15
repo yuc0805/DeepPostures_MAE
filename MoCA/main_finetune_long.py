@@ -51,7 +51,7 @@ import random
 from einops import rearrange
 from tqdm import tqdm
 
-from model import CNNBiLSTMModel,CNNModel,AttentionInteractionModel,MoCABiLSTMModel
+from model import CNNBiLSTMModel,CNNModel,CNNAttentionModel,MoCABiLSTMModel
 from utils import load_model_weights
 from omegaconf import OmegaConf
 
@@ -266,7 +266,7 @@ def main(args):
             raise FileNotFoundError("CHAP_ALL_ADULTS.pth not found in any known location.")
 
         msg = load_model_weights(model, transfer_learning_model_path, weights_only=False)
-    elif args.model == 'AttentionInteractionModel':
+    elif args.model == 'CNNAttentionModel':
         base_model = CNNBiLSTMModel(2,42,2)
         if cfg.model.transfer_learning_model_path:
             msg = load_model_weights(base_model, cfg.model.transfer_learning_model_path, weights_only=False)
@@ -276,7 +276,7 @@ def main(args):
         base_model = base_model.cnn_model
 
         base_model_hidden_dim = base_model.fc.out_features # 512
-        model = AttentionInteractionModel(base_model=base_model,
+        model = CNNAttentionModel(base_model=base_model,
                                           base_model_hidden_dim=base_model_hidden_dim,
                                           num_layer=cfg.model.num_layers,
                                           hidden_dim=cfg.model.hidden_dim,
@@ -593,10 +593,10 @@ torchrun --nproc_per_node=4  -m main_finetune_long \
 --data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
 --pos_weight 2.8232 \
 --epochs 50 \
---model AttentionInteractionModel \
---config /DeepPostures_MAE/config/eval/AttentionInteractionModel.yaml \
+--model CNNAttentionModel \
+--config /DeepPostures_MAE/config/eval/CNNAttentionModel.yaml \
 --warmup_epochs 10 \
---remark AttentionInteractionModel \
+--remark CNNAttentionModel \
 --batch_size 64 \
 --blr 1e-4 \
 --weight_decay 5e-2 \
