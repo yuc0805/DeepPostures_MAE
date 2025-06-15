@@ -173,7 +173,7 @@ class CNNAttentionModel(nn.Module):
         self.initialize_weights()
 
     def initialize_weights(self):
-        pos_embed = get_2d_sincos_pos_embed(self.pos_embed.shape[-1], [1, int(self.patch_embed.num_patches)], cls_token=False)
+        pos_embed = get_2d_sincos_pos_embed(self.pos_embed.shape[-1], [1, int(self.window_size)], cls_token=False)
         self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
         
 
