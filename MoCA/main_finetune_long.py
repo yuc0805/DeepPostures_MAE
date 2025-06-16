@@ -96,8 +96,10 @@ def get_args_parser():
                         help='layer-wise lr decay from ELECTRA/BEiT')
     parser.add_argument('--min_lr', type=float, default=1e-6, metavar='LR',
                         help='lower lr bound for cyclic schedulers that hit 0')
-    parser.add_argument('--learnable_pos_embed', type=int,default=1,
-                        help='whether to use learnable position embedding')
+    parser.add_argument('--learnable_pos_embed', action='store_true', default=True,
+                        help='use learnable position embedding (default: True)')
+    parser.add_argument('--no_learnable_pos_embed', action='store_false', dest='learnable_pos_embed',
+                        help='disable learnable position embedding')
 
     parser.add_argument('--warmup_epochs', type=int, default=2, metavar='N',
                         help='epochs to warmup LR')
