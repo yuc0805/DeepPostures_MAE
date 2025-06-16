@@ -612,8 +612,7 @@ torchrun --nproc_per_node=2  -m main_finetune_long \
 --batch_size 128  \
 --blr 1e-4 \
 --weight_decay 5e-2 \
---layer_decay 0.4 \
---use_focal_loss
+--layer_decay 0.4 
 
 
 

@@ -6,6 +6,7 @@ model:
   ffn_multiplier: 4
   transfer_learning_model_path: "/DeepPostures_MAE/MSSE_2021_pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"
   drop_path_rate: 0.4 # default 0.1
+  learnable_pos_embed: True
   
 # optimizer:
 #   name: adamw
