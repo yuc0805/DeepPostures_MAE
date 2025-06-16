@@ -96,6 +96,9 @@ def get_args_parser():
                         help='layer-wise lr decay from ELECTRA/BEiT')
     parser.add_argument('--min_lr', type=float, default=1e-6, metavar='LR',
                         help='lower lr bound for cyclic schedulers that hit 0')
+    parser.add_argument('--learnable_pos_embed', default='True',
+                        type=str, choices=['True', 'False'],
+                        help='whether to use learnable position embedding')
 
     parser.add_argument('--warmup_epochs', type=int, default=2, metavar='N',
                         help='epochs to warmup LR')
@@ -285,7 +288,8 @@ def main(args):
                                           hidden_dim=cfg.model.hidden_dim,
                                           num_heads=cfg.model.num_heads,
                                           ffn_multiplier=cfg.model.ffn_multiplier,
-                                          drop_path_rate=cfg.model.drop_path_rate,)
+                                          drop_path_rate=cfg.model.drop_path_rate,
+                                          learnable_pos_embed=cfg.model.learnable_pos_embed,)
     elif args.model == 'MoCABiLSTMModel':
         # prepare interaction layer
         base_model = CNNBiLSTMModel(2,42,2) # hidden_size=256*2 = 512
@@ -336,7 +340,11 @@ def main(args):
         print('shape after interpolate:',checkpoint_model['pos_embed'].shape)
         msg = base_model.load_state_dict(checkpoint_model, strict=False)
         print(msg)
-        model = AttentionProbeModel(base_model, window_size=42,num_classes=args.nb_classes,hidden_dim=768,num_layer=args.num_attn_layer)
+        model = AttentionProbeModel(base_model, window_size=42,
+                                    num_classes=args.nb_classes,
+                                    hidden_dim=768,
+                                    num_layer=args.num_attn_layer,
+                                    learnable_pos_embed=args.learnable_pos_embed,)
         
 
     #######################

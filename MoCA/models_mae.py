@@ -457,14 +457,14 @@ class MaskedAutoencoderViT(nn.Module):
 
 class AttentionProbeModel(nn.Module):
     def __init__(self, base_model, window_size=42,num_classes=2,num_layer=1,
-                 hidden_dim=256,dropout=0.1):
+                 hidden_dim=256,dropout=0.1,learnable_pos_embed=True):
         super(AttentionProbeModel, self).__init__()
         self.base_model = base_model
         self.base_model.head = nn.Identity()  # Remove the original head
         self.window_size = window_size
         self.proj = nn.Linear(self.base_model.embed_dim, hidden_dim)
-        self.pos_embed = nn.Parameter(torch.zeros(1,window_size, hidden_dim),requires_grad=False) 
-
+        self.pos_embed = nn.Parameter(torch.zeros(1,window_size, hidden_dim),requires_grad=learnable_pos_embed) 
+        self.learnable_pos_embed = learnable_pos_embed
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=hidden_dim,
             nhead=8,
@@ -481,8 +481,11 @@ class AttentionProbeModel(nn.Module):
         self.initialize_weights()
 
     def initialize_weights(self):
-        pos_embed = get_2d_sincos_pos_embed(self.pos_embed.shape[-1], [1, int(self.window_size)], cls_token=False)
-        self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
+        if self.learnable_pos_embed:
+            nn.init.trunc_normal_(self.pos_embed, std=0.02)
+        else:
+            pos_embed = get_2d_sincos_pos_embed(self.pos_embed.shape[-1], [1, int(self.window_size)], cls_token=False)
+            self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
 
     def forward(self, x):
         '''
