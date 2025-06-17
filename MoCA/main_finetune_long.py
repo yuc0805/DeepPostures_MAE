@@ -273,6 +273,31 @@ def main(args):
             raise FileNotFoundError("CHAP_ALL_ADULTS.pth not found in any known location.")
 
         msg = load_model_weights(model, transfer_learning_model_path, weights_only=False)
+    
+    elif args.model == 'CNNBiLSTMAttentionModel':
+        # add attention on top of CNNBiLSTM
+        base_model = CNNBiLSTMModel(2,42,2)
+        
+        if os.path.exists("/DeepPostures_MAE/MSSE_2021_pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"):
+            transfer_learning_model_path = "/DeepPostures_MAE/MSSE_2021_pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"
+        elif os.path.exists("/app/DeepPostures_MAE/MSSE_2021_pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"):
+            transfer_learning_model_path = "/app/DeepPostures_MAE/MSSE_2021_pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"
+        else:
+            raise FileNotFoundError("CHAP_ALL_ADULTS.pth not found in any known location.")
+
+        msg = load_model_weights(model, transfer_learning_model_path, weights_only=False)
+
+        base_model_hidden_dim = base_model.fc_bilstm.out_features # 512
+        base_model = base_model.feature_extractor
+        model = CNNAttentionModel(base_model=base_model,
+                                          base_model_hidden_dim=base_model_hidden_dim,
+                                          num_layer=cfg.model.num_layers,
+                                          hidden_dim=cfg.model.hidden_dim,
+                                          num_heads=cfg.model.num_heads,
+                                          ffn_multiplier=cfg.model.ffn_multiplier,
+                                          drop_path_rate=cfg.model.drop_path_rate,
+                                          learnable_pos_embed=cfg.model.learnable_pos_embed,)
+
     elif args.model == 'CNNAttentionModel':
         base_model = CNNBiLSTMModel(2,42,2)
         if cfg.model.transfer_learning_model_path:

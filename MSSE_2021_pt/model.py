@@ -145,6 +145,22 @@ class CNNBiLSTMModel(nn.Module):
         # Reshape to get logits
         logits = fc_output.view(-1, self.bi_lstm_win_size) # Bs, Window_size
         return logits
+    
+    def feature_extractor(self, x):
+        '''
+        input: x: BS*window_size, 1, 100,3
+        '''
+        # CNN forward pass
+        cnn_output = self.cnn_model(x)
+        cnn_output = cnn_output.view(-1, self.bi_lstm_win_size, 256 * self.amp_factor)
+        # BiLSTM forward pass
+        lstm_output, _ = self.bil_lstm(cnn_output) # BS,window_size, 256
+
+        lstm_output = rearrange(lstm_output, 'b w d -> (b w) d') # BS*window_size, 256, consistent with CNN shape
+        
+        return lstm_output
+
+
 
 # Leo
 class CNNAttentionModel(nn.Module):
