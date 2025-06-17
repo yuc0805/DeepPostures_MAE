@@ -656,4 +656,19 @@ torchrun --nproc_per_node=4  -m main_finetune_long \
 --weight_decay 5e-2 \
 --layer_decay 0.4
 
+
+
+torchrun --nproc_per_node=4  -m main_finetune_long \
+--ds_name iwatch \
+--data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
+--pos_weight 2.8232 \
+--epochs 50 \
+--model CNNBiLSTMAttentionModel \
+--config /DeepPostures_MAE/config/eval/CNNAttentionModel.yaml \
+--warmup_epochs 10 \
+--remark CNNBiLSTMAttentionModel \
+--batch_size 8 \
+--blr 1e-4 \
+--weight_decay 5e-2 \
+--layer_decay 0.4
 '''
