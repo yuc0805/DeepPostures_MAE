@@ -249,4 +249,25 @@ class MoCABiLSTMModel(nn.Module):
 
         return x  
 
-        
+# class FeatureExtractorWrapper(nn.Module):
+#     def __init__(self, base_model):
+#         super().__init__()
+#         self.base_model = base_model
+
+#     def forward(self, x):
+#         return self.base_model.feature_extractor(x)
+
+class FeatureExtractorWrapper(nn.Module):
+    def __init__(self, base_model):
+        super().__init__()
+        self.cnn_model = base_model.cnn_model
+        self.bilstm = base_model.bil_lstm
+        self.bi_lstm_win_size = base_model.bi_lstm_win_size
+        self.amp_factor = base_model.amp_factor
+
+    def forward(self, x):
+        x = self.cnn_model(x)  # [B*W, 512]
+        x = x.view(-1, self.bi_lstm_win_size, 256 * self.amp_factor)
+        x, _ = self.bilstm(x)
+        x = rearrange(x, 'b w d -> (b w) d')
+        return x

@@ -353,7 +353,7 @@ def main(args):
         base_model = models_vit.__dict__['vit_base_patch16'](
             img_size=[3,100], patch_size=[1, 5], 
             num_classes=args.nb_classes, in_chans=1, 
-            global_pool=False)
+            global_pool=True)
         
         checkpoint = torch.load(args.checkpoint,map_location='cpu')
         checkpoint_model = checkpoint['model']
@@ -672,7 +672,7 @@ torchrun --nproc_per_node=2  -m main_finetune_long \
 --config /DeepPostures_MAE/config/eval/CNNAttentionModel.yaml \
 --warmup_epochs 10 \
 --remark CNNBiLSTMAttentionModel \
---batch_size 8 \
+--batch_size 256 \
 --blr 1e-4 \
 --weight_decay 5e-2 \
 --layer_decay 0.4
