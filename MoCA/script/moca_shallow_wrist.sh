@@ -6,7 +6,7 @@ echo "Current directory: $(pwd)"
 echo "Files:"
 ls -lah
 
-torchrun --nproc_per_node=2 -m main_finetune_long \
+torchrun --nproc_per_node=4 -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
 --checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Wristps_5_mask_0.75_bs_512_blr_None_epoch_50/2025-05-05_01-30/checkpoint-49.pth" \
@@ -16,7 +16,7 @@ torchrun --nproc_per_node=2 -m main_finetune_long \
 --weight_decay 1e-4 \
 --epochs 40 \
 --warmup_epochs 8 \
---batch_size 2 \
+--batch_size 8 \
 --accum_iter 4 \
 --num_attn_layer 2 \
 --pos_weight=2.8232 \
