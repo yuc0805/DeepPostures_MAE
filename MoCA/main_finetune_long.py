@@ -285,7 +285,7 @@ def main(args):
         else:
             raise FileNotFoundError("CHAP_ALL_ADULTS.pth not found in any known location.")
 
-        msg = load_model_weights(model, transfer_learning_model_path, weights_only=False)
+        msg = load_model_weights(base_model, transfer_learning_model_path, weights_only=False)
 
         base_model_hidden_dim = base_model.fc_bilstm.out_features # 512
         base_model = base_model.feature_extractor
@@ -658,7 +658,7 @@ torchrun --nproc_per_node=4  -m main_finetune_long \
 
 
 
-torchrun --nproc_per_node=4  -m main_finetune_long \
+torchrun --nproc_per_node=2  -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
 --pos_weight 2.8232 \
