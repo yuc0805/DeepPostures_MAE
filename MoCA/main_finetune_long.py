@@ -54,7 +54,7 @@ import random
 from einops import rearrange
 from tqdm import tqdm
 
-from MSSE_2021_pt.model import CNNBiLSTMModel,CNNModel,CNNAttentionModel,MoCABiLSTMModel
+from MSSE_2021_pt.model import CNNBiLSTMModel,CNNModel,CNNAttentionModel,MoCABiLSTMModel,FeatureExtractorWrapper
 from MSSE_2021_pt.utils import load_model_weights
 from omegaconf import OmegaConf
 
@@ -287,8 +287,9 @@ def main(args):
 
         msg = load_model_weights(base_model, transfer_learning_model_path, weights_only=False)
 
-        base_model_hidden_dim = base_model.fc_bilstm.out_features # 512
-        base_model = base_model.feature_extractor
+        base_model_hidden_dim = base_model.fc_bilstm.in_features # 256
+        print("base_model_hidden_dim:", base_model_hidden_dim)
+        base_model = FeatureExtractorWrapper(base_model)
         model = CNNAttentionModel(base_model=base_model,
                                           base_model_hidden_dim=base_model_hidden_dim,
                                           num_layer=cfg.model.num_layers,
@@ -434,6 +435,10 @@ def main(args):
     if args.distributed: #changed - hashed out
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
         model_without_ddp = model.module
+    
+    # for name, param in model.named_parameters():
+    #     if param.grad is None:
+    #         print(f"[DDP UNUSED PARAM] {name}")
 
     if args.model == 'CNNBiLSTMModel':
         optimizer = create_optimizer_v2(
