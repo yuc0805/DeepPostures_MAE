@@ -353,7 +353,7 @@ def main(args):
         base_model = models_vit.__dict__['vit_base_patch16'](
             img_size=[3,100], patch_size=[1, 5], 
             num_classes=args.nb_classes, in_chans=1, 
-            global_pool=True)
+            global_pool='avg')
         
         checkpoint = torch.load(args.checkpoint,map_location='cpu')
         checkpoint_model = checkpoint['model']

@@ -76,6 +76,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
             acc1, _ = accuracy(outputs, targets, topk=(1, 2))
 
         if not math.isfinite(loss_value):
+            print('output shape',outputs)
             print("Loss is {}, stopping training".format(loss_value))
             sys.exit(1)
 

@@ -31,7 +31,7 @@ class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
             norm_layer = kwargs['norm_layer']
             embed_dim = kwargs['embed_dim']
             self.fc_norm = norm_layer(embed_dim)
-
+            
             del self.norm  # remove the original norm
 
     def forward_features(self, x):
@@ -47,8 +47,8 @@ class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
             x = blk(x)
 
         if self.global_pool:
-            x = x[:, 1:, :].mean(dim=1)  # global pool without cls token
-            outcome = self.fc_norm(x)
+            outcome = x[:, 1:, :].mean(dim=1).unsqueeze(1)  # global pool without cls token
+            #outcome = self.fc_norm(x)
         elif self.use_cls:
             x = self.norm(x)
             outcome = x[:, 0]
@@ -57,6 +57,11 @@ class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
             outcome = x[:,1:] # [B, nvar*num_win, embed_dim]
 
         return outcome
+
+    def forward_head(self,x):
+        x = self.fc_norm(x)
+
+        return x
 
 
 def vit_base_patch16(use_cls=True,**kwargs):

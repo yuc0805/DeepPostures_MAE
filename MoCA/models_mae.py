@@ -496,8 +496,7 @@ class AttentionProbeModel(nn.Module):
         x = rearrange(x, 'b w l c -> (b w) c l') # BS*42, 3,100
         x = x.unsqueeze(1)  # BS*42, 1, 3, 100
         
-        x = self.base_model(x) # BS*42, 768
-
+        x = self.base_model(x).squeeze(1) # BS*42, 768
         x = rearrange(x, '(b w) c -> b w c', b=x.shape[0]//self.window_size, w=self.window_size) # BS, 42, 768
     
         x = self.proj(x) # BS, 42, 256

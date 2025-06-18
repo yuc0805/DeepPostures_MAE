@@ -71,6 +71,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         metric_logger.meters['train_acc1'].update(acc1.item(), n=batch_size)
 
         if not math.isfinite(loss_value):
+            
             print("Loss is {}, stopping training".format(loss_value))
             sys.exit(1)
 
