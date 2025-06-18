@@ -10,7 +10,7 @@ torchrun --nproc_per_node=2 -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
 --checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Wristps_5_mask_0.75_bs_512_blr_None_epoch_50/2025-05-05_01-30/checkpoint-49.pth" \
---remark shallow-moca-ft  \
+--remark shallow-moca-avg  \
 --model 'shallow-moca' \
 --blr 1e-4 \
 --weight_decay 1e-4 \
@@ -27,7 +27,7 @@ torchrun --nproc_per_node=4 -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
 --checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Wristps_5_mask_0.75_bs_512_blr_None_epoch_50/2025-05-05_01-30/checkpoint-49.pth" \
---remark shallow-moca-ft  \
+--remark shallow-moca-avg  \
 --model 'shallow-moca' \
 --blr 1e-3 \
 --weight_decay 1e-3 \
@@ -43,7 +43,7 @@ torchrun --nproc_per_node=4 -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
 --checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Wristps_5_mask_0.75_bs_512_blr_None_epoch_50/2025-05-05_01-30/checkpoint-49.pth" \
---remark shallow-moca-ft  \
+--remark shallow-moca-avg  \
 --model 'shallow-moca' \
 --blr 1e-3 \
 --weight_decay 1e-3 \
@@ -60,7 +60,7 @@ torchrun --nproc_per_node=4 -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
 --checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-Wristps_5_mask_0.75_bs_512_blr_None_epoch_50/2025-05-05_01-30/checkpoint-49.pth" \
---remark shallow-moca-ft  \
+--remark shallow-moca-avg  \
 --model 'shallow-moca' \
 --blr 1e-3 \
 --weight_decay 1e-3 \
