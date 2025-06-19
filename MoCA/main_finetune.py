@@ -105,7 +105,8 @@ def get_args_parser():
     parser.add_argument('--seed', default=0, type=int)
     parser.add_argument('--resume', default='',
                         help='resume from checkpoint')
-
+    parser.add_argument('--target_sr', default=30, type=int,
+                        help='target sampling rate for the dataset, default is 30Hz')
     parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
                         help='start epoch')
     parser.add_argument('--eval', action='store_true',
@@ -148,8 +149,8 @@ def main(args):
     cudnn.benchmark = True 
 
     if args.ds_name == 'iwatch':
-        dataset_train = iWatch_HDf5(args.data_path, set_type='train', transform=data_aug)
-        dataset_val = iWatch_HDf5(args.data_path, set_type='val', transform=None)
+        dataset_train = iWatch_HDf5(args.data_path, set_type='train', transform=data_aug,target_sr=args.target_sr)
+        dataset_val = iWatch_HDf5(args.data_path, set_type='val', transform=None,target_sr=args.target_sr)
     else:
         raise NotImplementedError('The specified dataset is not implemented.')
 
@@ -378,7 +379,7 @@ if __name__ == '__main__':
         args.input_size = [args.in_chans, input_size[1]]
     else:
         args.input_size = [args.in_chans, args.input_size]
-        
+
     args.weight_decay = FT_DATASET_CONFIG[args.ds_name]["weight_decay"] if 'weight_decay' in FT_DATASET_CONFIG[args.ds_name] else args.weight_decay
 
     if args.in_chans == 6:
