@@ -152,6 +152,7 @@ class iWatch(Dataset):
     
 # Dataset for (BS, 100,3)
 import h5py
+from scipy.signal import resample
 class iWatch_HDf5(Dataset):
     def __init__(self,
                  root='/niddk-data-central/iWatch/pre_processed_seg/H',
@@ -166,6 +167,8 @@ class iWatch_HDf5(Dataset):
         self.x_data = None
         self.y_data = None
         self.subset= subset
+        self.data_sr = 10
+        self.target_sr = target_sr
     def _ensure_open(self):
         # called inside worker on first __getitem__
         if self.h5_file is None:
@@ -184,8 +187,15 @@ class iWatch_HDf5(Dataset):
     def __getitem__(self, idx):
         self._ensure_open()                     # open once per worker
         x = self.x_data[idx]                    # shape: (100, 3)
+        # resample 
+        if self.data_sr != self.target_sr:
+            T, N = x.shape
+            T_new = int(T * self.target_sr / self.data_sr)
+            x = resample(x, T_new, axis=0)
+        
         if self.transform is not None:
             x = self.transform(x) # shape: (100, 3)
+            
         
         x = torch.from_numpy(x).permute(1, 0)  # shape: (3, 100)
         x = x.unsqueeze(0)                      # shape: (1, 3, 100)
