@@ -57,6 +57,8 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
 
         with torch.cuda.amp.autocast(enabled=False):
             outputs = model(samples).squeeze() # bs x num_classes or (bs, )
+            print('outputs shape:', outputs.shape)
+            print('targets shape:', targets.shape)
             loss = criterion(outputs, targets)
 
         loss_value = loss.item()

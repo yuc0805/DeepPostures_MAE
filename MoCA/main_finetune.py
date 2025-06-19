@@ -373,8 +373,12 @@ if __name__ == '__main__':
     args.blr = FT_DATASET_CONFIG[args.ds_name]["blr"]
         
     args.batch_size = FT_DATASET_CONFIG[args.ds_name]["bs"]
-    input_size = FT_DATASET_CONFIG[args.ds_name]["input_size"]
-    args.input_size = [args.in_chans, input_size[1]]
+    if args.input_size is None:
+        input_size = FT_DATASET_CONFIG[args.ds_name]["input_size"]
+        args.input_size = [args.in_chans, input_size[1]]
+    else:
+        args.input_size = [args.in_chans, args.input_size]
+        
     args.weight_decay = FT_DATASET_CONFIG[args.ds_name]["weight_decay"] if 'weight_decay' in FT_DATASET_CONFIG[args.ds_name] else args.weight_decay
 
     if args.in_chans == 6:

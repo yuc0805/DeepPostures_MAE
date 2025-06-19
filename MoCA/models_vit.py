@@ -48,7 +48,8 @@ class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
 
         if self.global_pool:
             outcome = x[:, 1:, :].mean(dim=1).unsqueeze(1)  # global pool without cls token
-            #outcome = self.fc_norm(x)
+            # FIXME: Use only for global pool = True
+            outcome = self.fc_norm(x)
         elif self.use_cls:
             x = self.norm(x)
             outcome = x[:, 0]
@@ -58,10 +59,12 @@ class VisionTransformer(timm.models.vision_transformer.VisionTransformer):
 
         return outcome
 
-    def forward_head(self,x):
-        x = self.fc_norm(x)
+    # FIXME: relax this constraint: only used for global pool
+    # def forward_head(self,x):
+    #     print('x shape before fc_norm:', x.shape)
+    #     x = self.fc_norm(x)
 
-        return x
+    #     return x
 
 
 def vit_base_patch16(use_cls=True,**kwargs):

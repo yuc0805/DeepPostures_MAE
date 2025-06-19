@@ -14,6 +14,7 @@ ls -lah
 --in_chans 3 \
 --input_size 300 \
 --target_sr 30 \
+--patch_size 10 \
 --remark Capture_MoCA200
 
 
@@ -24,4 +25,30 @@ torchrun --nproc_per_node=2  -m main_linprobe \
 --in_chans 3 \
 --input_size 300 \
 --target_sr 30 \
+--patch_size 10 \
 --remark Capture_MoCA200
+
+
+ torchrun --nproc_per_node=2  -m main_finetune \
+--ds_name iwatch \
+--finetune "/niddk-data-central/leo_workspace/Capture24-randRandom_100iter_init_checkpoint-200.pth" \
+--data_path "/niddk-data-central/iWatch/pre_processed_seg/W" \
+--in_chans 3 \
+--input_size 300 \
+--target_sr 30 \
+--patch_size 10 \
+--remark Capture_MoCA200
+
+
+torchrun --nproc_per_node=2  -m main_finetune \
+--ds_name iwatch \
+--finetune "/niddk-data-central/leo_workspace/Capture24-randRandom_100iter_init_checkpoint-200.pth" \
+--data_path "/niddk-data-central/iWatch/pre_processed_seg/H" \
+--in_chans 3 \
+--input_size 300 \
+--target_sr 30 \
+--patch_size 10 \
+--remark Capture_MoCA200
+
+# chmod +x script/capture_moca.sh
+# ./script/capture_moca.sh

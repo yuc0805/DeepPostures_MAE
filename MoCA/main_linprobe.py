@@ -215,8 +215,7 @@ def main(args):
     model = models_vit.__dict__[args.model](
             img_size=args.input_size, patch_size=[1, int(args.patch_size)], 
             num_classes=args.nb_classes, in_chans=1, 
-            global_pool=False
-        )
+            global_pool=False)
 
     # # load weight
     if not args.eval:

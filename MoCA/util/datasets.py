@@ -197,7 +197,7 @@ class iWatch_HDf5(Dataset):
             x = self.transform(x) # shape: (100, 3)
             
         
-        x = torch.from_numpy(x).permute(1, 0)  # shape: (3, 100)
+        x = torch.from_numpy(x).permute(1, 0).float()  # shape: (3, 100)
         x = x.unsqueeze(0)                      # shape: (1, 3, 100)
 
         y = int(self.y_data[idx])               
