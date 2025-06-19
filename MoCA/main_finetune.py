@@ -230,7 +230,7 @@ def main(args):
                 del checkpoint_model[k]
 
         # interpolate position embedding
-        interpolate_pos_embed(model, checkpoint_model,orig_size=(args.in_chans,int(100//args.patch_size)), 
+        interpolate_pos_embed(model, checkpoint_model,orig_size=(args.in_chans,int(args.input_size[1]//args.patch_size)), 
                               new_size=(args.input_size[0],int(args.input_size[1]//args.patch_size)))
 
         # load pre-trained model
