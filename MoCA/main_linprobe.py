@@ -223,7 +223,7 @@ def main(args):
         print('Loading pre-trained checkpoint from',args.checkpoint)
         checkpoint = torch.load(args.checkpoint,map_location='cpu')
         checkpoint_model = checkpoint['model']
-        interpolate_pos_embed(model, checkpoint_model,orig_size=(args.in_chans,int(100//args.patch_size)), 
+        interpolate_pos_embed(model, checkpoint_model,orig_size=(args.in_chans,int(args.input_size[1]//args.patch_size)), 
                               new_size=(args.input_size[0],int(args.input_size[1]//args.patch_size)))
                               
         #print(checkpoint_model.keys())
