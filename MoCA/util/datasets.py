@@ -151,53 +151,54 @@ class iWatch(Dataset):
 
     
 # Dataset for (BS, 100,3)
-# import h5py
-# class iWatch_HDf5(Dataset):
-#     def __init__(self,
-#                  root='/niddk-data-central/iWatch/pre_processed_seg/H',
-#                  set_type='train',
-#                  transform=None,
-#                  subset=None):
-#         self.file_path = os.path.join(root, f"10s_{set_type}.h5")
-#         self.transform = transform
-#         # these will be set in the worker when first accessed
-#         self.h5_file = None
-#         self.x_data = None
-#         self.y_data = None
-#         self.subset= subset
-#     def _ensure_open(self):
-#         # called inside worker on first __getitem__
-#         if self.h5_file is None:
-#             self.h5_file = h5py.File(self.file_path, 'r')
-#             self.x_data = self.h5_file['x']
-#             self.y_data = self.h5_file['y']
+import h5py
+class iWatch_HDf5(Dataset):
+    def __init__(self,
+                 root='/niddk-data-central/iWatch/pre_processed_seg/H',
+                 set_type='train',
+                 transform=None,
+                 subset=None,
+                 target_sr=10):
+        self.file_path = os.path.join(root, f"10s_{set_type}.h5")
+        self.transform = transform
+        # these will be set in the worker when first accessed
+        self.h5_file = None
+        self.x_data = None
+        self.y_data = None
+        self.subset= subset
+    def _ensure_open(self):
+        # called inside worker on first __getitem__
+        if self.h5_file is None:
+            self.h5_file = h5py.File(self.file_path, 'r')
+            self.x_data = self.h5_file['x']
+            self.y_data = self.h5_file['y']
 
-#     def __len__(self):
-#         # we open here if not already, so that len() works in main process
-#         self._ensure_open()
-#         if self.subset is not None:
-#             return self.subset
+    def __len__(self):
+        # we open here if not already, so that len() works in main process
+        self._ensure_open()
+        if self.subset is not None:
+            return self.subset
         
-#         return len(self.x_data)
+        return len(self.x_data)
 
-#     def __getitem__(self, idx):
-#         self._ensure_open()                     # open once per worker
-#         x = self.x_data[idx]                    # shape: (100, 3)
-#         if self.transform is not None:
-#             x = self.transform(x) # shape: (100, 3)
+    def __getitem__(self, idx):
+        self._ensure_open()                     # open once per worker
+        x = self.x_data[idx]                    # shape: (100, 3)
+        if self.transform is not None:
+            x = self.transform(x) # shape: (100, 3)
         
-#         x = torch.from_numpy(x).permute(1, 0)  # shape: (3, 100)
-#         x = x.unsqueeze(0)                      # shape: (1, 3, 100)
+        x = torch.from_numpy(x).permute(1, 0)  # shape: (3, 100)
+        x = x.unsqueeze(0)                      # shape: (1, 3, 100)
 
-#         y = int(self.y_data[idx])               
-#         return x, torch.tensor(y, dtype=torch.long)
+        y = int(self.y_data[idx])               
+        return x, torch.tensor(y, dtype=torch.long)
 
-#     def __del__(self):
-#         if getattr(self, 'h5_file', None) is not None:
-#             try:
-#                 self.h5_file.close()
-#             except Exception:
-#                 pass
+    def __del__(self):
+        if getattr(self, 'h5_file', None) is not None:
+            try:
+                self.h5_file.close()
+            except Exception:
+                pass
 
 
 def collate_fn(batch):

@@ -654,3 +654,24 @@ if __name__ == "__main__":
                                 activpal_events_csv_dir_root=args.activpal_dir,
                                 n_start_ID=args.n_start_id, n_end_ID=args.n_end_id, expression_after_ID=args.expression_after_id,
                                 pre_process_data_output_dir=args.pre_processed_dir, mp=args.mp, gzipped=args.gzipped, loc=args.loc)
+
+
+'''
+python pre_process_data.py \
+    --gt3x-dir /niddk-data-central/iWatch/AG/W \
+    --valid-days-file /path/to/valid_days.csv \
+    --sleep-logs-file /path/to/sleep_logs.csv \
+    --wear-logs-file /path/to/wear_logs.csv \
+    --non-wear-times-file /path/to/non_wear_times.csv \
+    --activpal-dir /path/to/activpal/data \
+    --n-start-id 1 \
+    --n-end-id 4 \
+    --expression-after-id "subject_" \
+    --window-size 10 \
+    --gt3x-frequency 30 \
+    --down-sample-frequency 10 \
+    --activpal-label-map '{"0": 0, "1": 1, "2": 1}' \
+    --silent \
+    --mp 4 \
+    --gzipped
+'''

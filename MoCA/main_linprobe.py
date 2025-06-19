@@ -52,7 +52,7 @@ def get_args_parser():
     # Model parameters
     parser.add_argument('--model', default='vit_base_patch16', type=str, metavar='MODEL',
                         help='Name of model to train')
-    parser.add_argument('--input_size', type=int, default=100, 
+    parser.add_argument('--input_size', type=int, default=None, 
                         help='Input size "')
     parser.add_argument('--patch_size', type=int, default=5, 
                         help='Patch size')
@@ -115,6 +115,8 @@ def get_args_parser():
     parser.add_argument('--no_pin_mem', action='store_false', dest='pin_mem')
     parser.set_defaults(pin_mem=True)
     parser.add_argument('--ds_name', default='iwatch', type=str)
+    parser.add_argument('--target_sr', default=30, type=int,
+                        help='target sampling rate for the dataset, default is 30Hz')
 
     # distributed training parameters
     parser.add_argument('--world_size', default=1, type=int,
@@ -148,8 +150,8 @@ def main(args):
         # dataset_train = iWatch_HDf5(args.data_path, set_type='train', transform=resample_aug)
         # dataset_val = iWatch_HDf5(args.data_path, set_type='val', transform=lambda x: resample_aug(x, is_train=False))
 
-        dataset_train = iWatch_HDf5(args.data_path, set_type='train', transform=data_aug)
-        dataset_val = iWatch_HDf5(args.data_path, set_type='val', transform=None)
+        dataset_train = iWatch_HDf5(args.data_path, set_type='train', transform=data_aug,target_sr=args.target_sr)
+        dataset_val = iWatch_HDf5(args.data_path, set_type='val', transform=None,target_sr=args.target_sr)
     else:
         raise NotImplementedError('The specified dataset is not implemented.')
 
@@ -378,8 +380,11 @@ if __name__ == '__main__':
     args.nb_classes = LP_DATASET_CONFIG[args.ds_name]['nb_classes']
     args.blr = LP_DATASET_CONFIG[args.ds_name]["blr"]
     args.batch_size = LP_DATASET_CONFIG[args.ds_name]["bs"]
-    input_size = LP_DATASET_CONFIG[args.ds_name]["input_size"]
-    args.input_size = [args.in_chans, input_size[1]]
+    if args.input_size is None:
+        input_size = LP_DATASET_CONFIG[args.ds_name]["input_size"]
+        args.input_size = [args.in_chans, input_size[1]]
+    else:
+        args.input_size = [args.in_chans, args.input_size]
 
     args.weight_decay = LP_DATASET_CONFIG[args.ds_name]["weight_decay"]
     args.remark = args.remark + f'LP_blr_{args.blr}_bs_{args.batch_size}_input_size_{args.input_size}'
@@ -431,5 +436,16 @@ torchrun --nproc_per_node=2  -m main_linprobe \
 --data_path "/niddk-data-central/iWatch/pre_processed_seg/HW" \
 --in_chans 6 \
 --remark DEBUG_HW
+
+torchrun --nproc_per_node=2  -m main_linprobe \
+--ds_name iwatch \
+--checkpoint "/niddk-data-central/leo_workspace/Capture24-randRandom_100iter_init_checkpoint-200.pth" \
+--data_path "/niddk-data-central/iWatch/pre_processed_seg/W" \
+--in_chans 3 \
+--input_size 300 \
+--target_sr 30 \
+--remark Capture_MoCA200
+
+
 
 '''
