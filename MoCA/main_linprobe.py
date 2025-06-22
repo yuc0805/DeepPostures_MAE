@@ -327,10 +327,10 @@ def main(args):
             best_metric['acc1'] = test_stats['acc1']
             best_metric['f1'] = test_stats['f1']
 
-            if args.output_dir:
-                misc.save_model(
-                    args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
-                    loss_scaler=loss_scaler, epoch="best")
+            # if args.output_dir:
+            #     misc.save_model(
+            #         args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
+            #         loss_scaler=loss_scaler, epoch="best")
 
         print(f'Max Balanced accuracy: {max_accuracy:.2f}%')
 
