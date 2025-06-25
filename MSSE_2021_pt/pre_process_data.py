@@ -389,15 +389,21 @@ def generate_pre_processed_data(gt3x_30Hz_csv_dir_root, valid_days_file, label_m
                     if id not in sleep_logs_dict:
                         sleep_logs_dict[id] = []
 
-                    try:
-                        start_time = datetime.strptime(bits[1].strip(), "%Y-%m-%d %H:%M:%S")
-                    except:
-                        raise Exception(
-                            "In {}, date should be in %Y-%m-%d format and time should be in %H:%M:%S format. Found: {}".format(sleep_logs_file, line))
+                    formats = ["%Y-%m-%d %H:%M:%S", "%m/%d/%y %H:%M"]
+                    start_time,end_time = None,None
+                    for fmt in formats:
+                        try:
+                            print('start time',bits[1])
+                            start_time = datetime.strptime(bits[1].strip(), fmt)
+                            end_time = datetime.strptime(bits[2].strip(), fmt)
+                            break
+                        except ValueError:
+                            continue
 
-                    try:
-                        end_time = datetime.strptime(bits[2].strip(), "%Y-%m-%d %H:%M:%S")
-                    except:
+                    # try:
+                    #     start_time = datetime.strptime(bits[1].strip(), "%Y-%m-%d %H:%M:%S")
+                    # except:
+                    if start_time is None or end_time is None:
                         raise Exception(
                             "In {}, date should be in %Y-%m-%d format and time should be in %H:%M:%S format. Found: {}".format(sleep_logs_file, line))
 
@@ -498,18 +504,18 @@ def generate_pre_processed_data(gt3x_30Hz_csv_dir_root, valid_days_file, label_m
                     
                     date_string = get_date_string(bits[2].strip())
 
-                try:
-                    dt_string = bits[2].strip()
-                    if len(dt_string) == 10:  # Only contains "YYYY-MM-DD"
-                        dt_string += " 00:00"
-                    else:
-                        dt_string = dt_string[:-3] # Remove :ss from the string
-                    
-                    start_time = datetime.strptime(
-                        dt_string, f"{date_string} %H:%M")
-                except:
-                    raise Exception(
-                        "In {}, date should be in {} format and time should be in %H:%M format. Found: {}".format(date_string, non_wear_times_file, line))
+                    try:
+                        dt_string = bits[2].strip()
+                        if len(dt_string) == 10:  # Only contains "YYYY-MM-DD"
+                            dt_string += " 00:00"
+                        else:
+                            dt_string = dt_string[:-3] # Remove :ss from the string
+                        
+                        start_time = datetime.strptime(
+                            dt_string, f"{date_string} %H:%M")
+                    except:
+                        raise Exception(
+                            "In {}, date should be in {} format and time should be in %H:%M format. Found: {}".format(date_string, non_wear_times_file, line))
 
                 # iWatch does not have a endTime. We calculate endTime as startTime +int.min(minutes)
 
@@ -520,35 +526,41 @@ def generate_pre_processed_data(gt3x_30Hz_csv_dir_root, valid_days_file, label_m
                 # except:
                 #     raise Exception(
                 #         "In {}, date should be in {} format and time should be in %H:%M format. Found: {}".format(date_string, non_wear_times_file, line))
-                
-                interval_nw = int(bits[3].strip())
-                end_time = start_time + timedelta(minutes=interval_nw)
-                non_wear_dict[id].append((start_time, end_time))
+                    
+                    interval_nw = int(bits[3].strip())
+                    end_time = start_time + timedelta(minutes=interval_nw)
+                    non_wear_dict[id].append((start_time, end_time))
 
             elif len(header) == 3:  # SOL
                 if header[0].strip() != "id" or header[1].strip() != "startnw" or header[2].strip() != "endnw" :
                     raise Exception(
                         'non_wear_times_file should have header columns (ID, startNW, endNW).')
                 
-                for line in lines[1]:
+                for line in lines[1:]:
+                    # example line: C6003361,6/20/22 5:39,6/20/22 7:16
                     line = line.strip()
                     if line == "":
                         continue
+
                     bits = line.split(",")
                     bits = [bit.replace("\"",'') for bit in bits]
                     assert len(bits) == 3, "non_wear_times_file should have three columns (ID, startNW, endNW). Found: {}".format(bits)
                     start_time = bits[1].strip()
                     end_time = bits[2].strip()
 
-                try:
-                    # append datetime.datetime object
-                    start_time = datetime.strptime(start_time, "%m/%d/%y %H:%M")#.strftime("%Y-%m-%d %H:%M")
-                    end_time = datetime.strptime(end_time, "%m/%d/%y %H:%M")#.strftime("%Y-%m-%d %H:%M")
-                except:
-                    raise Exception(
-                        "date should be in %m/%d/%y format and time should be in %H:%M format. Found: {}".format(line))
-                
-                non_wear_dict[id].append((start_time, end_time))
+                    id = bits[0].strip()
+                    if id not in non_wear_dict:
+                        non_wear_dict[id] = []
+
+                    try:
+                        # append datetime.datetime object
+                        start_time = datetime.strptime(start_time, "%m/%d/%y %H:%M")#.strftime("%Y-%m-%d %H:%M")
+                        end_time = datetime.strptime(end_time, "%m/%d/%y %H:%M")#.strftime("%Y-%m-%d %H:%M")
+                    except:
+                        raise Exception(
+                            "date should be in %m/%d/%y format and time should be in %H:%M format. Found: {}".format(line))
+                    
+                    non_wear_dict[id].append((start_time, end_time))
 
 
     # 5. n_start_ID
@@ -574,7 +586,8 @@ def generate_pre_processed_data(gt3x_30Hz_csv_dir_root, valid_days_file, label_m
         os.makedirs(pre_process_data_output_dir)
 
     gt3x_file_names = [fname.split('.')[0] for fname in os.listdir(
-        gt3x_30Hz_csv_dir_root) if fname.endswith(ext)]
+        gt3x_30Hz_csv_dir_root) if fname.endswith(ext)] #TODO: becareful on the 60Hz file names.
+
     if n_start_ID is not None:
         subject_ids = []
         for x in gt3x_file_names:
@@ -714,14 +727,12 @@ python pre_process_data.py \
 
 
 python pre_process_data.py \
-    --gt3x-dir /niddk-data-central/SOL/PASOS/train/AG_RAW \
-    --valid-days-file /niddk-data-central/SOL/PASOS/PASOS_support_files/PASOS_concurrentWear.csv \ 
-    --sleep-logs-file /niddk-data-central/SOL/PASOS/PASOS_support_files/VIDA_SL.csv \ 
-    --wear-logs-file /niddk-data-central/SOL/PASOS/PASOS_support_files/PASOS_NW_choi.csv \ 
-    --activpal-dir /niddk-data-central/SOL/PASOS/train/AP \
-    --n-start-id 1 \
-    --n-end-id 4 \
-    --expression-after-id "subject_" \
+    --pre-processed-dir /niddk-data-central/SOL/PASOS/toy_processed \
+    --gt3x-dir /niddk-data-central/SOL/PASOS/toy \
+    --valid-days-file "/niddk-data-central/SOL/PASOS/PASOS_support_files/PASOS_concurrentWear.csv" \
+    --sleep-logs-file "/niddk-data-central/SOL/PASOS/PASOS_support_files/VIDA_SL.csv" \
+    --non-wear-times-file "/niddk-data-central/SOL/PASOS/PASOS_support_files/PASOS_NW_choi.csv" \
+    --activpal-dir "/niddk-data-central/SOL/PASOS/train/AP" \
     --window-size 10 \
     --gt3x-frequency 80 \
     --down-sample-frequency 30 \
@@ -730,5 +741,10 @@ python pre_process_data.py \
     --mp 4 \
     --gzipped
 
+    --n-start-id 1 \
+    --n-end-id 4 \
     --non-wear-times-file None \
+    --expression-after-id "subject_" \
+
+    /niddk-data-central/SOL/PASOS/train/AG_RAW \
 '''
