@@ -99,18 +99,26 @@ def map_function(gt3x_file, concurrent_wear_dict, sleep_logs_dict, wear_logs_dic
             return 0
 
     if ap_df is not None:
-        ap_df['Time'] = ap_df['Time'].map(
-            lambda x: datetime.utcfromtimestamp(round((x - 25569.) * 86400 * 10) / 10.))
-        event_start_times = ap_df['Time'].tolist()
-        ap_df['Interval (s)'] = ap_df['Interval (s)'].map(
-            lambda x: timedelta(seconds=round(x * 10) / 10.))
-        event_intervals = ap_df['Interval (s)'].tolist()
-        # Fix for column name inconsistency in ActivPal
-        ap_df.columns = ap_df.columns.map(lambda col: 'ActivityCode' if col.startswith('ActivityCode') else col)
-        # ap_df = ap_df.rename(columns={
-        #                      'ActivityCode (0=sedentary, 1= standing, 2=stepping)': 'ActivityCode (0=sedentary, 1=standing, 2=stepping)'})
-        event_labels = ap_df['ActivityCode'].apply(
-            lambda x: label_map[str(x)]).tolist()
+        if False: #event_file: 
+            ap_df['Time'] = ap_df['Time'].map(
+                lambda x: datetime.utcfromtimestamp(round((x - 25569.) * 86400 * 10) / 10.))
+            event_start_times = ap_df['Time'].tolist()
+            ap_df['Interval (s)'] = ap_df['Interval (s)'].map(
+                lambda x: timedelta(seconds=round(x * 10) / 10.))
+            event_intervals = ap_df['Interval (s)'].tolist()
+            # Fix for column name inconsistency in ActivPal
+            ap_df.columns = ap_df.columns.map(lambda col: 'ActivityCode' if col.startswith('ActivityCode') else col)
+            # ap_df = ap_df.rename(columns={
+            #                      'ActivityCode (0=sedentary, 1= standing, 2=stepping)': 'ActivityCode (0=sedentary, 1=standing, 2=stepping)'})
+            event_labels = ap_df['ActivityCode'].apply(
+                lambda x: label_map[str(x)]).tolist()
+        else: # second epoch
+            ap_df['Time'] = pd.to_datetime(ap_df['TS_LOCAL_COR'], format="%Y-%m-%dT%H:%M:%SZ")
+            event_start_times = ap_df['Time'].tolist()
+            event_intervals = [timedelta(seconds=1)] * len(ap_df)
+            ap_df.columns = ap_df.columns.map(lambda col: 'ActivityCode' if col.startswith('PL_ACTIVITY_NEW') else col)
+            event_labels = ap_df['ActivityCode'].apply(lambda x: label_map[str(int(x))]).tolist()
+
 
     def check_label(pointer, check_time):
         if ap_df is None:
@@ -284,6 +292,7 @@ def generate_pre_processed_data(gt3x_30Hz_csv_dir_root, valid_days_file, label_m
     if valid_days_file is None:
         logger.warning('valid days file is not provided.')
     else:
+        # event file format
         if not os.path.isfile(valid_days_file):
             raise Exception(
                 'valid days file {} does not exists.'.format(valid_days_file))
@@ -462,31 +471,32 @@ def generate_pre_processed_data(gt3x_30Hz_csv_dir_root, valid_days_file, label_m
             lines = f.readlines()
             header = lines[0].lower().split(",")
             header = [head.replace("\"",'') for head in header]
-            # if header[0].strip() != "id" or header[1].strip() != "date.nw.start" or header[2].strip() != "time.nw.start" \
-            #         or header[3].strip() != "date.nw.end" or header[4].strip() != "time.nw.end":
-            #     raise Exception(
-            #         'non_wear_times_file should have five header columns (ID, Date.nw.start, Time.nw.start, Date.nw.end, Time.nw.end).')
-            if header[0].strip() != "id" or header[1].strip() != "wearloc" or header[2].strip() != "nw_dt" \
-                    or header[3].strip() != "int.min" or header[4].strip() != "weardate" or header[7].strip()!="loc":
-                raise Exception(
-                    'non_wear_times_file should have header columns (ID, wearLoc, NW_DT, int.min, wearDate).')
+            if len(header) == 5:  # CHAP1.0 and iWatch
+                # if header[0].strip() != "id" or header[1].strip() != "date.nw.start" or header[2].strip() != "time.nw.start" \
+                #         or header[3].strip() != "date.nw.end" or header[4].strip() != "time.nw.end":
+                #     raise Exception(
+                #         'non_wear_times_file should have five header columns (ID, Date.nw.start, Time.nw.start, Date.nw.end, Time.nw.end).')
+                if header[0].strip() != "id" or header[1].strip() != "wearloc" or header[2].strip() != "nw_dt" \
+                        or header[3].strip() != "int.min" or header[4].strip() != "weardate" or header[7].strip()!="loc":
+                    raise Exception(
+                        'non_wear_times_file should have header columns (ID, wearLoc, NW_DT, int.min, wearDate).')
 
-            for line in lines[1:]:
-                line = line.strip()
-                if line == "":
-                    continue
-                bits = line.split(",")
-                bits = [bit.replace("\"",'') for bit in bits]
+                for line in lines[1:]:
+                    line = line.strip()
+                    if line == "":
+                        continue
+                    bits = line.split(",")
+                    bits = [bit.replace("\"",'') for bit in bits]
 
-                # check if location is hip or wrist
-                if bits[7].lower()!=loc:
-                    continue
+                    # check if location is hip or wrist
+                    if bits[7].lower()!=loc:
+                        continue
 
-                id = bits[0].strip()
-                if id not in non_wear_dict:
-                    non_wear_dict[id] = []
-                
-                date_string = get_date_string(bits[2].strip())
+                    id = bits[0].strip()
+                    if id not in non_wear_dict:
+                        non_wear_dict[id] = []
+                    
+                    date_string = get_date_string(bits[2].strip())
 
                 try:
                     dt_string = bits[2].strip()
@@ -514,6 +524,32 @@ def generate_pre_processed_data(gt3x_30Hz_csv_dir_root, valid_days_file, label_m
                 interval_nw = int(bits[3].strip())
                 end_time = start_time + timedelta(minutes=interval_nw)
                 non_wear_dict[id].append((start_time, end_time))
+
+            elif len(header) == 3:  # SOL
+                if header[0].strip() != "id" or header[1].strip() != "startnw" or header[2].strip() != "endnw" :
+                    raise Exception(
+                        'non_wear_times_file should have header columns (ID, startNW, endNW).')
+                
+                for line in lines[1]:
+                    line = line.strip()
+                    if line == "":
+                        continue
+                    bits = line.split(",")
+                    bits = [bit.replace("\"",'') for bit in bits]
+                    assert len(bits) == 3, "non_wear_times_file should have three columns (ID, startNW, endNW). Found: {}".format(bits)
+                    start_time = bits[1].strip()
+                    end_time = bits[2].strip()
+
+                try:
+                    # append datetime.datetime object
+                    start_time = datetime.strptime(start_time, "%m/%d/%y %H:%M")#.strftime("%Y-%m-%d %H:%M")
+                    end_time = datetime.strptime(end_time, "%m/%d/%y %H:%M")#.strftime("%Y-%m-%d %H:%M")
+                except:
+                    raise Exception(
+                        "date should be in %m/%d/%y format and time should be in %H:%M format. Found: {}".format(line))
+                
+                non_wear_dict[id].append((start_time, end_time))
+
 
     # 5. n_start_ID
     if n_start_ID is not None:
@@ -674,4 +710,25 @@ python pre_process_data.py \
     --silent \
     --mp 4 \
     --gzipped
+
+
+
+python pre_process_data.py \
+    --gt3x-dir /niddk-data-central/SOL/PASOS/train/AG_RAW \
+    --valid-days-file /niddk-data-central/SOL/PASOS/PASOS_support_files/PASOS_concurrentWear.csv \ 
+    --sleep-logs-file /niddk-data-central/SOL/PASOS/PASOS_support_files/VIDA_SL.csv \ 
+    --wear-logs-file /niddk-data-central/SOL/PASOS/PASOS_support_files/PASOS_NW_choi.csv \ 
+    --activpal-dir /niddk-data-central/SOL/PASOS/train/AP \
+    --n-start-id 1 \
+    --n-end-id 4 \
+    --expression-after-id "subject_" \
+    --window-size 10 \
+    --gt3x-frequency 80 \
+    --down-sample-frequency 30 \
+    --activpal-label-map '{"0.0": 0, "1.0": 1, "2.0": 1, "2.1": 1, "3.1": -1, "3.2": 0, "4.0": -1, "5.0": 0, "0": 0, "1": 1, "2": 1, "4": -1, "5": 0, "-1.0": -1, "-1": -1}' \
+    --silent \
+    --mp 4 \
+    --gzipped
+
+    --non-wear-times-file None \
 '''
