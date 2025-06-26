@@ -404,7 +404,6 @@ def generate_pre_processed_data(gt3x_30Hz_csv_dir_root, valid_days_file, label_m
                     start_time,end_time = None,None
                     for fmt in formats:
                         try:
-                            print('start time',bits[1])
                             start_time = datetime.strptime(bits[1].strip(), fmt)
                             end_time = datetime.strptime(bits[2].strip(), fmt)
                             break
