@@ -602,17 +602,17 @@ def generate_pre_processed_data(gt3x_30Hz_csv_dir_root, valid_days_file, label_m
         with open(wrong_subject_path, 'r') as f:
             wrong_subjects = f.read().splitlines()
         
-        wrong_subjects = []
+        wrong_subjects_ls = []
         for id in wrong_subjects:
             subject_id = id.split('_')[0]  # extract the subject ID
-            wrong_subjects.append(subject_id)
+            wrong_subjects_ls.append(subject_id)
 
         gt3x_file_names = [fname.split('.')[0] for fname in os.listdir(
             gt3x_30Hz_csv_dir_root) if fname.endswith(ext)] #TODO: becareful on the 60Hz file names.
 
         print('Original number of subjects',len(gt3x_file_names))
         # exclude wrong subjects
-        gt3x_file_names = [fname for fname in gt3x_file_names if fname not in wrong_subjects]
+        gt3x_file_names = [fname for fname in gt3x_file_names if fname not in wrong_subjects_ls]
         print('After excluding 60hz file',len(gt3x_file_names))
     ###
 
