@@ -595,8 +595,20 @@ def generate_pre_processed_data(gt3x_30Hz_csv_dir_root, valid_days_file, label_m
     if not os.path.exists(pre_process_data_output_dir):
         os.makedirs(pre_process_data_output_dir)
 
-    ### only use for SOL
-    if True:
+    ### only use for SOL ##################################################################
+    if args.gt3x_frequency == 60:
+        wrong_subject_path = '/niddk-data-central/SOL/PASOS/PASOS_support_files/PASOS_60hz_ids.txt'
+        with open(wrong_subject_path, 'r') as f:
+            wrong_subjects = f.read().splitlines()
+        
+        wrong_subjects_ls = []
+        for id in wrong_subjects:
+            subject_id = id.split('_')[0]  # extract the subject ID
+            wrong_subjects_ls.append(subject_id)
+
+        gt3x_file_names = wrong_subjects_ls
+        print('Processing 60hz file',len(gt3x_file_names))
+    elif args.gt3x_frequency == 80:
         wrong_subject_path = '/niddk-data-central/SOL/PASOS/PASOS_support_files/PASOS_60hz_ids.txt'
         with open(wrong_subject_path, 'r') as f:
             wrong_subjects = f.read().splitlines()
@@ -612,9 +624,11 @@ def generate_pre_processed_data(gt3x_30Hz_csv_dir_root, valid_days_file, label_m
         print('Original number of subjects',len(gt3x_file_names))
         # exclude wrong subjects
         gt3x_file_names = [fname for fname in gt3x_file_names if fname not in wrong_subjects_ls]
-        print('After excluding 60hz file',len(gt3x_file_names))
-    ###
-
+        print('Processing 80hz file',len(gt3x_file_names))
+    else: 
+        gt3x_file_names = [fname.split('.')[0] for fname in os.listdir(
+            gt3x_30Hz_csv_dir_root) if fname.endswith(ext)]
+    ##########################################################################################
     if n_start_ID is not None:
         subject_ids = []
         for x in gt3x_file_names:
@@ -767,13 +781,21 @@ python pre_process_data.py \
     --down-sample-frequency 30 \
     --activpal-label-map '{"0.0": 0, "1.0": 1, "2.0": 1, "2.1": 1, "3.1": -1, "3.2": 0, "4.0": -1, "5.0": 0, "0": 0, "1": 1, "2": 1, "4": -1, "5": 0, "-1.0": -1, "-1": -1}' \
     --silent \
-    --mp 10 \
+    --mp 18 \
     --gzipped
 
-    --n-start-id 1 \
-    --n-end-id 4 \
-    --non-wear-times-file None \
-    --expression-after-id "subject_" \
-
-    /niddk-data-central/SOL/PASOS/train/AG_RAW \
+python pre_process_data.py \
+    --pre-processed-dir /niddk-data-central/SOL/PASOS/train/pre_processed_30hz \
+    --gt3x-dir /niddk-data-central/SOL/PASOS/train/AG_RAW \
+    --valid-days-file "/niddk-data-central/SOL/PASOS/PASOS_support_files/PASOS_concurrentWear.csv" \
+    --sleep-logs-file "/niddk-data-central/SOL/PASOS/PASOS_support_files/VIDA_SL.csv" \
+    --non-wear-times-file "/niddk-data-central/SOL/PASOS/PASOS_support_files/PASOS_NW_choi.csv" \
+    --activpal-dir "/niddk-data-central/SOL/PASOS/train/AP" \
+    --window-size 10 \
+    --gt3x-frequency 60 \
+    --down-sample-frequency 30 \
+    --activpal-label-map '{"0.0": 0, "1.0": 1, "2.0": 1, "2.1": 1, "3.1": -1, "3.2": 0, "4.0": -1, "5.0": 0, "0": 0, "1": 1, "2": 1, "4": -1, "5": 0, "-1.0": -1, "-1": -1}' \
+    --silent \
+    --mp 18 \
+    --gzipped
 '''
