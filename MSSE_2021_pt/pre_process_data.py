@@ -58,6 +58,10 @@ def write_data_to_file(pre_process_data_output_dir, subject_id, start_date, valu
         sleeping_values.append(mode([x[5] for x in temp])[0])
         label_values.append(label)
 
+    if len(time_values) == 0:
+        # Nothing valid to write; exit early.
+        return
+        
     # flush data, free memory
     h5f_out = h5py.File(subject_data_file_path, "w")
     h5f_out.create_dataset('time', data=np.array(
@@ -607,7 +611,7 @@ def generate_pre_processed_data(gt3x_30Hz_csv_dir_root, valid_days_file, label_m
 
     # exclude wrong subjects
     gt3x_file_names = [fname for fname in gt3x_file_names if fname not in wrong_subjects]
-    
+
     if n_start_ID is not None:
         subject_ids = []
         for x in gt3x_file_names:
