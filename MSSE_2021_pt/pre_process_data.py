@@ -28,6 +28,7 @@ from datetime import timedelta
 from functools import partial
 import gzip
 import re
+from tqdm import tqdm
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -44,19 +45,24 @@ def write_data_to_file(pre_process_data_output_dir, subject_id, start_date, valu
     label_values = []
     for j in range(int(CNN_WINDOW_SIZE / RESOLUTION), len(values_being_written) + 1, int(CNN_WINDOW_SIZE / RESOLUTION)):
         temp = values_being_written[j - int(CNN_WINDOW_SIZE / RESOLUTION):j]
-        time_values.append(
-            time.mktime(temp[0][0].timetuple()))
+        label = mode([x[6] for x in temp])[0][0]
+
+        # Skip if label is -1
+        if label == -1:
+            continue
+
+        time_values.append(time.mktime(temp[0][0].timetuple()))
         data_values.append([[x[1], x[2], x[3]] for x in temp])
         non_wear_values.append(mode([x[4] for x in temp])[0])
         sleeping_values.append(mode([x[5] for x in temp])[0])
-        label_values.append(mode([x[6] for x in temp])[0])
+        label_values.append(label)
 
     # flush data, free memory
     h5f_out = h5py.File(subject_data_file_path, "w")
     h5f_out.create_dataset('time', data=np.array(
         time_values), chunks=True, maxshape=(None,))
     h5f_out.create_dataset('data', data=np.array(
-        data_values), chunks=True, maxshape=(None, 100, 3))
+        data_values), chunks=True, maxshape=(None, 300, 3))
     h5f_out.create_dataset('non_wear', data=np.array(
         non_wear_values), chunks=True, maxshape=(None,))
     h5f_out.create_dataset('sleeping', data=np.array(
@@ -117,7 +123,7 @@ def map_function(gt3x_file, concurrent_wear_dict, sleep_logs_dict, wear_logs_dic
             event_start_times = ap_df['Time'].tolist()
             event_intervals = [timedelta(seconds=1)] * len(ap_df)
             ap_df.columns = ap_df.columns.map(lambda col: 'ActivityCode' if col.startswith('PL_ACTIVITY_NEW') else col)
-            event_labels = ap_df['ActivityCode'].apply(lambda x: label_map[str(int(x))]).tolist()
+            event_labels = ap_df['ActivityCode'].apply(lambda x: label_map[str(x)]).tolist()
 
 
     def check_label(pointer, check_time):
@@ -645,6 +651,8 @@ def generate_pre_processed_data(gt3x_30Hz_csv_dir_root, valid_days_file, label_m
         fn_args = [tuple(list(x) + common_args) for x in fn_args]
         # print(fn_args)
         pool.starmap(fn, fn_args)
+
+        
     logger.info("All finished")
 
 
@@ -738,7 +746,7 @@ python pre_process_data.py \
     --down-sample-frequency 30 \
     --activpal-label-map '{"0.0": 0, "1.0": 1, "2.0": 1, "2.1": 1, "3.1": -1, "3.2": 0, "4.0": -1, "5.0": 0, "0": 0, "1": 1, "2": 1, "4": -1, "5": 0, "-1.0": -1, "-1": -1}' \
     --silent \
-    --mp 4 \
+    --mp 10 \
     --gzipped
 
     --n-start-id 1 \
