@@ -61,7 +61,7 @@ def write_data_to_file(pre_process_data_output_dir, subject_id, start_date, valu
     if len(time_values) == 0:
         # Nothing valid to write; exit early.
         return
-        
+
     # flush data, free memory
     h5f_out = h5py.File(subject_data_file_path, "w")
     h5f_out.create_dataset('time', data=np.array(
@@ -596,21 +596,25 @@ def generate_pre_processed_data(gt3x_30Hz_csv_dir_root, valid_days_file, label_m
     if not os.path.exists(pre_process_data_output_dir):
         os.makedirs(pre_process_data_output_dir)
 
+    ### only use for SOL
+    if True:
+        wrong_subject_path = '/niddk-data-central/SOL/PASOS/PASOS_support_files/PASOS_60hz_ids.txt'
+        with open(wrong_subject_path, 'r') as f:
+            wrong_subjects = f.read().splitlines()
+        
+        wrong_subjects = []
+        for id in wrong_subjects:
+            subject_id = id.split('_')[0]  # extract the subject ID
+            wrong_subjects.append(subject_id)
+
+        gt3x_file_names = [fname.split('.')[0] for fname in os.listdir(
+            gt3x_30Hz_csv_dir_root) if fname.endswith(ext)] #TODO: becareful on the 60Hz file names.
+
+        print('Original number of subjects',len(gt3x_file_names))
+        # exclude wrong subjects
+        gt3x_file_names = [fname for fname in gt3x_file_names if fname not in wrong_subjects]
+        print('After excluding 60hz file',len(gt3x_file_names))
     ###
-    wrong_subject_path = '/niddk-data-central/SOL/PASOS/PASOS_support_files/PASOS_60hz_ids.txt'
-    with open(wrong_subject_path, 'r') as f:
-        wrong_subjects = f.read().splitlines()
-    
-    wrong_subjects = []
-    for id in wrong_subjects:
-        subject_id = id.split('_')[0]  # extract the subject ID
-        wrong_subjects.append(subject_id)
-
-    gt3x_file_names = [fname.split('.')[0] for fname in os.listdir(
-        gt3x_30Hz_csv_dir_root) if fname.endswith(ext)] #TODO: becareful on the 60Hz file names.
-
-    # exclude wrong subjects
-    gt3x_file_names = [fname for fname in gt3x_file_names if fname not in wrong_subjects]
 
     if n_start_ID is not None:
         subject_ids = []
