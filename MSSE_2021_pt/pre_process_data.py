@@ -756,8 +756,8 @@ python pre_process_data.py \
 
 
 python pre_process_data.py \
-    --pre-processed-dir /niddk-data-central/SOL/PASOS/toy_processed \
-    --gt3x-dir /niddk-data-central/SOL/PASOS/toy \
+    --pre-processed-dir /niddk-data-central/SOL/PASOS/train/pre_processed_30hz \
+    --gt3x-dir /niddk-data-central/SOL/PASOS/train/AG_RAW \
     --valid-days-file "/niddk-data-central/SOL/PASOS/PASOS_support_files/PASOS_concurrentWear.csv" \
     --sleep-logs-file "/niddk-data-central/SOL/PASOS/PASOS_support_files/VIDA_SL.csv" \
     --non-wear-times-file "/niddk-data-central/SOL/PASOS/PASOS_support_files/PASOS_NW_choi.csv" \
