@@ -43,9 +43,10 @@ def write_data_to_file(pre_process_data_output_dir, subject_id, start_date, valu
     sleeping_values = []
     non_wear_values = []
     label_values = []
+
     for j in range(int(CNN_WINDOW_SIZE / RESOLUTION), len(values_being_written) + 1, int(CNN_WINDOW_SIZE / RESOLUTION)):
         temp = values_being_written[j - int(CNN_WINDOW_SIZE / RESOLUTION):j]
-        label = mode([x[6] for x in temp])[0][0]
+        label = mode([x[6] for x in temp])[0]
 
         # Skip if label is -1
         if label == -1:
@@ -591,9 +592,22 @@ def generate_pre_processed_data(gt3x_30Hz_csv_dir_root, valid_days_file, label_m
     if not os.path.exists(pre_process_data_output_dir):
         os.makedirs(pre_process_data_output_dir)
 
+    ###
+    wrong_subject_path = '/niddk-data-central/SOL/PASOS/PASOS_support_files/PASOS_60hz_ids.txt'
+    with open(wrong_subject_path, 'r') as f:
+        wrong_subjects = f.read().splitlines()
+    
+    wrong_subjects = []
+    for id in wrong_subjects:
+        subject_id = id.split('_')[0]  # extract the subject ID
+        wrong_subjects.append(subject_id)
+
     gt3x_file_names = [fname.split('.')[0] for fname in os.listdir(
         gt3x_30Hz_csv_dir_root) if fname.endswith(ext)] #TODO: becareful on the 60Hz file names.
 
+    # exclude wrong subjects
+    gt3x_file_names = [fname for fname in gt3x_file_names if fname not in wrong_subjects]
+    
     if n_start_ID is not None:
         subject_ids = []
         for x in gt3x_file_names:
