@@ -425,21 +425,25 @@ def main(args):
             train_subject_list = list(dataset_train.subject_id)
             val_subject_list = list(dataset_val.subject_id)
 
-            subject_performance{'train':{},'val':{}}
+            subject_performance={'train':{},'val':{}}
             train_subject_dataloader = get_subjectwise_dataloaders(dataset_train,batch_size=args.batch_size)
             val_subject_dataloader = get_subjectwise_dataloaders(dataset_val,batch_size=args.batch_size) 
             
-            for subject_id in train_subject_list:
+            for subject_id in tqdm(train_subject_list):
+                subject_id = subject_id.decode("utf-8") if isinstance(subject_id, bytes) else subject_id
                 print(f"Evaluating subject {subject_id} in train set")
                 train_stats = evaluate(args,train_subject_dataloader[subject_id], model, device)
                 print(f"Balanced Accuracy on subject {subject_id}: {train_stats['bal_acc']:.5f}% and F1 score of {train_stats['f1']:.5f}%")
+                subject_performance['train'][subject_id] = {}
                 subject_performance['train'][subject_id]['bal_acc'] = train_stats['bal_acc']
                 subject_performance['train'][subject_id]['f1'] = train_stats['f1']
             
-            for subject_id in val_subject_list:
+            for subject_id in tqdm(val_subject_list):
+                subject_id = subject_id.decode("utf-8") if isinstance(subject_id, bytes) else subject_id
                 print(f"Evaluating subject {subject_id} in validation set")
                 test_stats = evaluate(args,val_subject_dataloader[subject_id], model, device)
                 print(f"Balanced Accuracy on subject {subject_id}: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
+                subject_performance['val'][subject_id] = {}
                 subject_performance['val'][subject_id]['bal_acc'] = test_stats['bal_acc']
                 subject_performance['val'][subject_id]['f1'] = test_stats['f1']
 
@@ -735,7 +739,7 @@ python -m main_finetune_long \
 --batch_size 512 \
 --use_data_aug 0
 
-CUDA_VISIBLE_DEVICES=1 \
+CUDA_VISIBLE_DEVICES=0 \
 python -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_long_seg/H" \
@@ -744,7 +748,7 @@ python -m main_finetune_long \
 --remark hip \
 --batch_size 512 \
 --use_data_aug 0 \
---subject_level_analysis \
+--subject_level_analysis 
 
 
 
