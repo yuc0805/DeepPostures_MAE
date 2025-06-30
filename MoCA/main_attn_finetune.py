@@ -228,15 +228,18 @@ def main(args):
         print('shape after interpolate:',checkpoint_model['pos_embed'].shape)
         msg = base_model.load_state_dict(checkpoint_model, strict=False)
         print(msg)
-    # else:
-    #     checkpoint = torch.load(args.eval,map_location='cpu')
-    #     checkpoint_model = checkpoint['model']
-    #     print(checkpoint['args'])
-    #     msg = model.load_state_dict(checkpoint_model, strict=True)
-    #     model.to(device)
-    #     test_stats = evaluate(args,data_loader_val, model, device)
-    #     print(f"Balanced Accuracy of the network on the test images: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
-    #     exit(0)
+    else:
+        #FIXME: only works for one gpu :(
+        checkpoint = torch.load(args.eval,map_location='cpu')
+        checkpoint_model = checkpoint['model']
+        model_args = checkpoint['args']
+        print(model_args)
+        model = AttentionProbeModel(base_model, window_size=42,num_classes=model_args.nb_classes,hidden_dim=256,num_layer=model_args.num_attn_layer)
+        msg = model.load_state_dict(checkpoint_model, strict=True)
+        model.to(device)
+        test_stats = evaluate(args,data_loader_train, model, device)
+        print(f"Balanced Accuracy of the network on the test images: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
+        exit(0)
 
     model = AttentionProbeModel(base_model, window_size=42,num_classes=args.nb_classes,hidden_dim=256,num_layer=args.num_attn_layer)
     print("Model = %s" % str(model))
@@ -412,6 +415,20 @@ torchrun --nproc_per_node=2  -m main_attn_finetune \
 --in_chans 6 \
 --epochs 20
 
+
+torchrun --nproc_per_node=2  -m main_attn_finetune \
+--ds_name iwatch \
+--checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/iWatch-HW-balanceps_5_mask_0.75_bs_128_blr_None_epoch_50/2025-05-22_15-42/checkpoint-49.pth" \
+--data_path "/niddk-data-central/iWatch/pre_processed_pt/HW" \
+--remark Debug \
+--num_attn_layer 2 \
+--in_chans 6 \
+--epochs 20
+
+
+python -m main_attn_finetune \
+--ds_name iwatch \
+--eval /niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/Wrist_50epochLP_blr_0.001_bs_8_input_size_[3, 100]/2025-05-22_15-13/checkpoint-best.pth
 
 
 '''

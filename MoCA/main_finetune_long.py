@@ -399,12 +399,15 @@ def main(args):
             msg = backbone.load_state_dict(checkpoint_model, strict=False)
             print(msg)
         else:
+            # Evaluate 
             checkpoint = torch.load(args.eval,map_location='cpu')
             checkpoint_model = checkpoint['model']
+            model = LinearProbeModel(backbone, num_classes=args.nb_classes)
             print(checkpoint['args'])
-            msg = backbone.load_state_dict(checkpoint_model, strict=True)
-            backbone.to(device)
-            test_stats = evaluate(args,data_loader_val, backbone, device)
+            msg = model.load_state_dict(checkpoint_model, strict=True)
+            model.to(device)
+            # test_stats = evaluate(args,data_loader_val, backbone, device)
+            test_stats = evaluate(args,data_loader_train, backbone, device)
             print(f"Balanced Accuracy of the network: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
             exit(0)
 
