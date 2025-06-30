@@ -46,7 +46,7 @@ from engine_finetune_long import train_one_epoch, evaluate
 # else:
 #     raise FileNotFoundError("MSSE-2021-pt directory not found.")
 
-from commons import get_dataloaders_dist,data_aug
+from MSSE_2021_pt.commons import get_dataloaders_dist#,data_aug
 import random
 from einops import rearrange
 from tqdm import tqdm
@@ -190,7 +190,7 @@ def main(args):
         test_subjects=None,
         rank=global_rank,
         world_size=num_tasks,
-        transform=data_aug,)
+        transform=None,)
 
 
         
@@ -237,10 +237,12 @@ def main(args):
         #FIXME: only works for one gpu :(
         checkpoint = torch.load(args.eval,map_location='cpu')
         checkpoint_model = checkpoint['model']
+
         model_args = checkpoint['args']
         print(model_args)
         model = AttentionProbeModel(base_model, window_size=42,num_classes=model_args.nb_classes,hidden_dim=256,num_layer=model_args.num_attn_layer)
-        msg = model.load_state_dict(checkpoint_model, strict=True)
+        msg = model.load_state_dict(checkpoint_model, strict=False)
+        print(msg)
         model.to(device)
         test_stats = evaluate(args,data_loader_train, model, device)
         print(f"Balanced Accuracy of the network on the test images: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
@@ -433,7 +435,8 @@ torchrun --nproc_per_node=2  -m main_attn_finetune \
 
 python -m main_attn_finetune \
 --ds_name iwatch \
---eval /niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/Wrist_50epochLP_blr_0.001_bs_8_input_size_[3, 100]/2025-05-22_15-13/checkpoint-best.pth
+--eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/Wrist_50epochLP_blr_0.001_bs_8_input_size_[3, 100]/2025-05-22_15-13/checkpoint-best.pth" \
+--data_path "/niddk-data-central/iWatch/pre_processed_pt/W"
 
 
 '''
