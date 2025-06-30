@@ -373,7 +373,6 @@ def main(args):
                                     num_layer=args.num_attn_layer,
                                     learnable_pos_embed=args.learnable_pos_embed,)
         
-
     #######################
     else:
         backbone = models_vit.__dict__[args.model](
@@ -398,20 +397,23 @@ def main(args):
             print('shape after interpolate:',checkpoint_model['pos_embed'].shape)
             msg = backbone.load_state_dict(checkpoint_model, strict=False)
             print(msg)
-        else:
-            # Evaluate 
-            checkpoint = torch.load(args.eval,map_location='cpu')
-            checkpoint_model = checkpoint['model']
-            model = LinearProbeModel(backbone, num_classes=args.nb_classes)
-            print(checkpoint['args'])
-            msg = model.load_state_dict(checkpoint_model, strict=True)
-            model.to(device)
-            # test_stats = evaluate(args,data_loader_val, backbone, device)
-            test_stats = evaluate(args,data_loader_train, backbone, device)
-            print(f"Balanced Accuracy of the network: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
-            exit(0)
 
         model = LinearProbeModel(backbone, num_classes=args.nb_classes)
+
+    if args.eval:
+        # Evaluate 
+        checkpoint = torch.load(args.eval,map_location='cpu')
+        checkpoint_model = checkpoint['model']
+        print(checkpoint['args'])
+        msg = model.load_state_dict(checkpoint_model, strict=True)
+        model.to(device)
+        print(model)
+        # test_stats = evaluate(args,data_loader_val, backbone, device)
+        train_stats = evaluate(args,data_loader_train, model, device)
+        print(f"Balanced Accuracy of the network in train-set: {train_stats['bal_acc']:.5f}% and F1 score of {train_stats['f1']:.5f}%")
+        test_stats = evaluate(args,data_loader_val, model, device)
+        print(f"Balanced Accuracy of the network in test-set: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
+        exit(0)
 
     print("Model = %s" % str(model))
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -679,4 +681,13 @@ torchrun --nproc_per_node=2  -m main_finetune_long \
 --blr 1e-4 \
 --weight_decay 5e-2 \
 --layer_decay 0.4
+
+
+CUDA_VISIBLE_DEVICES=3 \
+python -m main_finetune_long \
+--ds_name iwatch \
+--data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
+--model CNNBiLSTMModel \
+--eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/NEW_CHAP_wristLP_blr_0.001_bs_4_input_size_[3, 4200]/2025-05-29_21-51/checkpoint-best.pth" \
+--batch_size 512 
 '''
