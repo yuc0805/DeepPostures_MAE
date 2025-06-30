@@ -8,11 +8,15 @@
 # DeiT: https://github.com/facebookresearch/deit
 # MoCo v3: https://github.com/facebookresearch/moco-v3
 # --------------------------------------------------------
+import sys
+import os
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 import argparse
 import datetime
 import json
-import os
 import time
 from pathlib import Path
 import pickle
@@ -34,13 +38,14 @@ import util.lr_decay as lrd  # for optimizer
 import models_vit
 from models_mae import AttentionProbeModel
 from engine_finetune_long import train_one_epoch, evaluate
-import sys
-if os.path.exists('/DeepPostures_MAE/MSSE-2021-pt'):
-    sys.path.append('/DeepPostures_MAE/MSSE-2021-pt')
-elif os.path.exists('/app/DeepPostures_MAE/MSSE-2021-pt'):
-    sys.path.append('/app/DeepPostures_MAE/MSSE-2021-pt')
-else:
-    raise FileNotFoundError("MSSE-2021-pt directory not found.")
+
+# if os.path.exists('/DeepPostures_MAE/MSSE-2021pt'):
+#     sys.path.append('/DeepPostures_MAE/MSSE-2021-pt')
+# elif os.path.exists('/app/DeepPostures_MAE/MSSE-2021-pt'):
+#     sys.path.append('/app/DeepPostures_MAE/MSSE-2021-pt')
+# else:
+#     raise FileNotFoundError("MSSE-2021-pt directory not found.")
+
 from commons import get_dataloaders_dist,data_aug
 import random
 from einops import rearrange
