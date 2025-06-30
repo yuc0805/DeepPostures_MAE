@@ -240,6 +240,7 @@ def main(args):
 
         model_args = checkpoint['args']
         print(model_args)
+       
         model = AttentionProbeModel(base_model, window_size=42,num_classes=model_args.nb_classes,hidden_dim=256,num_layer=model_args.num_attn_layer)
         msg = model.load_state_dict(checkpoint_model, strict=False)
         print(msg)
@@ -441,5 +442,11 @@ python -m main_attn_finetune \
 --data_path "/niddk-data-central/iWatch/pre_processed_pt/W" \
 --batch_size 256
 
+CUDA_VISIBLE_DEVICES=2 \
+python -m main_attn_finetune \
+--ds_name iwatch \
+--eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/Hip_50epoch_shuffleLP_blr_0.001_bs_8_input_size_[3, 100]/2025-05-30_02-45/checkpoint-best.pth" \
+--data_path "/niddk-data-central/iWatch/pre_processed_pt/H" \
+--batch_size 256
 
 '''

@@ -689,5 +689,18 @@ python -m main_finetune_long \
 --data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
 --model CNNBiLSTMModel \
 --eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/NEW_CHAP_wristLP_blr_0.001_bs_4_input_size_[3, 4200]/2025-05-29_21-51/checkpoint-best.pth" \
---batch_size 512 
+--batch_size 512 \
+--use_data_aug 0
+
+CUDA_VISIBLE_DEVICES=3 \
+python -m main_finetune_long \
+--ds_name iwatch \
+--data_path "/niddk-data-central/iWatch/pre_processed_long_seg/H" \
+--model CNNBiLSTMModel \
+--eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/CHAP_hipLP_blr_0.0001_bs_16_input_size_[3, 4200]/2025-05-16_23-04/checkpoint-best.pth" \
+--batch_size 512 \
+--use_data_aug 0
+
+
+
 '''
