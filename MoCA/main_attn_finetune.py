@@ -284,8 +284,8 @@ def main(args):
                 subject_performance['val'][subject_id]['f1'] = test_stats['f1']
 
             # save subject_performance in loacl folder
-            # save subject_performance in loacl folder
             output_dir = os.path.join('/DeepPostures_MAE/MoCA/subject_level_performance',args.model,f'{args.remark}_subject_performance.pkl')
+            Path(os.path.dirname(output_dir)).mkdir(parents=True, exist_ok=True)
             with open(output_dir, 'wb') as f:
                 pickle.dump(subject_performance, f)
             

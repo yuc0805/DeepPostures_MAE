@@ -449,6 +449,8 @@ def main(args):
 
             # save subject_performance in loacl folder
             output_dir = os.path.join('/DeepPostures_MAE/MoCA/subject_level_performance',args.model,f'{args.remark}_subject_performance.pkl')
+            
+            Path(os.path.dirname(output_dir)).mkdir(parents=True, exist_ok=True)
             with open(output_dir, 'wb') as f:
                 pickle.dump(subject_performance, f)
             
@@ -746,6 +748,17 @@ python -m main_finetune_long \
 --model CNNBiLSTMModel \
 --eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/CHAP_hipLP_blr_0.0001_bs_16_input_size_[3, 4200]/2025-05-16_23-04/checkpoint-best.pth" \
 --remark hip \
+--batch_size 512 \
+--use_data_aug 0 \
+--subject_level_analysis 
+
+CUDA_VISIBLE_DEVICES=1 \
+python -m main_finetune_long \
+--ds_name iwatch \
+--data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
+--model CNNBiLSTMModel \
+--eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/NEW_CHAP_wristLP_blr_0.001_bs_4_input_size_[3, 4200]/2025-05-29_21-51/checkpoint-best.pth" \
+--remark wrist \
 --batch_size 512 \
 --use_data_aug 0 \
 --subject_level_analysis 
