@@ -47,6 +47,7 @@ from engine_finetune_long import train_one_epoch, evaluate
 #     raise FileNotFoundError("MSSE-2021-pt directory not found.")
 
 from MSSE_2021_pt.commons import get_dataloaders_dist#,data_aug
+from util.dataset import iWatch 
 import random
 from einops import rearrange
 from tqdm import tqdm
@@ -127,6 +128,7 @@ def get_args_parser():
                         help='start epoch')
     parser.add_argument('--eval', default=None, type=str,
                         help='Perform evaluation only')
+    parser.add_argument('--subject_level_analysis', action='store_true', )
     parser.add_argument('--dist_eval', action='store_true', default=False,
                         help='Enabling distributed evaluation (recommended during training for faster monitor')
     parser.add_argument('--num_workers', default=2, type=int)
@@ -246,7 +248,7 @@ def main(args):
         print(msg)
         model.to(device)
 
-        if subject_level_analysis:
+        if args.subject_level_analysis:
             from MSSE_2021_pt.commons import get_subjectwise_dataloaders
             dataset_train = iWatch(
                 set_type='train',
@@ -487,7 +489,11 @@ python -m main_attn_finetune \
 --ds_name iwatch \
 --eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/Wrist_50epochLP_blr_0.001_bs_8_input_size_[3, 100]/2025-05-22_15-13/checkpoint-best.pth" \
 --data_path "/niddk-data-central/iWatch/pre_processed_pt/W" \
---batch_size 256
+--batch_size 256 \
+--remark wrist \
+--subject_level_analysis 
+
+
 
 CUDA_VISIBLE_DEVICES=2 \
 python -m main_attn_finetune \
