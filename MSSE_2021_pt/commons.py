@@ -378,3 +378,21 @@ class BufferedShuffleDataset(IterableDataset):
 #     x_aug *= scaling_factors
 
 #     return x_aug
+
+from torch.utils.data import DataLoader, Subset
+from collections import defaultdict
+def get_subjectwise_dataloaders(dataset, batch_size=32, num_workers=4, shuffle=False):
+    # Build a dictionary mapping from subject_id to list of indices
+    subject_indices = defaultdict(list)
+    for i in range(len(dataset)):
+        _, _, sid = dataset[i]
+        subject_indices[int(sid)].append(i)
+    
+    # Create dataloaders for each subject
+    dataloader_dict = {}
+    for sid, indices in subject_indices.items():
+        subset = Subset(dataset, indices)
+        dataloader = DataLoader(subset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers,drop_last=False)
+        dataloader_dict[sid] = dataloader
+
+    return dataloader_dict

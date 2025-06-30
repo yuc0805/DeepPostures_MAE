@@ -135,6 +135,7 @@ def get_args_parser():
                         help='start epoch')
     parser.add_argument('--eval', default=None, type=str,
                         help='Perform evaluation only')
+    parser.add_argument('--subject_level_analysis', action='store_true',)
     parser.add_argument('--dist_eval', action='store_true', default=False,
                         help='Enabling distributed evaluation (recommended during training for faster monitor')
     parser.add_argument('--num_workers', default=4, type=int)
@@ -408,12 +409,54 @@ def main(args):
         msg = model.load_state_dict(checkpoint_model, strict=True)
         model.to(device)
         print(model)
-        # test_stats = evaluate(args,data_loader_val, backbone, device)
-        train_stats = evaluate(args,data_loader_train, model, device)
-        print(f"Balanced Accuracy of the network in train-set: {train_stats['bal_acc']:.5f}% and F1 score of {train_stats['f1']:.5f}%")
-        test_stats = evaluate(args,data_loader_val, model, device)
-        print(f"Balanced Accuracy of the network in test-set: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
-        exit(0)
+
+        if args.subject_level_analysis:
+            from MSSE_2021_pt.commons import get_subjectwise_dataloaders
+            dataset_train = iWatch(
+                set_type='train',
+                root=args.data_path,
+                transform=None,
+                subset_ratio=args.subset_ratio,)
+            dataset_val = iWatch(
+                set_type='val',
+                root=args.data_path,
+                transform=None,)
+
+            train_subject_list = list(dataset_train.subject_id)
+            val_subject_list = list(dataset_val.subject_id)
+
+            subject_performance{'train':{},'val':{}}
+            train_subject_dataloader = get_subjectwise_dataloaders(dataset_train,batch_size=args.batch_size)
+            val_subject_dataloader = get_subjectwise_dataloaders(dataset_val,batch_size=args.batch_size) 
+            
+            for subject_id in train_subject_list:
+                print(f"Evaluating subject {subject_id} in train set")
+                train_stats = evaluate(args,train_subject_dataloader[subject_id], model, device)
+                print(f"Balanced Accuracy on subject {subject_id}: {train_stats['bal_acc']:.5f}% and F1 score of {train_stats['f1']:.5f}%")
+                subject_performance['train'][subject_id]['bal_acc'] = train_stats['bal_acc']
+                subject_performance['train'][subject_id]['f1'] = train_stats['f1']
+            
+            for subject_id in val_subject_list:
+                print(f"Evaluating subject {subject_id} in validation set")
+                test_stats = evaluate(args,val_subject_dataloader[subject_id], model, device)
+                print(f"Balanced Accuracy on subject {subject_id}: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
+                subject_performance['val'][subject_id]['bal_acc'] = test_stats['bal_acc']
+                subject_performance['val'][subject_id]['f1'] = test_stats['f1']
+
+            # save subject_performance in loacl folder
+            output_dir = os.path.join('/DeepPostures_MAE/MoCA/subject_level_performance',args.model,f'{args.remark}_subject_performance.pkl')
+            with open(output_dir, 'wb') as f:
+                pickle.dump(subject_performance, f)
+            
+            exit(0)
+
+        else:
+            # test_stats = evaluate(args,data_loader_val, backbone, device)
+            train_stats = evaluate(args,data_loader_train, model, device)
+            print(f"Balanced Accuracy of the network in train-set: {train_stats['bal_acc']:.5f}% and F1 score of {train_stats['f1']:.5f}%")
+            test_stats = evaluate(args,data_loader_val, model, device)
+            print(f"Balanced Accuracy of the network in test-set: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
+            exit(0)
 
     print("Model = %s" % str(model))
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -692,14 +735,17 @@ python -m main_finetune_long \
 --batch_size 512 \
 --use_data_aug 0
 
-CUDA_VISIBLE_DEVICES=3 \
+CUDA_VISIBLE_DEVICES=1 \
 python -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_long_seg/H" \
 --model CNNBiLSTMModel \
 --eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/CHAP_hipLP_blr_0.0001_bs_16_input_size_[3, 4200]/2025-05-16_23-04/checkpoint-best.pth" \
+--remark hip \
 --batch_size 512 \
---use_data_aug 0
+--use_data_aug 0 \
+--subject_level_analysis \
+
 
 
 

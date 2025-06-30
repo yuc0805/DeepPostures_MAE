@@ -91,7 +91,7 @@ class iWatch(Dataset):
         self.y_data = self.data_file['y'] 
         
         self.transform = transform
-
+        self.subject_id = np.unique(self.data_file['subject_id'])
         
         self.indices = np.arange(len(self.y_data))
 
@@ -108,24 +108,6 @@ class iWatch(Dataset):
                 final_indices.extend(sampled)
 
             self.indices = np.array(final_indices)
-
-    # def resample_epoch(self):
-    #     """
-    #     Build a new balanced index list by copying the minority label
-    #     with replacement until both labels have the same count, then shuffle.
-    #     """
-    #     labels = np.asarray(self.y_data, dtype=np.int64)
-    #     classes, counts = np.unique(labels, return_counts=True)
-    #     target = counts.max()                     # majority label size
-    #     new_idx = []
-    #     for c in classes:
-    #         idx_c = self.all_idx[labels == c]
-    #         if len(idx_c) < target:
-    #             extra = self.rng.choice(idx_c, size=target - len(idx_c), replace=True)
-    #             idx_c = np.concatenate([idx_c, extra])
-    #         new_idx.append(idx_c)
-    #     self.indices = np.concatenate(new_idx)
-    #     self.rng.shuffle(self.indices)
 
 
     def __len__(self):
@@ -148,6 +130,24 @@ class iWatch(Dataset):
         y = torch.tensor(y, dtype=torch.long)
 
         return x_aug, y
+
+    # def resample_epoch(self):
+    #     """
+    #     Build a new balanced index list by copying the minority label
+    #     with replacement until both labels have the same count, then shuffle.
+    #     """
+    #     labels = np.asarray(self.y_data, dtype=np.int64)
+    #     classes, counts = np.unique(labels, return_counts=True)
+    #     target = counts.max()                     # majority label size
+    #     new_idx = []
+    #     for c in classes:
+    #         idx_c = self.all_idx[labels == c]
+    #         if len(idx_c) < target:
+    #             extra = self.rng.choice(idx_c, size=target - len(idx_c), replace=True)
+    #             idx_c = np.concatenate([idx_c, extra])
+    #         new_idx.append(idx_c)
+    #     self.indices = np.concatenate(new_idx)
+    #     self.rng.shuffle(self.indices)
 
     
 # Dataset for (BS, 100,3)

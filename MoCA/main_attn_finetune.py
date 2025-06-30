@@ -240,16 +240,57 @@ def main(args):
 
         model_args = checkpoint['args']
         print(model_args)
-       
+    
         model = AttentionProbeModel(base_model, window_size=42,num_classes=model_args.nb_classes,hidden_dim=256,num_layer=model_args.num_attn_layer)
         msg = model.load_state_dict(checkpoint_model, strict=False)
         print(msg)
         model.to(device)
-        train_stats = evaluate(args,data_loader_train, model, device)
-        test_stats = evaluate(args,data_loader_val, model, device)
-        print(f"Balanced Accuracy of the network on the train images: {train_stats['bal_acc']:.5f}% and F1 score of {train_stats['f1']:.5f}%")
-        print(f"Balanced Accuracy of the network on the test images: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
-        exit(0)
+
+        if subject_level_analysis:
+            from MSSE_2021_pt.commons import get_subjectwise_dataloaders
+            dataset_train = iWatch(
+                set_type='train',
+                root=args.data_path,
+                transform=None,
+                subset_ratio=args.subset_ratio,)
+            dataset_val = iWatch(
+                set_type='val',
+                root=args.data_path,
+                transform=None,)
+
+            train_subject_list = list(dataset_train.subject_id)
+            val_subject_list = list(dataset_val.subject_id)
+
+            subject_performance{'train':{},'val':{}}
+            train_subject_dataloader = get_subjectwise_dataloaders(dataset_train,batch_size=args.batch_size)
+            val_subject_dataloader = get_subjectwise_dataloaders(dataset_val,batch_size=args.batch_size) 
+            
+            for subject_id in train_subject_list:
+                print(f"Evaluating subject {subject_id} in train set")
+                train_stats = evaluate(args,train_subject_dataloader[subject_id], model, device)
+                print(f"Balanced Accuracy on subject {subject_id}: {train_stats['bal_acc']:.5f}% and F1 score of {train_stats['f1']:.5f}%")
+                subject_performance['train'][subject_id]['bal_acc'] = train_stats['bal_acc']
+                subject_performance['train'][subject_id]['f1'] = train_stats['f1']
+            
+            for subject_id in val_subject_list:
+                print(f"Evaluating subject {subject_id} in validation set")
+                test_stats = evaluate(args,val_subject_dataloader[subject_id], model, device)
+                print(f"Balanced Accuracy on subject {subject_id}: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
+                subject_performance['val'][subject_id]['bal_acc'] = test_stats['bal_acc']
+                subject_performance['val'][subject_id]['f1'] = test_stats['f1']
+
+            # save subject_performance in loacl folder
+            with open(f'{str(args.model)}_{args.remark}_subject_performance.pkl', 'wb') as f:
+                pickle.dump(subject_performance, f)
+            
+            exit(0)
+        
+        else:
+            train_stats = evaluate(args,data_loader_train, model, device)
+            test_stats = evaluate(args,data_loader_val, model, device)
+            print(f"Balanced Accuracy of the network on the train images: {train_stats['bal_acc']:.5f}% and F1 score of {train_stats['f1']:.5f}%")
+            print(f"Balanced Accuracy of the network on the test images: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
+            exit(0)
 
     model = AttentionProbeModel(base_model, window_size=42,num_classes=args.nb_classes,hidden_dim=256,num_layer=args.num_attn_layer)
     print("Model = %s" % str(model))
