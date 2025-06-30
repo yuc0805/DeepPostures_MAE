@@ -385,8 +385,10 @@ def get_subjectwise_dataloaders(dataset, batch_size=32, num_workers=4, shuffle=F
     # Build a dictionary mapping from subject_id to list of indices
     subject_indices = defaultdict(list)
     for i in range(len(dataset)):
-        _, _, sid = dataset[i]
-        subject_indices[int(sid)].append(i)
+        sid = dataset.data_file['subject_id'][i]
+        if isinstance(sid, bytes):
+            sid = sid.decode("utf-8")  # convert from bytes to string
+        subject_indices[sid].append(i)
     
     # Create dataloaders for each subject
     dataloader_dict = {}
