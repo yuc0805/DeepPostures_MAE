@@ -47,7 +47,7 @@ from engine_finetune_long import train_one_epoch, evaluate
 #     raise FileNotFoundError("MSSE-2021-pt directory not found.")
 
 from MSSE_2021_pt.commons import get_dataloaders_dist#,data_aug
-from util.dataset import iWatch 
+from util.datasets import iWatch 
 import random
 from einops import rearrange
 from tqdm import tqdm
@@ -254,7 +254,7 @@ def main(args):
                 set_type='train',
                 root=args.data_path,
                 transform=None,
-                subset_ratio=args.subset_ratio,)
+                subset_ratio=1.0,)
             dataset_val = iWatch(
                 set_type='val',
                 root=args.data_path,
@@ -488,7 +488,7 @@ torchrun --nproc_per_node=2  -m main_attn_finetune \
 python -m main_attn_finetune \
 --ds_name iwatch \
 --eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/Wrist_50epochLP_blr_0.001_bs_8_input_size_[3, 100]/2025-05-22_15-13/checkpoint-best.pth" \
---data_path "/niddk-data-central/iWatch/pre_processed_pt/W" \
+--data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
 --batch_size 256 \
 --remark wrist \
 --subject_level_analysis 
@@ -499,7 +499,9 @@ CUDA_VISIBLE_DEVICES=2 \
 python -m main_attn_finetune \
 --ds_name iwatch \
 --eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/Hip_50epoch_shuffleLP_blr_0.001_bs_8_input_size_[3, 100]/2025-05-30_02-45/checkpoint-best.pth" \
---data_path "/niddk-data-central/iWatch/pre_processed_pt/H" \
---batch_size 256
+--data_path "/niddk-data-central/iWatch/pre_processed_long_seg/H" \
+--batch_size 256 \
+--remark hip \
+--subject_level_analysis 
 
 '''
