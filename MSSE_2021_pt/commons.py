@@ -108,9 +108,15 @@ def input_iterator(data_root, subject_id, train=False):
     ]
     fnames.sort()
     for i in range(len(fnames) - 1):
-        assert datetime.strptime(fnames[i + 1], "%Y-%m-%d").date() - datetime.strptime(
-            fnames[i], "%Y-%m-%d"
-        ).date() == timedelta(days=1)
+        try:
+            assert datetime.strptime(fnames[i + 1], "%Y-%m-%d").date() - datetime.strptime(
+                fnames[i], "%Y-%m-%d"
+            ).date() == timedelta(days=1)
+        except AssertionError:
+            message = f"subject_id: {subject_id}, non-consecutive dates: {fnames[i]} -> {fnames[i + 1]}\n"
+            print(message.strip())
+            with open("error_log.txt", "a") as f:
+                f.write(message)
 
     data_batch = []
     timestamps_batch = []
