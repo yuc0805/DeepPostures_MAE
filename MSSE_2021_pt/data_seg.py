@@ -71,40 +71,49 @@ def _flush_to_h5(f_out, x_list, y_list, ts_list, subj_list, first_write):
     y_arr = np.stack(y_list, axis=0)   # (BS, window_size)
     ts_arr = np.stack(ts_list, axis=0) # (BS, window_size)
     subj_arr = np.array(subj_list, dtype=h5py.string_dtype(encoding='utf-8'))  # (BS,)
+    std_arr = np.std(x_arr, axis=2) 
+    std_arr = np.mean(std_arr, axis=2)
 
     if first_write:
         f_out.create_dataset(
             'x',
             data=x_arr,
             maxshape=(None,) + x_arr.shape[1:],
-            chunks=(min(100, x_arr.shape[0]),) + x_arr.shape[1:],
+            chunks=(min(300, x_arr.shape[0]),) + x_arr.shape[1:],
             compression='gzip'
         )
         f_out.create_dataset(
             'y',
             data=y_arr,
             maxshape=(None,) + y_arr.shape[1:],
-            chunks=(min(100, y_arr.shape[0]),) + y_arr.shape[1:],
+            chunks=(min(300, y_arr.shape[0]),) + y_arr.shape[1:],
             compression='gzip'
         )
         f_out.create_dataset(
             'timestamp',
             data=ts_arr,
             maxshape=(None,) + ts_arr.shape[1:],
-            chunks=(min(100, ts_arr.shape[0]),) + ts_arr.shape[1:],
+            chunks=(min(300, ts_arr.shape[0]),) + ts_arr.shape[1:],
             compression='gzip'
         )
         f_out.create_dataset(
             'subject_id',
             data=subj_arr,
             maxshape=(None,),
-            chunks=(min(100, subj_arr.shape[0]),),
+            chunks=(min(300, subj_arr.shape[0]),),
             dtype=h5py.string_dtype(encoding='utf-8'),
             compression='gzip'
         )
+        f_out.create_dataset(
+            'std',
+            data=std_arr,
+            maxshape=(None,),
+            chunks=(min(300, std_arr.shape[0]),),
+            compression='gzip'
+        )
     else:
-        for name, arr in zip(['x', 'y', 'timestamp', 'subject_id'],
-                             [x_arr, y_arr, ts_arr, subj_arr]):
+        for name, arr in zip(['x', 'y', 'timestamp', 'subject_id', 'std'],
+                             [x_arr, y_arr, ts_arr, subj_arr, std_arr]):
             ds = f_out[name]
             old = ds.shape[0]
             new = old + arr.shape[0]
@@ -112,68 +121,14 @@ def _flush_to_h5(f_out, x_list, y_list, ts_list, subj_list, first_write):
             ds[old:new] = arr
 
 
-# def _flush_to_h5(f_out, x_list, y_list, ts_list, subj_list, first_write):
-#     """
-#     Flatten windows along the time axis and write to HDF5 so that
-#     """
-#     # concatenate along the time axis
-#     x_arr = np.concatenate(x_list, axis=0)   # (sum(window), 100, 3)
-#     y_arr = np.concatenate(y_list, axis=0)   # (sum(window),)
-#     ts_arr = np.concatenate(ts_list, axis=0) # (sum(window),)
-#     subj_arr = np.array(
-#         [sid for sid, arr in zip(subj_list, x_list) for _ in range(arr.shape[0])],
-#         dtype=h5py.string_dtype(encoding='utf-8')
-#     )
-
-#     if first_write:
-#         f_out.create_dataset(
-#             'x',
-#             data=x_arr,
-#             maxshape=(None,) + x_arr.shape[1:],
-#             chunks=(min(1000, x_arr.shape[0]),) + x_arr.shape[1:],
-#             compression='gzip'
-#         )
-#         f_out.create_dataset(
-#             'y',
-#             data=y_arr,
-#             maxshape=(None,),
-#             chunks=(min(1000, y_arr.shape[0]),),
-#             compression='gzip'
-#         )
-#         f_out.create_dataset(
-#             'timestamp',
-#             data=ts_arr,
-#             maxshape=(None,),
-#             chunks=(min(1000, ts_arr.shape[0]),),
-#             compression='gzip'
-#         )
-#         f_out.create_dataset(
-#             'subject_id',
-#             data=subj_arr,
-#             maxshape=(None,),
-#             chunks=(min(1000, subj_arr.shape[0]),),
-#             dtype=h5py.string_dtype(encoding='utf-8'),
-#             compression='gzip'
-#         )
-#     else:
-#         for name, arr in zip(['x','y','timestamp','subject_id'],
-#                              [x_arr, y_arr, ts_arr, subj_arr]):
-#             ds = f_out[name]
-#             old = ds.shape[0]
-#             new = old + arr.shape[0]
-#             ds.resize(new, axis=0)
-#             ds[old:new] = arr
-
 
 if __name__ == "__main__":
     split_data_file = "/niddk-data-central/iWatch/support_files/iwatch_split_dict.pkl"
     pre_processed_dir = '/niddk-data-central/iWatch/pre_processed_pt/W'
 
-    with open(split_data_file, "rb") as f:
-        split_data = pickle.load(f)
-        train_subjects = split_data["train"]
-        valid_subjects = split_data["val"]
-        test_subjects  = split_data["test"]
+    split_df = pd.read_csv('/niddk-data-central/SOL/PASOS/PASOS_support_files/train_val_split.csv')
+    train_subjects = split_df[split_df['split'] == 'train']['subject_id'].tolist()
+    val_subjects = split_df[split_df['split'] == 'validation']['subject_id'].tolist()
 
     # write out one HDF5 per split, flattened along the time axis
     save_samples_from_iter(pre_processed_dir,
@@ -188,10 +143,10 @@ if __name__ == "__main__":
                            window_size=42,
                            flush_threshold=1000)
 
-    save_samples_from_iter(pre_processed_dir,
-                           "/niddk-data-central/iWatch/pre_processed_long_seg/W/10s_test.h5",
-                           test_subjects,
-                           window_size=42,
-                           flush_threshold=1000)
+    # save_samples_from_iter(pre_processed_dir,
+    #                        "/niddk-data-central/iWatch/pre_processed_long_seg/W/10s_test.h5",
+    #                        test_subjects,
+    #                        window_size=42,
+    #                        flush_threshold=1000)
 
     print("Done!")
