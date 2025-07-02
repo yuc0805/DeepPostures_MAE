@@ -4,6 +4,7 @@ import h5py
 import numpy as np
 from tqdm import tqdm
 from commons import input_iterator
+import pandas as pd
 
 def save_samples_from_iter(preprocessed_dir,
                            out_dir,
@@ -107,8 +108,8 @@ def _flush_to_h5(f_out, x_list, y_list, ts_list, subj_list, first_write):
         f_out.create_dataset(
             'std',
             data=std_arr,
-            maxshape=(None,),
-            chunks=(min(300, std_arr.shape[0]),),
+            maxshape=(None,) + std_arr.shape[1:],
+            chunks=(min(300, std_arr.shape[0]),) + std_arr.shape[1:],
             compression='gzip'
         )
     else:
@@ -123,8 +124,7 @@ def _flush_to_h5(f_out, x_list, y_list, ts_list, subj_list, first_write):
 
 
 if __name__ == "__main__":
-    split_data_file = "/niddk-data-central/iWatch/support_files/iwatch_split_dict.pkl"
-    pre_processed_dir = '/niddk-data-central/iWatch/pre_processed_pt/W'
+    pre_processed_dir = '/niddk-data-central/SOL/PASOS/train/pre_processed_30hz'
 
     split_df = pd.read_csv('/niddk-data-central/SOL/PASOS/PASOS_support_files/train_val_split.csv')
     train_subjects = split_df[split_df['split'] == 'train']['subject_id'].tolist()
@@ -132,13 +132,13 @@ if __name__ == "__main__":
 
     # write out one HDF5 per split, flattened along the time axis
     save_samples_from_iter(pre_processed_dir,
-                           "/niddk-data-central/iWatch/pre_processed_long_seg/W/10s_val.h5",
-                           valid_subjects,
+                           "/niddk-data-central/SOL/PASOS/train/pre_processed_long_seg/10s_val.h5",
+                           val_subjects,
                            window_size=42,
                            flush_threshold=1000)
 
     save_samples_from_iter(pre_processed_dir,
-                           "/niddk-data-central/iWatch/pre_processed_long_seg/W/10s_train.h5",
+                           "/niddk-data-central/SOL/PASOS/train/pre_processed_long_seg/10s_train.h5",
                            train_subjects,
                            window_size=42,
                            flush_threshold=1000)
