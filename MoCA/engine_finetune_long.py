@@ -12,7 +12,7 @@
 import math
 import sys
 from typing import Iterable, Optional
-
+from datetime import datetime
 import torch
 
 from timm.data import Mixup
@@ -159,12 +159,10 @@ def evaluate(args,data_loader, model, device):
     for i,batch in enumerate(data_loader):
         samples = batch[0].float().to(device, non_blocking=True)
         target = batch[1].to(device, non_blocking=True)
-        batch_size, window_size = target.shape
+        N, W = target.shape
         if True: #criterion.__class__.__name__ == 'BCEWithLogitsLoss':
             target = target.float()
             target = target.view(-1).squeeze()
-
-        batch_size = target.shape[0]
 
         if args.model == 'CNNBiLSTMModel': # CHAP
             samples = rearrange(samples, 'b w l c -> (b w) 1 l c ')
@@ -187,16 +185,26 @@ def evaluate(args,data_loader, model, device):
             acc1, _ = accuracy(outputs, target, topk=(1, 2))
             preds = outputs.argmax(dim=1)     
 
+      
         # record the preds
         if args.make_prediction:
             label_vocabulary = {0: "sitting", 1: "not-sitting", -1: "no-label"}
-            predictions['timestamp'].extend(batch[2].tolist()) 
-            # convert pred and label to vocabulary
+            
+            # prepare timestamp
+            timestamp = batch[2] # shape: (BS, 42), need to convert to readable format
+            timestamp = timestamp.flatten()
+            readable_times = np.vectorize(datetime.fromtimestamp)(timestamp)
+            readable_strs = np.vectorize(lambda t: t.strftime("%Y-%m-%d %H:%M:%S"))(readable_times)
+            predictions['timestamp'].extend(readable_strs.tolist())
+
+            # prepare pred and target
             str_preds = [label_vocabulary[int(p)] for p in preds]
             str_target = [label_vocabulary[int(t)] for t in target]
             predictions['prediction'].extend(str_preds)
             predictions['label'].extend(str_target)
-            segment_id = np.arange(i * batch_size, (i + 1) * batch_size)
+
+            # prepare segment id
+            segment_id = np.arange(i * N, (i + 1) * N)
             segment_id = np.repeat(segment_id, 42)
             predictions['segment'].extend(segment_id.tolist())
 
