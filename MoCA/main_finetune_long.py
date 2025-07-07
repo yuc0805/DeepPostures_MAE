@@ -67,6 +67,9 @@ def get_args_parser():
     parser.add_argument('--epochs', default=20, type=int)
     parser.add_argument('--accum_iter', default=1, type=int,
                         help='Accumulate gradient iterations (for increasing the effective batch size under memory constraints)')
+    parser.add_argument('--make_prediction', action='store_true',)
+    parser.add_argument('--prediction_dir', default=None, type=str,
+                        help='Directory to save prediction files') # /niddk-data-central/leo_workspace/iwatch_H/hidden_test
 
     # Model parameters
     parser.add_argument('--model', default='vit_base_patch16', type=str, metavar='MODEL',
@@ -198,6 +201,11 @@ def main(args):
         set_type='val',
         root=args.data_path,
         transform=None,)
+    dataset_test = iWatch(
+        set_type='test',
+        root=args.data_path,
+        transform=None,)
+
     print(f"using {args.subset_ratio} of train dataset, {len(dataset_train)} samples")
 
     if True:  # args.distributed:
@@ -224,6 +232,14 @@ def main(args):
         drop_last=False, 
         shuffle=False,
     )
+
+    data_loader_test = torch.utils.data.DataLoader(
+        dataset_test,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+        pin_memory=args.pin_mem,
+        drop_last=False,
+        shuffle=False,  )
 
     # if args.ds_name == 'iwatch':
     #     with open("/niddk-data-central/iWatch/support_files/iwatch_split_dict.pkl", "rb") as f:
@@ -457,11 +473,48 @@ def main(args):
             exit(0)
 
         else:
-            # test_stats = evaluate(args,data_loader_val, backbone, device)
-            train_stats = evaluate(args,data_loader_train, model, device)
-            print(f"Balanced Accuracy of the network in train-set: {train_stats['bal_acc']:.5f}% and F1 score of {train_stats['f1']:.5f}%")
-            test_stats = evaluate(args,data_loader_val, model, device)
+            val_stats = evaluate(args,data_loader_val, model, device)
+            print(f"Balanced Accuracy of the network in validation-set: {val_stats['bal_acc']:.5f}% and F1 score of {val_stats['f1']:.5f}%")
+            # Create directory for prediction_dir
+            ckpt_path = os.path.join(args.prediction_dir, args.model, 'checkpoint')
+            os.makedirs(ckpt_path, exist_ok=True)
+
+            # Copy checkpoint file if it exists  
+            dst_path = os.path.join(ckpt_path, 'checkpoint-submit.pth')
+            shutil.copy(args.eval, dst_path)
+            print(f"Copying checkpoint from {args.eval} to {dst_path}")
+    
+
+            if args.make_prediction:
+                test_subject_dataloader = get_subjectwise_dataloaders(dataset_test,batch_size=args.batch_size) 
+                test_subject_list = list(dataset_test.subject_id)
+                subject_performance={'test':{}}
+                
+                for subject_id in  tqdm(test_subject_list):
+                    subject_id = subject_id.decode("utf-8") if isinstance(subject_id, bytes) else subject_id
+                    prediction_file = os.path.join(prediction_file_root,f'{subject_id}.csv')
+
+                    print(f"Evaluating subject {subject_id} in test set")
+                    test_stats = evaluate(args,test_subject_dataloader[subject_id], model, device)
+                    print(f"Balanced Accuracy on subject {subject_id}: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
+                    subject_performance['test'][subject_id] = {}
+                    subject_performance['test'][subject_id]['bal_acc'] = test_stats['bal_acc']
+                    subject_performance['test'][subject_id]['f1'] = test_stats['f1']
+                    
+                    # write prediction to csv file
+                    prediction = test_stats['make_prediction'] 
+                    if prediction is not None:
+                        segment = prediction['segment']
+                        timestamp = prediction['timestamp']
+                        pred = prediction['prediction']
+                        label = prediction['label']
+                        df = pd.DataFrame({'segment': segment, 'timestamp': timestamp, 'prediction': pred, 'label': label})
+                        df.to_csv(prediction_file, index=False)
+
+            test_stats = evaluate(args,data_loader_test, model, device)
             print(f"Balanced Accuracy of the network in test-set: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
+
+
             exit(0)
 
     print("Model = %s" % str(model))

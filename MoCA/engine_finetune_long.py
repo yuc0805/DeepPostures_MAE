@@ -45,14 +45,17 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         print('log_dir: {}'.format(log_writer.dir))
 
     
-    for data_iter_step, (samples, targets) in enumerate(metric_logger.log_every(data_loader, print_freq, header)): #enumerate(data_loader):
+    for data_iter_step, batch in enumerate(metric_logger.log_every(data_loader, print_freq, header)): 
         if data_iter_step % accum_iter == 0:
             lr_sched.adjust_learning_rate(optimizer, data_iter_step / len(data_loader) + epoch, args)
 
-        samples = samples.float().to(device, non_blocking=True) # BS, 42, 100, 3
-        targets = targets.to(device, non_blocking=True) # BS,42
+        samples = batch[0].float().to(device, non_blocking=True) # BS, 42, 100, 3
+        targets = batch[1].to(device, non_blocking=True) # BS,42
+        
         batch_size = targets.shape[0] 
         targets = targets.view(-1).squeeze() #(BS*42,)
+
+        
         if True: #criterion.__class__.__name__ == 'BCEWithLogitsLoss':
             targets = targets.float()
         
@@ -72,6 +75,8 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         if args.nb_classes == 2:
             preds = torch.round(torch.sigmoid(outputs))
             acc1 = (preds == targets).float().mean()
+
+
         else:
             acc1, _ = accuracy(outputs, targets, topk=(1, 2))
 
@@ -150,11 +155,11 @@ def evaluate(args,data_loader, model, device):
     f1_metric = MulticlassF1Score(num_classes=args.nb_classes,
                             average='weighted',
                             zero_division=0).to(device)
-    
-    for samples,target in data_loader:
-        samples = samples.float().to(device, non_blocking=True)
-        target = target.to(device, non_blocking=True)
-
+    predictions = {'timestamp': [],'prediction': [], 'label': [],'segment': []} 
+    for i,batch in enumerate(data_loader):
+        samples = batch[0].float().to(device, non_blocking=True)
+        target = batch[1].to(device, non_blocking=True)
+        batch_size, window_size = target.shape
         if True: #criterion.__class__.__name__ == 'BCEWithLogitsLoss':
             target = target.float()
             target = target.view(-1).squeeze()
@@ -182,6 +187,22 @@ def evaluate(args,data_loader, model, device):
             acc1, _ = accuracy(outputs, target, topk=(1, 2))
             preds = outputs.argmax(dim=1)     
 
+        # record the preds
+        if args.make_prediction:
+            label_vocabulary = {0: "sitting", 1: "not-sitting", -1: "no-label"}
+            predictions['timestamp'].extend(batch[2].tolist()) 
+            # convert pred and label to vocabularly
+            preds = preds.cpu().numpy()
+            target = target.cpu().numpy()
+            preds = [label_vocabulary[p] for p in preds]
+            target = [label_vocabulary[t] for t in target]
+            predictions['prediction'].extend(preds)
+            predictions['label'].extend(target)
+            segment_id = np.arange(i * batch_size, (i + 1) * batch_size)
+            segment_id = np.repeat(segment_id, 42)
+            predictions['segment'].extend(segment_id.tolist())
+
+
         recall_metric.update(preds, target)
         specificity_metric.update(preds, target)
         f1_metric.update(preds, target)
@@ -208,6 +229,8 @@ def evaluate(args,data_loader, model, device):
     eval_stats['f1']=f1
     eval_stats['bal_acc']=bal_acc
     eval_stats['confmat']=confmat
+    if args.make_prediction:
+        eval_stats['make_prediction'] = predictions
 
     return eval_stats
 

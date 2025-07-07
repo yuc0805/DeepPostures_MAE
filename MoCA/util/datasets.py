@@ -89,7 +89,7 @@ class iWatch(Dataset):
         self.data_file = h5py.File(self.file_path, 'r')
         self.x_data = self.data_file['x']       # shape: (N,window, 100, 3)
         self.y_data = self.data_file['y'] 
-        
+        self.timestamp = self.data_file['timestamp'] # shape: (N, window, )
         self.transform = transform
         self.subject_id = np.unique(self.data_file['subject_id'])
         
@@ -117,6 +117,7 @@ class iWatch(Dataset):
         idx = self.indices[idx]
         x = self.x_data[idx]  # shape: (42, 100, 3)
         y = self.y_data[idx]  # shape: (42,)
+        timestamp = self.timestamp[idx]  # shape: (42,)
 
         if self.transform is not None:
             x_aug = x.reshape(-1, x.shape[-1]) # (4200,3)
@@ -129,7 +130,7 @@ class iWatch(Dataset):
         x_aug = torch.from_numpy(x_aug)
         y = torch.tensor(y, dtype=torch.long)
 
-        return x_aug, y
+        return x_aug, y, timestamp
 
     # def resample_epoch(self):
     #     """
