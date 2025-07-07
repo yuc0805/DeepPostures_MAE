@@ -191,13 +191,11 @@ def evaluate(args,data_loader, model, device):
         if args.make_prediction:
             label_vocabulary = {0: "sitting", 1: "not-sitting", -1: "no-label"}
             predictions['timestamp'].extend(batch[2].tolist()) 
-            # convert pred and label to vocabularly
-            preds = preds.cpu().numpy()
-            target = target.cpu().numpy()
-            preds = [label_vocabulary[p] for p in preds]
-            target = [label_vocabulary[t] for t in target]
-            predictions['prediction'].extend(preds)
-            predictions['label'].extend(target)
+            # convert pred and label to vocabulary
+            str_preds = [label_vocabulary[int(p)] for p in preds]
+            str_target = [label_vocabulary[int(t)] for t in target]
+            predictions['prediction'].extend(str_preds)
+            predictions['label'].extend(str_target)
             segment_id = np.arange(i * batch_size, (i + 1) * batch_size)
             segment_id = np.repeat(segment_id, 42)
             predictions['segment'].extend(segment_id.tolist())

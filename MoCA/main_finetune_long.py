@@ -16,6 +16,7 @@ import os
 import time
 from pathlib import Path
 import copy
+import shutil
 
 import numpy as np
 import torch
@@ -56,6 +57,7 @@ from tqdm import tqdm
 
 from MSSE_2021_pt.model import CNNBiLSTMModel,CNNModel,CNNAttentionModel,MoCABiLSTMModel,FeatureExtractorWrapper
 from MSSE_2021_pt.utils import load_model_weights
+from MSSE_2021_pt.commons import get_subjectwise_dataloaders
 from omegaconf import OmegaConf
 
 def get_args_parser():
@@ -427,7 +429,6 @@ def main(args):
         print(model)
 
         if args.subject_level_analysis:
-            from MSSE_2021_pt.commons import get_subjectwise_dataloaders
             dataset_train = iWatch(
                 set_type='train',
                 root=args.data_path,
@@ -477,7 +478,9 @@ def main(args):
             print(f"Balanced Accuracy of the network in validation-set: {val_stats['bal_acc']:.5f}% and F1 score of {val_stats['f1']:.5f}%")
             # Create directory for prediction_dir
             ckpt_path = os.path.join(args.prediction_dir, args.model, 'checkpoint')
+            prediction_file_root = os.path.join(args.prediction_dir, args.model, 'predictions')
             os.makedirs(ckpt_path, exist_ok=True)
+            os.makedirs(prediction_file_root, exist_ok=True)
 
             # Copy checkpoint file if it exists  
             dst_path = os.path.join(ckpt_path, 'checkpoint-submit.pth')
@@ -513,7 +516,6 @@ def main(args):
 
             test_stats = evaluate(args,data_loader_test, model, device)
             print(f"Balanced Accuracy of the network in test-set: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
-
 
             exit(0)
 
@@ -815,6 +817,19 @@ python -m main_finetune_long \
 --batch_size 512 \
 --use_data_aug 0 \
 --subject_level_analysis 
+
+
+CUDA_VISIBLE_DEVICES=1 \
+python -m main_finetune_long \
+--ds_name iwatch \
+--data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
+--model CNNBiLSTMModel \
+--eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/NEW_CHAP_wristLP_blr_0.001_bs_4_input_size_[3, 4200]/2025-05-29_21-51/checkpoint-best.pth" \
+--remark wrist \
+--batch_size 512 \
+--use_data_aug 0 \
+--make_prediction \
+--prediction_dir "/niddk-data-central/leo_workspace/submit_result/W" 
 
 
 
