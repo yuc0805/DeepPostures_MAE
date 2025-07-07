@@ -116,7 +116,7 @@ def get_args_parser():
     parser.add_argument('--subset_ratio',type=float,default=1.0,
                         help='Subset ratio for the dataset, default is 1.0 (use all data)')
     # * Finetuning params
-    parser.add_argument('--checkpoint', default='/home/jovyan/persistent-data/MAE_Accelerometer/experiments/661169(p200_10_alt_0.0005)/checkpoint-3999.pth', 
+    parser.add_argument('--checkpoint', default=None, 
                         type=str,help='model checkpoint for evaluation') 
                         
 
@@ -375,18 +375,23 @@ def main(args):
             num_classes=args.nb_classes, in_chans=1, 
             global_pool='avg')
         
-        checkpoint = torch.load(args.checkpoint,map_location='cpu')
-        checkpoint_model = checkpoint['model']
-        # interpolate_pos_embed(base_model, checkpoint_model,orig_size=(args.in_chans,int(100//args.patch_size)), 
-        #                       new_size=(args.input_size[0],int(args.input_size[1]//args.patch_size)))
-        #print(checkpoint_model.keys())
-        decoder_keys = [k for k in checkpoint_model.keys() if 'decoder' in k]
-        for key in decoder_keys:
-            del checkpoint_model[key]
 
-        print('shape after interpolate:',checkpoint_model['pos_embed'].shape)
-        msg = base_model.load_state_dict(checkpoint_model, strict=False)
-        print(msg)
+        if args.checkpoint:
+            checkpoint = torch.load(args.checkpoint,map_location='cpu')
+            checkpoint_model = checkpoint['model']
+            # interpolate_pos_embed(base_model, checkpoint_model,orig_size=(args.in_chans,int(100//args.patch_size)), 
+            #                       new_size=(args.input_size[0],int(args.input_size[1]//args.patch_size)))
+            #print(checkpoint_model.keys())
+            decoder_keys = [k for k in checkpoint_model.keys() if 'decoder' in k]
+            for key in decoder_keys:
+                del checkpoint_model[key]
+
+            print('shape after interpolate:',checkpoint_model['pos_embed'].shape)
+            msg = base_model.load_state_dict(checkpoint_model, strict=False)
+            print(msg)
+        else:
+            print('No checkpoint provided, using random initialization for the model.')
+            
         model = AttentionProbeModel(base_model, window_size=42,
                                     num_classes=args.nb_classes,
                                     hidden_dim=768,
@@ -423,8 +428,13 @@ def main(args):
     if args.eval:
         # Evaluate 
         checkpoint = torch.load(args.eval,map_location='cpu')
-        checkpoint_model = checkpoint['model']
-        print(checkpoint['args'])
+        try:
+            checkpoint_model = checkpoint['model']
+            print(checkpoint['args'])
+        except KeyError:
+            checkpoint_model = checkpoint
+
+        
         msg = model.load_state_dict(checkpoint_model, strict=True)
         model.to(device)
         print(model)
@@ -833,6 +843,31 @@ python -m main_finetune_long \
 --make_prediction \
 --prediction_dir "/niddk-data-central/leo_workspace/submit_result/W" 
 
+CUDA_VISIBLE_DEVICES=1 \
+python -m main_finetune_long \
+--ds_name iwatch \
+--data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
+--model CNNBiLSTMModel \
+--eval "/DeepPostures_MAE/MSSE_2021_pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth" \
+--remark wrist \
+--batch_size 512 \
+--use_data_aug 0 \
+--make_prediction \
+--prediction_dir "/niddk-data-central/leo_workspace/submit_result/W" 
+
+
+#######
+
+python -m main_finetune_long \
+--ds_name iwatch \
+--data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
+--model shallow-moca \
+--eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/Wrist_50epochLP_blr_0.001_bs_8_input_size_[3, 100]/2025-05-22_15-13/checkpoint-best.pth" \
+--remark wrist \
+--batch_size 512 \
+--use_data_aug 0 \
+--make_prediction \
+--prediction_dir "/niddk-data-central/leo_workspace/submit_result/W" 
 
 
 
