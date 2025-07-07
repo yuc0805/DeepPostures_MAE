@@ -92,7 +92,7 @@ def get_args_parser():
                         help='Clip gradient norm (default: None, no clipping)')
     parser.add_argument('--weight_decay', type=float, default=None,
                         help='weight decay (default: 0 for linear probe following MoCo v1)')
-    parser.add_argument('--num_attn_layer', type=int, default=1,
+    parser.add_argument('--num_attn_layer', type=int, default=2,
                         help='number of attention layers in the AttentionProbeModel')
     parser.add_argument('--lr', type=float, default=None, metavar='LR',
                         help='learning rate (absolute lr)')
@@ -102,8 +102,8 @@ def get_args_parser():
                         help='layer-wise lr decay from ELECTRA/BEiT')
     parser.add_argument('--min_lr', type=float, default=1e-6, metavar='LR',
                         help='lower lr bound for cyclic schedulers that hit 0')
-    parser.add_argument('--learnable_pos_embed', action='store_true', default=True,
-                        help='use learnable position embedding (default: True)')
+    parser.add_argument('--learnable_pos_embed', action='store_true', default=False,
+                        help='use learnable position embedding (default: False)')
     parser.add_argument('--no_learnable_pos_embed', action='store_false', dest='learnable_pos_embed',
                         help='disable learnable position embedding')
 
@@ -372,8 +372,8 @@ def main(args):
     elif args.model == 'shallow-moca':
         base_model = models_vit.__dict__['vit_base_patch16'](
             img_size=[3,100], patch_size=[1, 5], 
-            num_classes=args.nb_classes, in_chans=1, 
-            global_pool='avg')
+            num_classes=args.nb_classes, in_chans=1, )
+            #global_pool='avg')
         
 
         if args.checkpoint:
@@ -391,10 +391,10 @@ def main(args):
             print(msg)
         else:
             print('No checkpoint provided, using random initialization for the model.')
-            
+
         model = AttentionProbeModel(base_model, window_size=42,
                                     num_classes=args.nb_classes,
-                                    hidden_dim=768,
+                                    hidden_dim=256,
                                     num_layer=args.num_attn_layer,
                                     learnable_pos_embed=args.learnable_pos_embed,)
         
@@ -435,7 +435,12 @@ def main(args):
             checkpoint_model = checkpoint
 
         
-        msg = model.load_state_dict(checkpoint_model, strict=True)
+        msg = model.load_state_dict(checkpoint_model, strict=False)
+        # only pos_embed can be missed
+        assert 'pos_embed' in msg.missing_keys or 'pos_embed' in msg.unexpected_keys, \
+            f"Unexpected keys: {msg.unexpected_keys}, Missing keys: {msg.missing_keys}"
+
+        print(msg)
         model.to(device)
         print(model)
 
