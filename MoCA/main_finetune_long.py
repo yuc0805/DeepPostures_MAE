@@ -475,21 +475,21 @@ def main(args):
             exit(0)
 
         else:
-            # val_stats = evaluate(args,data_loader_val, model, device)
-            # print(f"Balanced Accuracy of the network in validation-set: {val_stats['bal_acc']:.5f}% and F1 score of {val_stats['f1']:.5f}%")
-            # test_stats = evaluate(args,data_loader_test, model, device)
-            # print(f"Balanced Accuracy of the network in test-set: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
+            val_stats = evaluate(args,data_loader_val, model, device)
+            print(f"Balanced Accuracy of the network in validation-set: {val_stats['bal_acc']:.5f}% and F1 score of {val_stats['f1']:.5f}%")
+            test_stats = evaluate(args,data_loader_test, model, device)
+            print(f"Balanced Accuracy of the network in test-set: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
 
-            # # Create directory for prediction_dir
-            # ckpt_path = os.path.join(args.prediction_dir, args.model, 'checkpoint')
-            # prediction_file_root = os.path.join(args.prediction_dir, args.model, 'predictions')
-            # os.makedirs(ckpt_path, exist_ok=True)
-            # os.makedirs(prediction_file_root, exist_ok=True)
+            # Create directory for prediction_dir
+            ckpt_path = os.path.join(args.prediction_dir, args.model, 'checkpoint')
+            prediction_file_root = os.path.join(args.prediction_dir, args.model, 'predictions')
+            os.makedirs(ckpt_path, exist_ok=True)
+            os.makedirs(prediction_file_root, exist_ok=True)
 
-            # # Copy checkpoint file if it exists  
-            # dst_path = os.path.join(ckpt_path, 'checkpoint-submit.pth')
-            # shutil.copy(args.eval, dst_path)
-            # print(f"Copying checkpoint from {args.eval} to {dst_path}")
+            # Copy checkpoint file if it exists  
+            dst_path = os.path.join(ckpt_path, 'checkpoint-submit.pth')
+            shutil.copy(args.eval, dst_path)
+            print(f"Copying checkpoint from {args.eval} to {dst_path}")
     
 
             if args.make_prediction:
@@ -500,7 +500,7 @@ def main(args):
                 
                 for subject_id in  tqdm(test_subject_list):
                     subject_id = subject_id.decode("utf-8") if isinstance(subject_id, bytes) else subject_id
-                    # prediction_file = os.path.join(prediction_file_root,f'{subject_id}.csv')
+                    prediction_file = os.path.join(prediction_file_root,f'{subject_id}.csv')
 
                     print(f"Evaluating subject {subject_id} in test set")
                     test_stats = evaluate(args,test_subject_dataloader[subject_id], model, device)
@@ -516,7 +516,6 @@ def main(args):
                         timestamp = prediction['timestamp']
                         pred = prediction['prediction']
                         label = prediction['label']
-                        print(len(segment),len(timestamp),len(pred),len(label))
                         df = pd.DataFrame({'segment': segment, 'timestamp': timestamp, 'prediction': pred, 'label': label})
                         df.to_csv(prediction_file, index=False)
 
