@@ -372,7 +372,7 @@ def main(args):
     elif args.model == 'shallow-moca':
         base_model = models_vit.__dict__['vit_base_patch16'](
             img_size=[3,100], patch_size=[1, 5], 
-            num_classes=args.nb_classes, in_chans=1, )
+            num_classes=args.nb_classes, in_chans=1, global_pool=False)
             #global_pool='avg')
         
 
@@ -396,7 +396,7 @@ def main(args):
                                     num_classes=args.nb_classes,
                                     hidden_dim=256,
                                     num_layer=args.num_attn_layer,
-                                    learnable_pos_embed=args.learnable_pos_embed,)
+                                    learnable_pos_embed=False,)
         
     #######################
     else:
@@ -490,6 +490,8 @@ def main(args):
             exit(0)
 
         else:
+            train_stats = evaluate(args,data_loader_train, model, device)
+            print(f"Balanced Accuracy of the network in training-set: {train_stats['bal_acc']:.5f}% and F1 score of {train_stats['f1']:.5f}%")
             val_stats = evaluate(args,data_loader_val, model, device)
             print(f"Balanced Accuracy of the network in validation-set: {val_stats['bal_acc']:.5f}% and F1 score of {val_stats['f1']:.5f}%")
             test_stats = evaluate(args,data_loader_test, model, device)
@@ -869,7 +871,7 @@ python -m main_finetune_long \
 --model shallow-moca \
 --eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/Wrist_50epochLP_blr_0.001_bs_8_input_size_[3, 100]/2025-05-22_15-13/checkpoint-best.pth" \
 --remark wrist \
---batch_size 512 \
+--batch_size 128 \
 --use_data_aug 0 \
 --make_prediction \
 --prediction_dir "/niddk-data-central/leo_workspace/submit_result/W" 
