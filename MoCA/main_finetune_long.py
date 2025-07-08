@@ -365,11 +365,12 @@ def main(args):
         else:
             print('No checkpoint provided, using random initialization for the model.')
 
+        # Default no pos_embed used.
         model = AttentionProbeModel(base_model, window_size=42,
                                     num_classes=args.nb_classes,
                                     hidden_dim=768,
-                                    num_layer=args.num_attn_layer,
-                                    learnable_pos_embed=args.learnable_pos_embed,)
+                                    num_layer=args.num_attn_layer,)
+                                    #learnable_pos_embed=args.learnable_pos_embed,)
         
     #######################
     else:
@@ -846,12 +847,16 @@ python -m main_finetune_long \
 --batch_size 128 \
 --use_data_aug 0 \
 --make_prediction \
---prediction_dir "/niddk-data-central/leo_workspace/submit_result/backup/W" 
+--prediction_dir "/niddk-data-central/leo_workspace/submit_result/W" 
 
 "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/Wrist_50epochLP_blr_0.001_bs_8_input_size_[3, 100]/2025-05-22_15-13/checkpoint-best.pth"
 
 should use the 50 epoch one:
 "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/Wrist_50epoch_shuffleLP_blr_0.001_bs_8_input_size_[3, 100]/2025-05-30_02-45/checkpoint-best.pth"
+# no pos_embed: "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/shallow-moca-ftset_1.0_blr_0.001_bs_8_input_size_[3, 4200]/2025-06-14_12-54/checkpoint-best.pth"
+
+# fixed pos_embed
+/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/shallow-moca-ftset_1.0_blr_0.001_bs_8_input_size_[3, 4200]/2025-06-15_03-08/checkpoint-best.pth
 
 python -m main_finetune_long \
 --ds_name iwatch \

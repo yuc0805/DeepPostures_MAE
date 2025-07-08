@@ -457,13 +457,16 @@ class MaskedAutoencoderViT(nn.Module):
 
 class AttentionProbeModel(nn.Module):
     def __init__(self, base_model, window_size=42,num_classes=2,num_layer=1,
-                 hidden_dim=256,dropout=0.1,learnable_pos_embed=True):
+                 hidden_dim=256,dropout=0.1,use_pos_embed=False,learnable_pos_embed=True):
         super(AttentionProbeModel, self).__init__()
         self.base_model = base_model
         self.base_model.head = nn.Identity()  # Remove the original head
         self.window_size = window_size
         self.proj = nn.Linear(self.base_model.embed_dim, hidden_dim)
-        self.pos_embed = nn.Parameter(torch.zeros(1,window_size, hidden_dim),requires_grad=learnable_pos_embed) 
+        if use_pos_embed:
+            self.pos_embed = nn.Parameter(torch.zeros(1, window_size, hidden_dim), requires_grad=learnable_pos_embed)
+        else:
+            self.pos_embed = None
         self.learnable_pos_embed = learnable_pos_embed
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=hidden_dim,
@@ -478,7 +481,8 @@ class AttentionProbeModel(nn.Module):
         else:
             self.head = nn.Linear(hidden_dim, num_classes)
 
-        self.initialize_weights()
+        if self.pos_embed is not None:
+            self.initialize_weights()
 
     def initialize_weights(self):
         if self.learnable_pos_embed:
@@ -500,7 +504,9 @@ class AttentionProbeModel(nn.Module):
         x = rearrange(x, '(b w) c -> b w c', b=x.shape[0]//self.window_size, w=self.window_size) # BS, 42, 768
     
         x = self.proj(x) # BS, 42, 256
-        x = x + self.pos_embed # BS, 42, hidden_dim
+        if self.pos_embed is not None:
+            x = x + self.pos_embed
+
         x = self.attn(x) # BS, 42, 256
         x = self.head(x) # BS, 42, num_classes
 
