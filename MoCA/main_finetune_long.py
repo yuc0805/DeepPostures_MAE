@@ -367,7 +367,7 @@ def main(args):
 
         model = AttentionProbeModel(base_model, window_size=42,
                                     num_classes=args.nb_classes,
-                                    hidden_dim=256,
+                                    hidden_dim=768,
                                     num_layer=args.num_attn_layer,
                                     learnable_pos_embed=args.learnable_pos_embed,)
         
@@ -463,12 +463,12 @@ def main(args):
             exit(0)
 
         else:
-            train_stats = evaluate(args,data_loader_train, model, device)
-            print(f"Balanced Accuracy of the network in training-set: {train_stats['bal_acc']:.5f}% and F1 score of {train_stats['f1']:.5f}%")
             val_stats = evaluate(args,data_loader_val, model, device)
             print(f"Balanced Accuracy of the network in validation-set: {val_stats['bal_acc']:.5f}% and F1 score of {val_stats['f1']:.5f}%")
             test_stats = evaluate(args,data_loader_test, model, device)
             print(f"Balanced Accuracy of the network in test-set: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
+            train_stats = evaluate(args,data_loader_train, model, device)
+            print(f"Balanced Accuracy of the network in training-set: {train_stats['bal_acc']:.5f}% and F1 score of {train_stats['f1']:.5f}%")
 
             # Create directory for prediction_dir
             ckpt_path = os.path.join(args.prediction_dir, args.model, 'checkpoint')
@@ -841,12 +841,28 @@ python -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
 --model shallow-moca \
---eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/Wrist_50epochLP_blr_0.001_bs_8_input_size_[3, 100]/2025-05-22_15-13/checkpoint-best.pth" \
+--eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/shallow-moca-ftset_1.0_blr_0.001_bs_8_input_size_[3, 4200]/2025-06-14_12-54/checkpoint-best.pth"  \
 --remark wrist \
 --batch_size 128 \
 --use_data_aug 0 \
 --make_prediction \
---prediction_dir "/niddk-data-central/leo_workspace/submit_result/W" 
+--prediction_dir "/niddk-data-central/leo_workspace/submit_result/backup/W" 
+
+"/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/Wrist_50epochLP_blr_0.001_bs_8_input_size_[3, 100]/2025-05-22_15-13/checkpoint-best.pth"
+
+should use the 50 epoch one:
+"/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/Wrist_50epoch_shuffleLP_blr_0.001_bs_8_input_size_[3, 100]/2025-05-30_02-45/checkpoint-best.pth"
+
+python -m main_finetune_long \
+--ds_name iwatch \
+--data_path "/niddk-data-central/iWatch/pre_processed_long_seg/H" \
+--model shallow-moca \
+--eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/Hip_50epoch_shuffleLP_blr_0.001_bs_8_input_size_[3, 100]/2025-05-30_02-45/checkpoint-best.pth" \
+--remark hip \
+--batch_size 128 \
+--use_data_aug 0 \
+--make_prediction \
+--prediction_dir "/niddk-data-central/leo_workspace/submit_result/H" 
 
 
 
