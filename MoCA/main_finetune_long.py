@@ -368,7 +368,7 @@ def main(args):
         # Default no pos_embed used.
         model = AttentionProbeModel(base_model, window_size=42,
                                     num_classes=args.nb_classes,
-                                    hidden_dim=256,
+                                    hidden_dim=768,
                                     num_layer=args.num_attn_layer,)
                                     #learnable_pos_embed=args.learnable_pos_embed,)
         
@@ -730,7 +730,8 @@ torchrun --nproc_per_node=4 -m main_finetune_long \
 --warmup_epochs 8 \
 --batch_size 32 \
 --weight_decay 1e-3 \
---subset_ratio 1.0 
+--subset_ratio 1.0 \
+--pos_weight 2.8232 
 
 torchrun --nproc_per_node=2  -m main_finetune_long \
 --ds_name iwatch \
@@ -912,5 +913,16 @@ python -m main_finetune_long \
 --prediction_dir "/niddk-data-central/leo_workspace/submit_result/W" 
 
 
+
+python -m main_finetune_long \
+--ds_name iwatch \
+--data_path "/niddk-data-central/iWatch/pre_processed_long_seg/H" \
+--model shallow-moca \
+--eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/shallow-moca-ftset_1.0_blr_0.001_bs_8_input_size_[3, 4200]/2025-06-15_08-26/checkpoint-best.pth" \
+--remark hip \
+--batch_size 128 \
+--use_data_aug 0 \
+--make_prediction \
+--prediction_dir "/niddk-data-central/leo_workspace/submit_long_seg/H" 
 
 '''
