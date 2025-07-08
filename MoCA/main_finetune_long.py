@@ -368,7 +368,7 @@ def main(args):
         # Default no pos_embed used.
         model = AttentionProbeModel(base_model, window_size=42,
                                     num_classes=args.nb_classes,
-                                    hidden_dim=768,
+                                    hidden_dim=256,
                                     num_layer=args.num_attn_layer,)
                                     #learnable_pos_embed=args.learnable_pos_embed,)
         
@@ -726,11 +726,11 @@ torchrun --nproc_per_node=4 -m main_finetune_long \
 --remark CHAP  \
 --blr 1e-3 \
 --model CNNBiLSTMModel \
---epochs 50 \
---warmup_epochs 5 \
---batch_size 256 \
---weight_decay 5e-2 \
---subset_ratio 0.1 
+--epochs 40 \
+--warmup_epochs 8 \
+--batch_size 32 \
+--weight_decay 1e-3 \
+--subset_ratio 1.0 
 
 torchrun --nproc_per_node=2  -m main_finetune_long \
 --ds_name iwatch \
@@ -862,12 +862,54 @@ python -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_long_seg/H" \
 --model shallow-moca \
---eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/Hip_50epoch_shuffleLP_blr_0.001_bs_8_input_size_[3, 100]/2025-05-30_02-45/checkpoint-best.pth" \
+--eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/Hip_50epochLP_blr_0.001_bs_8_input_size_[3, 100]/2025-05-22_14-56/checkpoint-best.pth" \
 --remark hip \
 --batch_size 128 \
 --use_data_aug 0 \
 --make_prediction \
 --prediction_dir "/niddk-data-central/leo_workspace/submit_result/H" 
+
+python -m main_finetune_long \
+--ds_name iwatch \
+--data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
+--model shallow-moca \
+--eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/Wrist_50epochLP_blr_0.001_bs_8_input_size_[3, 100]/2025-05-22_15-13/checkpoint-best.pth" \
+--remark wrist \
+--batch_size 128 \
+--use_data_aug 0 \
+--make_prediction \
+--prediction_dir "/niddk-data-central/leo_workspace/submit_result/W" 
+
+
+python -m main_finetune_long \
+--ds_name iwatch \
+--data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
+--model shallow-moca \
+--eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/Wrist_50epochLP_blr_0.001_bs_8_input_size_[3, 100]/2025-05-22_14-56/checkpoint-best.pth" \
+--remark wrist \
+--batch_size 128 \
+--use_data_aug 0 \
+--make_prediction \
+--prediction_dir "/niddk-data-central/leo_workspace/submit_result/W" 
+
+Hip:
+
+no_pos_1.0: /niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/shallow-moca-ftset_1.0_blr_0.001_bs_8_input_size_[3, 4200]/2025-06-15_08-26
+
+CHAP-FT
+
+
+
+python -m main_finetune_long \
+--ds_name iwatch \
+--data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
+--model CNNBiLSTMModel \
+--eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/CHAP_wristLP_blr_0.0001_bs_16_input_size_[3, 4200]/2025-05-16_22-50/checkpoint-best.pth" \
+--remark wrist \
+--batch_size 512 \
+--use_data_aug 0 \
+--make_prediction \
+--prediction_dir "/niddk-data-central/leo_workspace/submit_result/W" 
 
 
 
