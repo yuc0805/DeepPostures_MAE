@@ -51,7 +51,7 @@ import sys
 path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 print('Adding path to sys.path:', path)
 sys.path.append(path)
-from MSSE_2021_pt.commons import get_dataloaders_dist 
+#from MSSE_2021_pt.commons import get_dataloaders,get_dataloaders_dist 
 import random
 from einops import rearrange
 from tqdm import tqdm
@@ -188,8 +188,6 @@ def main(args):
     np.random.seed(seed)
 
     cudnn.benchmark = False 
-    
-
     print('Using dataset',args.ds_name)
     transform=None
     if args.use_data_aug:
@@ -243,31 +241,6 @@ def main(args):
         pin_memory=args.pin_mem,
         drop_last=False,
         shuffle=False,  )
-
-    # if args.ds_name == 'iwatch':
-    #     with open("/niddk-data-central/iWatch/support_files/iwatch_split_dict.pkl", "rb") as f:
-    #         split_data = pickle.load(f)
-
-    #     train_subjects = split_data["train"]
-    #     valid_subjects = split_data["val"]
-        
-
-    #     random.shuffle(train_subjects)
-    #     random.shuffle(valid_subjects)
-
-    #     data_loader_train, data_loader_val, _ = get_dataloaders_dist(
-    #     pre_processed_dir=args.data_path,
-    #     bi_lstm_win_size=42, # chap_adult
-    #     batch_size=args.batch_size,
-    #     train_subjects=train_subjects,
-    #     valid_subjects=valid_subjects,
-    #     test_subjects=None,
-    #     rank=global_rank,
-    #     world_size=num_tasks,
-    #     transform=data_aug,)        
-
-    # else:
-    #     raise NotImplementedError('The specified dataset is not implemented.')
 
     if args.log_dir is not None and not args.eval and global_rank == 0:  
         wandb.login(key='32b6f9d5c415964d38bfbe33c6d5c407f7c19743')
@@ -394,9 +367,9 @@ def main(args):
 
         model = AttentionProbeModel(base_model, window_size=42,
                                     num_classes=args.nb_classes,
-                                    hidden_dim=256,
+                                    hidden_dim=768,
                                     num_layer=args.num_attn_layer,
-                                    learnable_pos_embed=False,)
+                                    learnable_pos_embed=args.learnable_pos_embed,)
         
     #######################
     else:
@@ -437,23 +410,23 @@ def main(args):
         
         msg = model.load_state_dict(checkpoint_model, strict=False)
         # only pos_embed can be missed
-        assert 'pos_embed' in msg.missing_keys or 'pos_embed' in msg.unexpected_keys, \
-            f"Unexpected keys: {msg.unexpected_keys}, Missing keys: {msg.missing_keys}"
+        # assert 'pos_embed' in msg.missing_keys or 'pos_embed' in msg.unexpected_keys, \
+        #     f"Unexpected keys: {msg.unexpected_keys}, Missing keys: {msg.missing_keys}"
 
         print(msg)
         model.to(device)
         print(model)
 
         if args.subject_level_analysis:
-            dataset_train = iWatch(
-                set_type='train',
-                root=args.data_path,
-                transform=None,
-                subset_ratio=args.subset_ratio,)
-            dataset_val = iWatch(
-                set_type='val',
-                root=args.data_path,
-                transform=None,)
+            # dataset_train = iWatch(
+            #     set_type='train',
+            #     root=args.data_path,
+            #     transform=None,
+            #     subset_ratio=args.subset_ratio,)
+            # dataset_val = iWatch(
+            #     set_type='val',
+            #     root=args.data_path,
+            #     transform=None,)
 
             train_subject_list = list(dataset_train.subject_id)
             val_subject_list = list(dataset_val.subject_id)
@@ -510,7 +483,6 @@ def main(args):
     
 
             if args.make_prediction:
-
                 test_subject_dataloader = get_subjectwise_dataloaders(dataset_test,batch_size=args.batch_size) 
                 test_subject_list = list(dataset_test.subject_id)
                 subject_performance={'test':{}}
@@ -857,7 +829,7 @@ python -m main_finetune_long \
 --model CNNBiLSTMModel \
 --eval "/DeepPostures_MAE/MSSE_2021_pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth" \
 --remark wrist \
---batch_size 512 \
+--batch_size 128 \
 --use_data_aug 0 \
 --make_prediction \
 --prediction_dir "/niddk-data-central/leo_workspace/submit_result/W" 
