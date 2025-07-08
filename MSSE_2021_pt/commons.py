@@ -299,7 +299,6 @@ def get_dataloaders(
     if valid_subjects:
         valid_data = IterDataset(
             window_generator, pre_processed_dir, bi_lstm_win_size, valid_subjects,
-            drop_last=False,
         )
         valid_dataloader = DataLoader(
             valid_data, batch_size=batch_size, pin_memory=True,
@@ -309,7 +308,7 @@ def get_dataloaders(
         test_data = IterDataset(
             window_generator, pre_processed_dir, bi_lstm_win_size, test_subjects
         )
-        test_dataloader = DataLoader(test_data, batch_size=batch_size, pin_memory=True)
+        test_dataloader = DataLoader(test_data, batch_size=batch_size, pin_memory=True,drop_last=False,)
 
     return train_dataloader, valid_dataloader, test_dataloader
 

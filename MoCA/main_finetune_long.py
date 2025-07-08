@@ -367,7 +367,7 @@ def main(args):
 
         model = AttentionProbeModel(base_model, window_size=42,
                                     num_classes=args.nb_classes,
-                                    hidden_dim=768,
+                                    hidden_dim=256,
                                     num_layer=args.num_attn_layer,
                                     learnable_pos_embed=args.learnable_pos_embed,)
         
