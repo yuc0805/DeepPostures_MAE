@@ -203,7 +203,7 @@ def main(args):
         root=args.data_path,
         transform=None,)
     dataset_test = iWatch(
-        set_type='test',
+        set_type='test_complete',
         root=args.data_path,
         transform=None,)
 
@@ -468,8 +468,8 @@ def main(args):
             print(f"Balanced Accuracy of the network in validation-set: {val_stats['bal_acc']:.5f}% and F1 score of {val_stats['f1']:.5f}%")
             test_stats = evaluate(args,data_loader_test, model, device)
             print(f"Balanced Accuracy of the network in test-set: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
-            train_stats = evaluate(args,data_loader_train, model, device)
-            print(f"Balanced Accuracy of the network in training-set: {train_stats['bal_acc']:.5f}% and F1 score of {train_stats['f1']:.5f}%")
+            # train_stats = evaluate(args,data_loader_train, model, device)
+            # print(f"Balanced Accuracy of the network in training-set: {train_stats['bal_acc']:.5f}% and F1 score of {train_stats['f1']:.5f}%")
 
             # Create directory for prediction_dir
             ckpt_path = os.path.join(args.prediction_dir, args.model, 'checkpoint')
@@ -811,20 +811,33 @@ python -m main_finetune_long \
 --use_data_aug 0 \
 --subject_level_analysis 
 
+#### MAKE PREDICTION ####
 
-CUDA_VISIBLE_DEVICES=1 \
+# CHAP-FT
 python -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
 --model CNNBiLSTMModel \
---eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/NEW_CHAP_wristLP_blr_0.001_bs_4_input_size_[3, 4200]/2025-05-29_21-51/checkpoint-best.pth" \
+--eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/CHAPset_1.0_blr_0.001_bs_32_input_size_[3, 4200]/2025-07-08_19-52/checkpoint-best.pth" \
 --remark wrist \
 --batch_size 512 \
 --use_data_aug 0 \
 --make_prediction \
---prediction_dir "/niddk-data-central/leo_workspace/submit_result/W" 
+--prediction_dir "/niddk-data-central/leo_workspace/complete_test_prediction/W" 
 
-CUDA_VISIBLE_DEVICES=1 \
+python -m main_finetune_long \
+--ds_name iwatch \
+--data_path "/niddk-data-central/iWatch/pre_processed_long_seg/H" \
+--model CNNBiLSTMModel \
+--eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/CHAPset_1.0_blr_0.001_bs_32_input_size_[3, 4200]/2025-07-08_20-55/checkpoint-best.pth" \
+--remark hip \
+--batch_size 512 \
+--use_data_aug 0 \
+--make_prediction \
+--prediction_dir "/niddk-data-central/leo_workspace/submit_long_seg/H" 
+
+
+# CHAP-ZS
 python -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
@@ -899,27 +912,7 @@ no_pos_1.0: /niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/shallow-moca-f
 
 CHAP-FT (long seg)
 
-python -m main_finetune_long \
---ds_name iwatch \
---data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
---model CNNBiLSTMModel \
---eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/CHAPset_1.0_blr_0.001_bs_32_input_size_[3, 4200]/2025-07-08_19-52/checkpoint-best.pth" \
---remark wrist \
---batch_size 512 \
---use_data_aug 0 \
---make_prediction \
---prediction_dir "/niddk-data-central/leo_workspace/submit_long_seg/W" 
 
-python -m main_finetune_long \
---ds_name iwatch \
---data_path "/niddk-data-central/iWatch/pre_processed_long_seg/H" \
---model CNNBiLSTMModel \
---eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/CHAPset_1.0_blr_0.001_bs_32_input_size_[3, 4200]/2025-07-08_20-55/checkpoint-best.pth" \
---remark hip \
---batch_size 512 \
---use_data_aug 0 \
---make_prediction \
---prediction_dir "/niddk-data-central/leo_workspace/submit_long_seg/H" 
 
 ###
 
