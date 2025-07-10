@@ -466,8 +466,8 @@ def main(args):
         else:
             val_stats = evaluate(args,data_loader_val, model, device)
             print(f"Balanced Accuracy of the network in validation-set: {val_stats['bal_acc']:.5f}% and F1 score of {val_stats['f1']:.5f}%")
-            test_stats = evaluate(args,data_loader_test, model, device)
-            print(f"Balanced Accuracy of the network in test-set: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
+            # test_stats = evaluate(args,data_loader_test, model, device)
+            # print(f"Balanced Accuracy of the network in test-set: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
             # train_stats = evaluate(args,data_loader_train, model, device)
             # print(f"Balanced Accuracy of the network in training-set: {train_stats['bal_acc']:.5f}% and F1 score of {train_stats['f1']:.5f}%")
 
@@ -484,8 +484,8 @@ def main(args):
     
 
             if args.make_prediction:
-                test_subject_dataloader = get_subjectwise_dataloaders(dataset_test,batch_size=args.batch_size) 
-                test_subject_list = list(dataset_test.subject_id)
+                test_subject_dataloader = get_subjectwise_dataloaders(dataset_val,batch_size=args.batch_size) 
+                test_subject_list = list(dataset_val.subject_id)
                 subject_performance={'test':{}}
                 
                 for subject_id in  tqdm(test_subject_list):
@@ -823,7 +823,7 @@ python -m main_finetune_long \
 --batch_size 512 \
 --use_data_aug 0 \
 --make_prediction \
---prediction_dir "/niddk-data-central/leo_workspace/complete_test_prediction/W" 
+--prediction_dir "/niddk-data-central/leo_workspace/iWatch-Validation/W" 
 
 python -m main_finetune_long \
 --ds_name iwatch \
@@ -834,7 +834,7 @@ python -m main_finetune_long \
 --batch_size 512 \
 --use_data_aug 0 \
 --make_prediction \
---prediction_dir "/niddk-data-central/leo_workspace/complete_test_prediction/H" 
+--prediction_dir "/niddk-data-central/leo_workspace/iWatch-Validation/H" 
 
 
 # CHAP-ZS
@@ -847,7 +847,7 @@ python -m main_finetune_long \
 --batch_size 128 \
 --use_data_aug 0 \
 --make_prediction \
---prediction_dir "/niddk-data-central/leo_workspace/complete_test_prediction/W" 
+--prediction_dir "/niddk-data-central/leo_workspace/iWatch-Validation/W" 
 
 python -m main_finetune_long \
 --ds_name iwatch \
@@ -858,7 +858,7 @@ python -m main_finetune_long \
 --batch_size 128 \
 --use_data_aug 0 \
 --make_prediction \
---prediction_dir "/niddk-data-central/leo_workspace/complete_test_prediction/H" 
+--prediction_dir "/niddk-data-central/leo_workspace/iWatch-Validation/H" 
 
 
 #######
@@ -872,7 +872,7 @@ python -m main_finetune_long \
 --batch_size 128 \
 --use_data_aug 0 \
 --make_prediction \
---prediction_dir "/niddk-data-central/leo_workspace/complete_test_prediction/W" 
+--prediction_dir "/niddk-data-central/leo_workspace/iWatch-Validation/W" 
 
 
 python -m main_finetune_long \
@@ -884,6 +884,6 @@ python -m main_finetune_long \
 --batch_size 128 \
 --use_data_aug 0 \
 --make_prediction \
---prediction_dir "/niddk-data-central/leo_workspace/complete_test_prediction/H" 
+--prediction_dir "/niddk-data-central/leo_workspace/iWatch-Validation/H" 
 
 '''
