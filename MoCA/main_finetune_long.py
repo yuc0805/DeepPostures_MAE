@@ -899,7 +899,7 @@ python -m main_finetune_long \
 --batch_size 128 \
 --use_data_aug 0 \
 --make_prediction \
---prediction_dir "/niddk-data-central/leo_workspace/SOL_pred/CHAP" 
+--prediction_dir "/niddk-data-central/leo_workspace/SOL_pred/CHAP_ZS" 
 
 
 
