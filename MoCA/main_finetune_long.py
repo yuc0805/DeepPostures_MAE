@@ -468,8 +468,8 @@ def main(args):
             print(f"Balanced Accuracy of the network in validation-set: {val_stats['bal_acc']:.5f}% and F1 score of {val_stats['f1']:.5f}%")
             # test_stats = evaluate(args,data_loader_test, model, device)
             # print(f"Balanced Accuracy of the network in test-set: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
-            # train_stats = evaluate(args,data_loader_train, model, device)
-            # print(f"Balanced Accuracy of the network in training-set: {train_stats['bal_acc']:.5f}% and F1 score of {train_stats['f1']:.5f}%")
+            train_stats = evaluate(args,data_loader_train, model, device)
+            print(f"Balanced Accuracy of the network in training-set: {train_stats['bal_acc']:.5f}% and F1 score of {train_stats['f1']:.5f}%")
 
             # Create directory for prediction_dir
             ckpt_path = os.path.join(args.prediction_dir, args.model, 'checkpoint')
