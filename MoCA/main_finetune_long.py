@@ -202,10 +202,10 @@ def main(args):
         set_type='val',
         root=args.data_path,
         transform=None,)
-    dataset_test = iWatch(
-        set_type='test_complete',
-        root=args.data_path,
-        transform=None,)
+    # dataset_test = iWatch(
+    #     set_type='test_complete',
+    #     root=args.data_path,
+    #     transform=None,)
 
     print(f"using {args.subset_ratio} of train dataset, {len(dataset_train)} samples")
 
@@ -234,13 +234,13 @@ def main(args):
         shuffle=False,
     )
 
-    data_loader_test = torch.utils.data.DataLoader(
-        dataset_test,
-        batch_size=args.batch_size,
-        num_workers=args.num_workers,
-        pin_memory=args.pin_mem,
-        drop_last=False,
-        shuffle=False,  )
+    # data_loader_test = torch.utils.data.DataLoader(
+    #     dataset_test,
+    #     batch_size=args.batch_size,
+    #     num_workers=args.num_workers,
+    #     pin_memory=args.pin_mem,
+    #     drop_last=False,
+    #     shuffle=False,  )
 
     if args.log_dir is not None and not args.eval and global_rank == 0:  
         wandb.login(key='32b6f9d5c415964d38bfbe33c6d5c407f7c19743')
@@ -884,6 +884,23 @@ python -m main_finetune_long \
 --batch_size 128 \
 --use_data_aug 0 \
 --make_prediction \
---prediction_dir "/niddk-data-central/leo_workspace/iWatch-Validation/H" 
+--prediction_dir "/niddk-data-central/leo_workspace/complete_test_prediction/H" 
+
+
+## SOL
+
+
+python -m main_finetune_long \
+--ds_name iwatch \
+--data_path "/niddk-data-central/SOL/PASOS/train/SOL_10hz" \
+--model CNNBiLSTMModel \
+--eval "/DeepPostures_MAE/MSSE_2021_pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth" \
+--remark wrist \
+--batch_size 128 \
+--use_data_aug 0 \
+--make_prediction \
+--prediction_dir "/niddk-data-central/leo_workspace/SOL_pred/CHAP" 
+
+
 
 '''
