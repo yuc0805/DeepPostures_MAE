@@ -80,28 +80,28 @@ def _flush_to_h5(f_out, x_list, y_list, ts_list, subj_list, first_write):
             'x',
             data=x_arr,
             maxshape=(None,) + x_arr.shape[1:],
-            chunks=(min(300, x_arr.shape[0]),) + x_arr.shape[1:],
+            chunks=(min(100, x_arr.shape[0]),) + x_arr.shape[1:],
             compression='gzip'
         )
         f_out.create_dataset(
             'y',
             data=y_arr,
             maxshape=(None,) + y_arr.shape[1:],
-            chunks=(min(300, y_arr.shape[0]),) + y_arr.shape[1:],
+            chunks=(min(100, y_arr.shape[0]),) + y_arr.shape[1:],
             compression='gzip'
         )
         f_out.create_dataset(
             'timestamp',
             data=ts_arr,
             maxshape=(None,) + ts_arr.shape[1:],
-            chunks=(min(300, ts_arr.shape[0]),) + ts_arr.shape[1:],
+            chunks=(min(100, ts_arr.shape[0]),) + ts_arr.shape[1:],
             compression='gzip'
         )
         f_out.create_dataset(
             'subject_id',
             data=subj_arr,
             maxshape=(None,),
-            chunks=(min(300, subj_arr.shape[0]),),
+            chunks=(min(100, subj_arr.shape[0]),),
             dtype=h5py.string_dtype(encoding='utf-8'),
             compression='gzip'
         )
@@ -109,7 +109,7 @@ def _flush_to_h5(f_out, x_list, y_list, ts_list, subj_list, first_write):
             'std',
             data=std_arr,
             maxshape=(None,) + std_arr.shape[1:],
-            chunks=(min(300, std_arr.shape[0]),) + std_arr.shape[1:],
+            chunks=(min(100, std_arr.shape[0]),) + std_arr.shape[1:],
             compression='gzip'
         )
     else:
@@ -124,7 +124,7 @@ def _flush_to_h5(f_out, x_list, y_list, ts_list, subj_list, first_write):
 
 
 if __name__ == "__main__":
-    pre_processed_dir = '/niddk-data-central/SOL/PASOS/train/pre_processed_30hz'
+    pre_processed_dir = '/niddk-data-central/SOL/PASOS/train/pre_processed_10hz'
 
     split_df = pd.read_csv('/niddk-data-central/SOL/PASOS/PASOS_support_files/train_val_split.csv')
     train_subjects = split_df[split_df['split'] == 'train']['subject_id'].tolist()
@@ -132,13 +132,13 @@ if __name__ == "__main__":
 
     # write out one HDF5 per split, flattened along the time axis
     save_samples_from_iter(pre_processed_dir,
-                           "/niddk-data-central/SOL/PASOS/train/pre_processed_long_seg/10s_val.h5",
+                           "/niddk-data-central/SOL/PASOS/train/SOL_10hz/10s_val.h5",
                            val_subjects,
                            window_size=42,
                            flush_threshold=1000)
 
     save_samples_from_iter(pre_processed_dir,
-                           "/niddk-data-central/SOL/PASOS/train/pre_processed_long_seg/10s_train.h5",
+                           "/niddk-data-central/SOL/PASOS/train/SOL_10hz/10s_train.h5",
                            train_subjects,
                            window_size=42,
                            flush_threshold=1000)

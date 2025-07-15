@@ -770,7 +770,7 @@ python pre_process_data.py \
 
 
 python pre_process_data.py \
-    --pre-processed-dir /niddk-data-central/SOL/PASOS/train/pre_processed_30hz \
+    --pre-processed-dir /niddk-data-central/SOL/PASOS/train/pre_processed_10hz \
     --gt3x-dir /niddk-data-central/SOL/PASOS/train/AG_RAW \
     --valid-days-file "/niddk-data-central/SOL/PASOS/PASOS_support_files/PASOS_concurrentWear.csv" \
     --sleep-logs-file "/niddk-data-central/SOL/PASOS/PASOS_support_files/VIDA_SL.csv" \
@@ -778,14 +778,14 @@ python pre_process_data.py \
     --activpal-dir "/niddk-data-central/SOL/PASOS/train/AP" \
     --window-size 10 \
     --gt3x-frequency 80 \
-    --down-sample-frequency 30 \
+    --down-sample-frequency 10 \
     --activpal-label-map '{"0.0": 0, "1.0": 1, "2.0": 1, "2.1": 1, "3.1": -1, "3.2": 0, "4.0": -1, "5.0": 0, "0": 0, "1": 1, "2": 1, "4": -1, "5": 0, "-1.0": -1, "-1": -1}' \
     --silent \
-    --mp 18 \
+    --mp 24 \
     --gzipped
 
 python pre_process_data.py \
-    --pre-processed-dir /niddk-data-central/SOL/PASOS/train/pre_processed_30hz \
+    --pre-processed-dir /niddk-data-central/SOL/PASOS/train/pre_processed_10hz \
     --gt3x-dir /niddk-data-central/SOL/PASOS/train/AG_RAW \
     --valid-days-file "/niddk-data-central/SOL/PASOS/PASOS_support_files/PASOS_concurrentWear.csv" \
     --sleep-logs-file "/niddk-data-central/SOL/PASOS/PASOS_support_files/VIDA_SL.csv" \
@@ -793,9 +793,9 @@ python pre_process_data.py \
     --activpal-dir "/niddk-data-central/SOL/PASOS/train/AP" \
     --window-size 10 \
     --gt3x-frequency 60 \
-    --down-sample-frequency 30 \
+    --down-sample-frequency 10 \
     --activpal-label-map '{"0.0": 0, "1.0": 1, "2.0": 1, "2.1": 1, "3.1": -1, "3.2": 0, "4.0": -1, "5.0": 0, "0": 0, "1": 1, "2": 1, "4": -1, "5": 0, "-1.0": -1, "-1": -1}' \
     --silent \
-    --mp 18 \
+    --mp 20 \
     --gzipped
 '''
