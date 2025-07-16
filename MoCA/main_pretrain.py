@@ -131,7 +131,9 @@ def main(args):
     #                             set_type='train',
     #                             transform=data_aug,)
 
-    dataset_train = iWatch()
+    dataset_train = iWatch(root=args.data_path,
+                            set_type='train',
+                            transform=data_aug,)
 
     print('training sample: ',len(dataset_train))
 
@@ -352,6 +354,6 @@ torchrun --nproc_per_node=4 main_pretrain.py \
 --world_size 4 \
 --epochs 400 \
 --warmup_epochs 40 \
---remark SOL
+--remark DEBUGSOL
 
 '''
