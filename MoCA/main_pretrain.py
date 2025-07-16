@@ -20,7 +20,7 @@ import torch
 import torch.backends.cudnn as cudnn
 import wandb
 import h5py
-from util.datasets import data_aug,iWatch_HDf5,collate_fn
+from util.datasets import data_aug,iWatch_HDf5,simple_collate_fn,iWatch,flatten_collate_fn
 
 import timm
 import torch.nn as nn
@@ -44,6 +44,8 @@ def get_args_parser():
                         help='Accumulate gradient iterations (for increasing the effective batch size under memory constraints)')
     parser.add_argument('--save_freq', default=5, type=int,
                         help='save frequency, default 5 epochs')
+    parser.add_argument('--window_size',default=42, type=int,
+                    help='window size for the attention mechanism') # chap_ds = 42
 
     # Model parameters
     parser.add_argument('--model', default='mae_vit_base_patch16', type=str, metavar='MODEL',
@@ -127,7 +129,7 @@ def main(args):
     #                             set_type='train',
     #                             transform=data_aug,)
 
-    dataset_train = 
+    dataset_train = iWatch()
 
     print('training sample: ',len(dataset_train))
 
@@ -158,7 +160,7 @@ def main(args):
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
         drop_last=True,
-        collate_fn = collate_fn
+        collate_fn = flatten_collate_fn,
     )
     
     model = MaskedAutoencoderViT(img_size=[args.nvar,args.input_size],patch_size=[1,args.patch_size],
@@ -171,7 +173,8 @@ def main(args):
     model_without_ddp = model
     print("Model = %s" % str(model_without_ddp))
 
-    eff_batch_size = args.batch_size * args.accum_iter * misc.get_world_size()
+    
+    eff_batch_size = args.batch_size * args.accum_iter * misc.get_world_size() * args.window_size
     
     if args.lr is None:  # only base_lr is specified
         args.lr = args.blr * eff_batch_size / 256

@@ -220,7 +220,7 @@ class iWatch_HDf5(Dataset):
                 pass
 
 
-def collate_fn(batch):
+def simple_collate_fn(batch):
     clean_batch = []
     for x, y in batch:
         if torch.isnan(x).any() or torch.isinf(x).any():
@@ -232,6 +232,39 @@ def collate_fn(batch):
 
     xs, ys = zip(*clean_batch)
     return torch.stack(xs), torch.tensor(ys)
+
+def flatten_collate_fn(batch):
+    '''
+    Each item:
+    x: [win_size, 100, 3]
+    y: [win_size]
+    timestamp: [win_size]
+
+    Output:
+    x: [bs * win_size, 3, 100]
+    y: [bs * win_size]
+    timestamp: [bs * win_size]
+    '''
+    clean_x, clean_y, clean_timestamp = [], [], []
+
+    for x, y, timestamp in batch:
+        if torch.isnan(x).any() or torch.isinf(x).any():
+            continue
+
+        # x: (win_size, 100, 3) → (win_size, 3, 100)
+        x = rearrange(x, 'w l c -> w c l')  
+        clean_x.append(x)
+        clean_y.append(y)
+        clean_timestamp.append(timestamp)
+
+    if len(clean_x) == 0:
+        return None  # or raise error
+
+    x = torch.cat(clean_x, dim=0)  # [bs * win_size, 3, 100]
+    y = torch.cat(clean_y, dim=0)  # [bs * win_size]
+    timestamp = torch.cat(clean_timestamp, dim=0)  # [bs * win_size]
+
+    return x, y, timestamp
 
 if __name__ == "__main__":
     print("Starting dataset loading and testing...")
