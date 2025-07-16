@@ -353,9 +353,9 @@ torchrun --nproc_per_node=4 main_pretrain.py \
 --data_path /niddk-data-central/SOL/PASOS/train/SOL_10hz \
 --batch_size 16 \
 --world_size 4 \
---epochs 400 \
---warmup_epochs 40 \
+--epochs 600 \
+--warmup_epochs 80 \
 --std_sampling \
---remark DEBUGSOL
+--remark SOL
 
 '''

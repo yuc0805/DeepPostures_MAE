@@ -124,7 +124,7 @@ class iWatch(Dataset):
         x = self.x_data[idx]  # shape: (42, 100, 3)
         y = self.y_data[idx]  # shape: (42,)
         timestamp = self.timestamp[idx]  # shape: (42,)
-
+        
         if self.transform is not None:
             x_aug = x.reshape(-1, x.shape[-1]) # (4200,3)
             x_aug = self.transform(x_aug)
