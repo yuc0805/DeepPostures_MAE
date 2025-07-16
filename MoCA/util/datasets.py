@@ -117,7 +117,7 @@ class iWatch(Dataset):
         self.indices = weighted_epoch_sample(self.indices_with_std)
 
     def __len__(self):
-        return len(self.indices)
+        return 1000 #len(self.indices)
 
     def __getitem__(self, idx):
         idx = self.indices[idx]

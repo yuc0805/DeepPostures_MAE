@@ -346,4 +346,12 @@ torchrun --nproc_per_node=4 main_pretrain.py \
 --remark DEBUGiWatch-HW \
 --nvar 6 
 
+torchrun --nproc_per_node=4 main_pretrain.py \
+--data_path /niddk-data-central/SOL/PASOS/train/SOL_10hz \
+--batch_size 16 \
+--world_size 4 \
+--epochs 400 \
+--warmup_epochs 40 \
+--remark SOL
+
 '''
