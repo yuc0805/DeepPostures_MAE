@@ -77,6 +77,8 @@ def get_args_parser():
                         help='lower lr bound for cyclic schedulers that hit 0')
     
     # Dataset parameters
+    parser.add_argument('--std_sampling', action='store_true',
+                        help='whether to use standard sampling for iWatch dataset')
     parser.add_argument('--data_path', default='/niddk-data-central/iWatch/pre_processed_seg/H', type=str, help='dataset path')
 
     parser.add_argument('--output_dir', default='/niddk-data-central/leo_workspace/MoCA_result/ckpt',
@@ -154,15 +156,20 @@ def main(args):
     else:
         log_writer = None
 
+    if args.std_sampling:
+        sampler_train = None
+
     data_loader_train = torch.utils.data.DataLoader(
-        dataset_train, sampler=sampler_train,
+        dataset_train,
+        sampler = sampler_train,
         batch_size=args.batch_size,
+        shuffle=True,  
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
         drop_last=True,
-        collate_fn = flatten_collate_fn,
+        collate_fn=flatten_collate_fn,
     )
-    
+
     model = MaskedAutoencoderViT(img_size=[args.nvar,args.input_size],patch_size=[1,args.patch_size],
                                 in_chans=1,embed_dim=768, depth=12, num_heads=12,
                                 decoder_embed_dim=512, decoder_depth=8, decoder_num_heads=16,
@@ -233,7 +240,11 @@ def main(args):
     start_time = time.time()
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
-           data_loader_train.sampler.set_epoch(epoch)
+            if args.std_sampling:
+                print('Resampling!')
+                dataset_train.resample_epoch()
+            else:
+                data_loader_train.sampler.set_epoch(epoch)
 
         train_stats = train_one_epoch(
             model, data_loader_train,
