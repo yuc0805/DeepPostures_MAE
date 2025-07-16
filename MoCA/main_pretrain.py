@@ -123,9 +123,11 @@ def main(args):
 
     cudnn.benchmark =  True
 
-    dataset_train = iWatch_HDf5(root=args.data_path,
-                                set_type='train',
-                                transform=data_aug,)
+    # dataset_train = iWatch_HDf5(root=args.data_path,
+    #                             set_type='train',
+    #                             transform=data_aug,)
+
+    dataset_train = 
 
     print('training sample: ',len(dataset_train))
 
@@ -200,21 +202,26 @@ def main(args):
     misc.load_model(args=args, model_without_ddp=model_without_ddp, optimizer=optimizer, loss_scaler=loss_scaler)
    
     # fix a sample for plot ###########
-    if args.data_path == '/niddk-data-central/iWatch/pre_processed_seg/H':
-        root = "/niddk-data-central/iWatch/pre_processed_seg/H/train.hdf5"
-        idx = 500674
-    elif args.data_path == '/niddk-data-central/iWatch/pre_processed_seg/W':
-        root = "/niddk-data-central/iWatch/pre_processed_seg/W/train.hdf5"
-        idx = 500674
-    else:
-        root = "/niddk-data-central/iWatch/pre_processed_seg/HW/10s_train.h5"
-        idx = 3883
+    # if args.data_path == '/niddk-data-central/iWatch/pre_processed_seg/H':
+    #     root = "/niddk-data-central/iWatch/pre_processed_seg/H/train.hdf5"
+    #     idx = 500674
+    # elif args.data_path == '/niddk-data-central/iWatch/pre_processed_seg/W':
+    #     root = "/niddk-data-central/iWatch/pre_processed_seg/W/train.hdf5"
+    #     idx = 500674
+    # else:
+    #     root = "/niddk-data-central/iWatch/pre_processed_seg/HW/10s_train.h5"
+    #     idx = 3883
 
-    with h5py.File(root, "r") as f:
-        tmp_sample = f['x'][idx]  # (100, 3)
-        print('the index is', idx)  
-        tmp_label = 'sitting' if f['y'][idx] == 0 else 'non-sitting' 
-        print('the sample label is', tmp_label)
+    # with h5py.File(root, "r") as f:
+    #     tmp_sample = f['x'][idx]  # (100, 3)
+    #     print('the index is', idx)  
+    #     tmp_label = 'sitting' if f['y'][idx] == 0 else 'non-sitting' 
+    #     print('the sample label is', tmp_label)
+
+    sample_x, sample_y, timestamp = dataset_train[24] # 1, 42, 100, 3
+    sample_x = sample_x[20]
+    sample_y = sample_y[20]
+    timestamp = timestamp[20]
 
     tmp_sample = torch.from_numpy(tmp_sample.transpose(1, 0)).to(torch.float32).unsqueeze(0).unsqueeze(0)  # (1,1,3, 100)
     ############################################
@@ -256,7 +263,7 @@ def main(args):
                 
                 tmp_mask = tmp_mask.reshape(shape=(args.nvar,int(model_without_ddp.num_patches//args.nvar)))
                 fig = plot_masked_series(tmp_mask.cpu(),tmp_pred.cpu(),tmp_sample.squeeze().cpu(),
-                                            title=f'{tmp_label}_epoch_{epoch}_loss = {tmp_loss}')
+                                            title=f'{sample_y}_epoch_{epoch}_ts_{timestamp}_loss = {tmp_loss}')
 
                 # Log the figure to TensorBoard
                 log_writer.log({f"Reconstruction": wandb.Image(fig)})

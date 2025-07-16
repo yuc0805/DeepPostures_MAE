@@ -88,13 +88,14 @@ class iWatch(Dataset):
         self.file_path = os.path.join(root, f"10s_{set_type}.h5")
         self.data_file = h5py.File(self.file_path, 'r')
         self.x_data = self.data_file['x']       # shape: (N,window, 100, 3)
-        self.y_data = self.data_file['y'] 
+        self.y_data = self.data_file['y']
+        self.stds = self.data_file['std'][:] # materialized it.  (BS, window)
         self.timestamp = self.data_file['timestamp'] # shape: (N, window, )
         self.transform = transform
         self.subject_id = np.unique(self.data_file['subject_id'])
         
         self.indices = np.arange(len(self.y_data))
-
+        
         # each subject should have 10% so the distrbution for each subject is the same as before
         if subset_ratio < 1.0:
             self.subject_id = self.data_file['subject_id']
@@ -109,6 +110,11 @@ class iWatch(Dataset):
 
             self.indices = np.array(final_indices)
 
+        self.stds = self.stds.mean(axis=1)
+        self.indices_with_std = np.column_stack((self.indices, self.stds)) #(Bs, 2)
+
+    def resample_epoch(self):
+        self.indices = weighted_epoch_sample(self.indices_with_std)
 
     def __len__(self):
         return len(self.indices)
@@ -132,23 +138,25 @@ class iWatch(Dataset):
 
         return x_aug, y, timestamp
 
-    # def resample_epoch(self):
-    #     """
-    #     Build a new balanced index list by copying the minority label
-    #     with replacement until both labels have the same count, then shuffle.
-    #     """
-    #     labels = np.asarray(self.y_data, dtype=np.int64)
-    #     classes, counts = np.unique(labels, return_counts=True)
-    #     target = counts.max()                     # majority label size
-    #     new_idx = []
-    #     for c in classes:
-    #         idx_c = self.all_idx[labels == c]
-    #         if len(idx_c) < target:
-    #             extra = self.rng.choice(idx_c, size=target - len(idx_c), replace=True)
-    #             idx_c = np.concatenate([idx_c, extra])
-    #         new_idx.append(idx_c)
-    #     self.indices = np.concatenate(new_idx)
-    #     self.rng.shuffle(self.indices)
+
+def weighted_epoch_sample(indicies_with_std):
+    """
+    Weighted sample the windows that have most motion
+    Args:
+        data_with_std (np_array) of shape N x 2:
+    Returns:
+        sample_ides (np_array): indices of the sampled windows
+    """
+    # sample_len = 100
+    indicies = indicies_with_std[:, 0]  # Get the indices
+    std = indicies_with_std[:, 1]  # Get the std values
+
+    sample_ides = np.random.choice(
+        len(indicies), len(indicies), replace=True, p=std / np.sum(std)
+    )
+
+    return sample_ides
+
 
     
 # Dataset for (BS, 100,3)
