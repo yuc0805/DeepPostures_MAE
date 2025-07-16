@@ -117,7 +117,7 @@ class iWatch(Dataset):
         self.indices = weighted_epoch_sample(self.indices_with_std)
 
     def __len__(self):
-        return 1000 #len(self.indices)
+        return len(self.indices)
 
     def __getitem__(self, idx):
         idx = self.indices[idx]
@@ -133,7 +133,7 @@ class iWatch(Dataset):
         else:
             x_aug = x.copy()
 
-        x_aug = torch.from_numpy(x_aug)
+        x_aug = torch.from_numpy(x_aug).to(dtype=torch.float32)
         y = torch.tensor(y, dtype=torch.long)
 
         return x_aug, y, timestamp
@@ -251,8 +251,8 @@ def flatten_collate_fn(batch):
         if torch.isnan(x).any() or torch.isinf(x).any():
             continue
 
-        # x: (win_size, 100, 3) → (win_size, 3, 100)
-        x = rearrange(x, 'w l c -> w c l')  
+        # x: (win_size, 100, 3) → (win_size,1, 3, 100)
+        x = rearrange(x, 'w l c -> w 1 c l')  
         clean_x.append(x)
         clean_y.append(y)
         clean_timestamp.append(torch.as_tensor(timestamp))
