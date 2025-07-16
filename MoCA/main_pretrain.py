@@ -230,12 +230,13 @@ def main(args):
     #     tmp_label = 'sitting' if f['y'][idx] == 0 else 'non-sitting' 
     #     print('the sample label is', tmp_label)
 
-    sample_x, sample_y, timestamp = dataset_train[24] # 1, 42, 100, 3
-    sample_x = sample_x[20]
+    sample_x, sample_y, timestamp = dataset_train[2] # 1, 42, 100, 3
+    sample_x = sample_x[20] # 100,3
     sample_y = sample_y[20]
     timestamp = timestamp[20]
-
-    tmp_sample = torch.from_numpy(tmp_sample.transpose(1, 0)).to(torch.float32).unsqueeze(0).unsqueeze(0)  # (1,1,3, 100)
+    timestamp = datetime.datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
+    print('the sample label is', sample_y, 'at', timestamp)
+    tmp_sample = sample_x.permute(1,0).unsqueeze(0).unsqueeze(0)  # (1, 1, 3, 100)
     ############################################
 
     print(f"Start training for {args.epochs} epochs")
@@ -354,6 +355,7 @@ torchrun --nproc_per_node=4 main_pretrain.py \
 --world_size 4 \
 --epochs 400 \
 --warmup_epochs 40 \
+--std_sampling \
 --remark DEBUGSOL
 
 '''

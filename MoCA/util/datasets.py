@@ -255,7 +255,7 @@ def flatten_collate_fn(batch):
         x = rearrange(x, 'w l c -> w c l')  
         clean_x.append(x)
         clean_y.append(y)
-        clean_timestamp.append(timestamp)
+        clean_timestamp.append(torch.as_tensor(timestamp))
 
     if len(clean_x) == 0:
         return None  # or raise error
