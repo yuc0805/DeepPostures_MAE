@@ -81,6 +81,8 @@ def get_args_parser():
                         help='Input size "')
     parser.add_argument('--patch_size', type=int, default=100, 
                         help='Patch size')
+    parser.add_argument('--use_pos_embed', action='store_true', default=False,)
+    parser.add_argument('--no_use_pos_embed', action='store_false', dest='use_pos_embed',)
 
     parser.add_argument('--in_chans', default=None, type=int,  # changed - added
                         help='number of channels')
@@ -369,8 +371,10 @@ def main(args):
         model = AttentionProbeModel(base_model, window_size=42,
                                     num_classes=args.nb_classes,
                                     hidden_dim=768,
-                                    num_layer=args.num_attn_layer,)
-                                    #learnable_pos_embed=args.learnable_pos_embed,)
+                                    num_layer=args.num_attn_layer,
+                                    use_pos_embed = args.use_pos_embed,
+                                    learnable_pos_embed=args.learnable_pos_embed)
+                                    
         
     #######################
     else:

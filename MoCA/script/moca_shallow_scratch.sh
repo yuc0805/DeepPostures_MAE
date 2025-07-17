@@ -1,14 +1,13 @@
 torchrun --nproc_per_node=4 -m main_finetune_long \
 --ds_name iwatch \
---data_path "/niddk-data-central/iWatch/pre_processed_long_seg/H" \
---remark shallow-moca-ft  \
---model 'shallow-moca' \
+--data_path "/niddk-data-central/SOL/PASOS/train/SOL_10hz" \
+--remark shallow-moca-scratch  \
+--model shallow-moca \
 --blr 1e-3 \
 --weight_decay 1e-3 \
---epochs 40 \
---warmup_epochs 8 \
---batch_size 8 \
---accum_iter 4 \
+--epochs 10 \
+--warmup_epochs 2 \
+--batch_size 16 \
 --num_attn_layer 2 \
 --pos_weight=2.7953 \
 --subset_ratio 1.0 
