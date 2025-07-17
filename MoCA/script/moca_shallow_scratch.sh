@@ -7,7 +7,8 @@ torchrun --nproc_per_node=4 -m main_finetune_long \
 --weight_decay 1e-3 \
 --epochs 10 \
 --warmup_epochs 2 \
---batch_size 16 \
+--batch_size 8 \
+--accum_iter 2 \
 --num_attn_layer 2 \
 --use_pos_embed \
 --pos_weight=1.0 \
