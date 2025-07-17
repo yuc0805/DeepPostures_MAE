@@ -728,10 +728,12 @@ torchrun --nproc_per_node=4 -m main_finetune_long \
 --model CNNBiLSTMModel \
 --epochs 40 \
 --warmup_epochs 8 \
---batch_size 32 \
+--batch_size 16 \
 --weight_decay 1e-3 \
 --subset_ratio 1.0 \
---pos_weight 2.8232 
+--pos_weight 1.0 
+
+# --pos_weight 2.8232 
 
 torchrun --nproc_per_node=2  -m main_finetune_long \
 --ds_name iwatch \
@@ -886,10 +888,29 @@ python -m main_finetune_long \
 --make_prediction \
 --prediction_dir "/niddk-data-central/leo_workspace/complete_test_prediction/H" 
 
+ 
+## SOL ########################################
 
-## SOL
+# CHAP-FT
+
+torchrun --nproc_per_node=4 -m main_finetune_long \
+--ds_name iwatch \
+--data_path "/niddk-data-central/SOL/PASOS/train/SOL_10hz" \
+--remark CHAP-FT  \
+--blr 1e-3 \
+--model CNNBiLSTMModel \
+--epochs 10 \
+--warmup_epochs 2 \
+--batch_size 32 \
+--weight_decay 1e-3 \
+--subset_ratio 1.0 \
+--pos_weight 1.0 \
+--use_data_aug 1 
 
 
+
+
+## Make prediction
 python -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/SOL/PASOS/train/SOL_10hz" \
