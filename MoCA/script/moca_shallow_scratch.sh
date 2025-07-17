@@ -14,3 +14,5 @@ torchrun --nproc_per_node=4 -m main_finetune_long \
 --use_data_aug 1 \
 --subset_ratio 1.0 
 
+#   chmod +x script/moca_shallow_scratch.sh
+#   ./script/moca_shallow_scratch.sh
