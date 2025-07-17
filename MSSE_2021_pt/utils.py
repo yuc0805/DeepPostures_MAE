@@ -30,6 +30,34 @@ def load_model_weights(model, file_path, weights_only=True):
     print(f"Weights loaded from {file_path}")
 
 
+# def compute_accuracy_from_confusion_matrix(cm):
+#     # True Positives (TP): Diagonal elements
+#     true_positive = np.diag(cm)
+
+#     # False Positives (FP): Column sum - TP
+#     false_positive = cm.sum(axis=0) - true_positive
+
+#     # False Negatives (FN): Row sum - TP
+#     false_negative = cm.sum(axis=1) - true_positive
+
+#     # True Negatives (TN): Total sum - (TP + FP + FN)
+#     total = cm.sum()
+#     true_negative = total - (true_positive + false_positive + false_negative)
+
+#     # Accuracy: Total correct predictions / Total samples
+#     accuracy = true_positive.sum() / total
+
+#     # Sensitivity (Recall): TP / (TP + FN)
+#     sensitivity = true_positive / (true_positive + false_negative)
+    
+#     # Specificity: TN / (TN + FP)
+#     specificity = true_negative / (true_negative + false_positive)
+
+#     # Balanced Accuracy: Average of Sensitivity and Specificity
+#     balanced_accuracy = np.mean((sensitivity + specificity) / 2)
+
+#     return accuracy, balanced_accuracy
+
 def compute_accuracy_from_confusion_matrix(cm):
     # True Positives (TP): Diagonal elements
     true_positive = np.diag(cm)
@@ -44,14 +72,31 @@ def compute_accuracy_from_confusion_matrix(cm):
     total = cm.sum()
     true_negative = total - (true_positive + false_positive + false_negative)
 
+    # Debug prints for each class
+    for i in range(len(true_positive)):
+
+        if true_negative[i] + false_positive[i] == 0:
+            print(f"  ⚠️ No negative examples for class {i}")
+        if true_positive[i] + false_negative[i] == 0:
+            print(f"  ⚠️ No positive examples for class {i}")
+        if true_negative[i] == 0 and false_positive[i] > 0:
+            print(f"Class {i}:")
+            print(f"  TP = {true_positive[i]}, FP = {false_positive[i]}, FN = {false_negative[i]}, TN = {true_negative[i]}")
+            print(f"  ⚠️ Specificity for class {i} is 0 — all negative samples predicted as class {i}")
+            print("\nFull Confusion Matrix:\n", cm)
+
     # Accuracy: Total correct predictions / Total samples
     accuracy = true_positive.sum() / total
 
     # Sensitivity (Recall): TP / (TP + FN)
-    sensitivity = true_positive / (true_positive + false_negative)
-    
+    with np.errstate(divide='ignore', invalid='ignore'):
+        sensitivity = np.divide(true_positive, true_positive + false_negative)
+        sensitivity[np.isnan(sensitivity)] = 0
+
     # Specificity: TN / (TN + FP)
-    specificity = true_negative / (true_negative + false_positive)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        specificity = np.divide(true_negative, true_negative + false_positive)
+        specificity[np.isnan(specificity)] = 0
 
     # Balanced Accuracy: Average of Sensitivity and Specificity
     balanced_accuracy = np.mean((sensitivity + specificity) / 2)
