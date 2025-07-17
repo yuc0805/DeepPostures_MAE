@@ -4,6 +4,7 @@ torchrun --nproc_per_node=4 -m main_finetune_long \
 --remark CHAP-FT  \
 --blr 1e-3 \
 --model CNNBiLSTMModel \
+--checkpoint "/app/DeepPostures_MAE/MSSE_2021_pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth" \
 --epochs 10 \
 --warmup_epochs 2 \
 --batch_size 16 \

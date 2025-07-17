@@ -259,28 +259,22 @@ def main(args):
     # CHAP replicate #######
     if args.model == 'CNNBiLSTMModel':
         model = CNNBiLSTMModel(2,42,2)
-        
-        if os.path.exists("/DeepPostures_MAE/MSSE_2021_pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"):
-            transfer_learning_model_path = "/DeepPostures_MAE/MSSE_2021_pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"
-        elif os.path.exists("/app/DeepPostures_MAE/MSSE_2021_pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"):
-            transfer_learning_model_path = "/app/DeepPostures_MAE/MSSE_2021_pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"
-        else:
-            raise FileNotFoundError("CHAP_ALL_ADULTS.pth not found in any known location.")
 
-        msg = load_model_weights(model, transfer_learning_model_path, weights_only=False)
+        if args.checkpoint:
+            msg = load_model_weights(model, args.checkpoint, weights_only=False)
+        else:
+            print("training CNNBiLSTMModel from scratch")
+        
     
     elif args.model == 'CNNBiLSTMAttentionModel':
         # add attention on top of CNNBiLSTM
         base_model = CNNBiLSTMModel(2,42,2)
         
-        if os.path.exists("/DeepPostures_MAE/MSSE_2021_pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"):
-            transfer_learning_model_path = "/DeepPostures_MAE/MSSE_2021_pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"
-        elif os.path.exists("/app/DeepPostures_MAE/MSSE_2021_pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"):
-            transfer_learning_model_path = "/app/DeepPostures_MAE/MSSE_2021_pt/pre-trained-models-pt/CHAP_ALL_ADULTS.pth"
+        if args.checkpoint:
+            msg = load_model_weights(model, args.checkpoint, weights_only=False)
         else:
-            raise FileNotFoundError("CHAP_ALL_ADULTS.pth not found in any known location.")
+            print("training CNNBiLSTMModel from scratch")
 
-        msg = load_model_weights(base_model, transfer_learning_model_path, weights_only=False)
 
         base_model_hidden_dim = base_model.fc_bilstm.in_features # 256
         print("base_model_hidden_dim:", base_model_hidden_dim)
