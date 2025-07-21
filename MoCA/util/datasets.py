@@ -30,6 +30,88 @@ def rotation_axis(sample):
 
     return sample
 
+def channel_permute(sample):
+    """
+    Permute the channels of the input sample.
+    
+    Args:
+        sample (numpy.ndarray): Input sample of shape (T, C), where T is the number of time steps and C is the number of channels.
+    
+    Returns:
+        numpy.ndarray: Sample with permuted channels.
+    """
+    perm = np.random.permutation(sample.shape[1])
+    return sample[:, perm]
+
+def scaling(sample, scale_factor=0.1):
+    """
+    Scale the input sample by a random factor.
+
+    Args:
+        sample (numpy.ndarray): Input sample of shape (T, C), where T is the number of time steps and C is the number of channels.
+        scale_factor (float): Factor by which to scale the sample.
+
+    Returns:
+        numpy.ndarray: Scaled sample.
+    """
+    sample *= np.random.normal(loc=1.0, scale=scale_factor)
+    return sample
+
+def jittering(sample, noise_level=0.05):
+    """
+    Add Gaussian noise to the input sample.
+    
+    Args:
+        sample (numpy.ndarray): Input sample of shape (T, C), where T is the number of time steps and C is the number of channels.
+        noise_level (float): Standard deviation of the Gaussian noise to be added.
+    
+    Returns:
+        numpy.ndarray: Sample with added Gaussian noise.
+    """
+    noise = np.random.normal(loc=0.0, scale=noise_level, size=sample.shape)
+    return sample + noise
+
+from scipy.interpolate import CubicSpline
+import numpy as np
+
+def DistortTimesteps(X, sigma=0.2):
+    # X shape: (length, nvar)
+    tt = GenerateRandomCurves(X, sigma)
+    tt_cum = np.cumsum(tt, axis=0)
+
+    # scale time to match original length
+    t_scale = (X.shape[0] - 1) / tt_cum[-1]
+    tt_cum = tt_cum * t_scale  # element-wise scale for each variable
+    return tt_cum
+
+def GenerateRandomCurves(X, sigma=0.2, knot=4):
+    # X shape: (length, nvar)
+    length, nvar = X.shape
+    xx = np.linspace(0, length - 1, num=knot + 2)  # shape: (knot+2,)
+    yy = np.random.normal(loc=1.0, scale=sigma, size=(knot + 2, nvar))  # shape: (knot+2, nvar)
+    
+    x_range = np.arange(length)
+    tt = np.zeros((length, nvar))
+    for i in range(nvar):
+        cs = CubicSpline(xx, yy[:, i])
+        tt[:, i] = cs(x_range)
+    return tt
+
+def DA_TimeWarp(X, sigma=0.2):
+    # X shape: (length, nvar)
+    tt_new = DistortTimesteps(X, sigma)
+    X_new = np.zeros_like(X)
+    x_range = np.arange(X.shape[0])
+    for i in range(X.shape[1]):
+        X_new[:, i] = np.interp(x_range, tt_new[:, i], X[:, i])
+    return X_new
+
+def time_warp(sample, sigma=0.2):
+
+    sample = DA_TimeWarp(sample, sigma=sigma)
+
+    return sample
+
 def data_aug(x):
     """
     Input:
@@ -41,7 +123,6 @@ def data_aug(x):
     Augmentations [1]:
         - Gaussian noise (jittering)
         - Global scaling
-        - Segment permutation
         - Channel permutation: invariant to the order of channels, because different device manafacturers may have different channel orders
         - Axis flipping: we want the model invariant to subject that wear the device differently
     
@@ -56,24 +137,12 @@ def data_aug(x):
     """
 
     x = x.astype(np.float32).copy()
-    # rotation
+
     x = rotation_axis(x) 
-
-    # channel permutation
-    perm = np.random.permutation(x.shape[1])
-    x = x[:, perm]
-           
-    # jittering
-    x += np.random.normal(loc=0.0, scale=0.05, size=x.shape)
-
-    # scaling
-    x *= np.random.normal(loc=1.0, scale=0.1)
-
-    # segment permute
-    # seg_len =  x.shape[0] // 4 # 100//4
-    # segments = np.split(x[:seg_len * 4, :], 4, axis=0)
-    # perm = np.random.permutation(4)
-    # x = np.concatenate([segments[i] for i in perm], axis=0)
+    x = channel_permute(x)
+    x = jittering(x)
+    x = scaling(x)
+    x = time_warp(x)
 
     return x
 
