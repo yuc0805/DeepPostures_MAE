@@ -6,4 +6,4 @@ torchrun --nproc_per_node=8 main_pretrain.py \
 --warmup_epochs 10 \
 --std_sampling \
 --remark SOL \
---save_freq 10 
+--save_freq 2
