@@ -4,7 +4,7 @@ torchrun --nproc_per_node=4 -m main_finetune_long \
 --remark moca-shallow-random-init  \
 --blr 1e-3 \
 --model shallow-moca \
---epochs 10 \
+--epochs 20 \
 --warmup_epochs 2 \
 --batch_size 8 \
 --accum_iter 2 \
