@@ -158,7 +158,7 @@ class iWatch(Dataset):
         self.data_file = h5py.File(self.file_path, 'r')
         self.x_data = self.data_file['x']       # shape: (N,window, 100, 3)
         self.y_data = self.data_file['y']
-        self.stds = self.data_file['std'][:] # materialized it.  (BS, window)
+    
         self.timestamp = self.data_file['timestamp'] # shape: (N, window, )
         self.transform = transform
         self.subject_id = np.unique(self.data_file['subject_id'])
@@ -179,11 +179,11 @@ class iWatch(Dataset):
 
             self.indices = np.array(final_indices)
 
-        self.stds = self.stds.mean(axis=1)
-        self.indices_with_std = np.column_stack((self.indices, self.stds)) #(Bs, 2)
+        # self.stds = self.stds.mean(axis=1)
+        # self.indices_with_std = np.column_stack((self.indices, self.stds)) #(Bs, 2)
 
-    def resample_epoch(self):
-        self.indices = weighted_epoch_sample(self.indices_with_std)
+    # def resample_epoch(self):
+    #     self.indices = weighted_epoch_sample(self.indices_with_std)
 
     def __len__(self):
         return len(self.indices)
