@@ -12,4 +12,4 @@ torchrun --nproc_per_node=4 -m main_finetune_long \
 --subset_ratio 1.0 \
 --pos_weight 1.0 \
 --use_data_aug 1 \
---drop_path_rate 0.2
+--drop_path_rate 0.1
