@@ -864,6 +864,29 @@ python -m main_finetune_long \
 --prediction_dir "/niddk-data-central/leo_workspace/iWatch-Validation/H" 
 
 
+# CHAP-random-init
+python -m main_finetune_long \
+--ds_name iwatch \
+--data_path "/niddk-data-central/iWatch/pre_processed_long_seg/H" \
+--model CNNBiLSTMModel \
+--eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/CHAP-RandomInitset_1.0_blr_0.001_bs_32_input_size_[3, 4200]/2025-07-30_22-00/checkpoint-best.pth" \
+--remark hip \
+--batch_size 512 \
+--use_data_aug 0 \
+--make_prediction \
+--prediction_dir "/niddk-data-central/leo_workspace/iWatch-Validation/H/CHAP-RandomInit" 
+
+
+python -m main_finetune_long \
+--ds_name iwatch \
+--data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
+--model CNNBiLSTMModel \
+--eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/CHAP-RandomInitset_1.0_blr_0.001_bs_32_input_size_[3, 4200]/2025-07-30_18-46/checkpoint-best.pth" \
+--remark wrist \
+--batch_size 512 \
+--use_data_aug 0 \
+--make_prediction \
+--prediction_dir "/niddk-data-central/leo_workspace/iWatch-Validation/W/CHAP-RandomInit" 
 #######
 
 python -m main_finetune_long \
