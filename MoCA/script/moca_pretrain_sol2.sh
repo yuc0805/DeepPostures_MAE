@@ -8,4 +8,4 @@ torchrun --nproc_per_node=8 main_pretrain.py \
 --remark SOL \
 --save_freq 2 \
 --mask_ratio 0.5 \
---resume "/niddk-data-central/leo_workspace/MoCA_result/ckpt/SOLps_5_mask_0.5_bs_12_blr_None_epoch_100/2025-07-25_20-16/ckpt.pth"
+--resume "/niddk-data-central/leo_workspace/MoCA_result/ckpt/SOLps_5_mask_0.5_bs_12_blr_None_epoch_100/2025-07-25_20-16/checkpoint-14.pth"
