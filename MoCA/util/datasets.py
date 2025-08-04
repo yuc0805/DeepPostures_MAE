@@ -158,7 +158,7 @@ class iWatch(Dataset):
         self.data_file = h5py.File(self.file_path, 'r')
         self.x_data = self.data_file['x']       # shape: (N,window, 100, 3)
         self.y_data = self.data_file['y']
-    
+        self.stds = self.data_file['std'][:] # materialized it.  (BS, window)
         self.timestamp = self.data_file['timestamp'] # shape: (N, window, )
         self.transform = transform
         self.subject_id = np.unique(self.data_file['subject_id'])
