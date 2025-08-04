@@ -179,11 +179,11 @@ class iWatch(Dataset):
 
             self.indices = np.array(final_indices)
 
-        # self.stds = self.stds.mean(axis=1)
-        # self.indices_with_std = np.column_stack((self.indices, self.stds)) #(Bs, 2)
+        self.stds = self.stds.mean(axis=1)
+        self.indices_with_std = np.column_stack((self.indices, self.stds)) #(Bs, 2)
 
-    # def resample_epoch(self):
-    #     self.indices = weighted_epoch_sample(self.indices_with_std)
+    def resample_epoch(self):
+        self.indices = weighted_epoch_sample(self.indices_with_std)
 
     def __len__(self):
         return len(self.indices)
