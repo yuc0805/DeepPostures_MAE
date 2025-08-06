@@ -6,4 +6,6 @@ torchrun --nproc_per_node=8 main_pretrain.py \
 --warmup_epochs 10 \
 --std_sampling \
 --remark SOL \
---save_freq 2
+--save_freq 2 \
+--mask_ratio 0.75 \
+--resume "/niddk-data-central/leo_workspace/MoCA_result/ckpt/SOLps_5_mask_0.75_bs_12_blr_None_epoch_100/2025-07-25_04-21"
