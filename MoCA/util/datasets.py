@@ -157,7 +157,7 @@ class iWatch(Dataset):
         self.file_path = os.path.join(root, f"10s_{set_type}.h5")
         self.data_file = h5py.File(self.file_path, 'r')
         self.x_data = self.data_file['x']       # shape: (N,window, 100, 3)
-        self.y_data = self.data_file['y']
+        self.y_data = self.data_file['y']       # shape: (N, window)
         self.stds = self.data_file['std'][:] # materialized it.  (BS, window)
         self.timestamp = self.data_file['timestamp'] # shape: (N, window, )
         self.transform = transform
