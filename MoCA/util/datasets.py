@@ -184,7 +184,7 @@ class iWatch(Dataset):
             self.indices = np.array(final_indices)
             
         if self.stds is not None: # FIXME: problematic when using subset_ratio
-            self.indices_with_std = np.column_stack((self.indices, self.stds)) #(Bs, 2)
+            self.indices_with_std = np.column_stack((self.indices, self.stds[self.indices])) #(Bs, 2)
         else:
             self.indices_with_std = None
 

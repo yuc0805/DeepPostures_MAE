@@ -7,7 +7,7 @@ echo "Files:"
 ls -lah
 
 # Transfering SOL weight to this.
-torchrun --nproc_per_node=4 -m main_finetune_long \
+torchrun --nproc_per_node=4 main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
 --checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/SOLps_5_mask_0.5_bs_12_blr_None_epoch_100/2025-07-25_20-16/checkpoint-14.pth" \
@@ -17,8 +17,8 @@ torchrun --nproc_per_node=4 -m main_finetune_long \
 --weight_decay 1e-3 \
 --epochs 40 \
 --warmup_epochs 8 \
---batch_size 8 \
---accum_iter 4 \
+--batch_size 4 \
+--accum_iter 8 \
 --num_attn_layer 2 \
 --pos_weight=2.8232 \
 --subset_ratio 1.0 
@@ -34,8 +34,8 @@ torchrun --nproc_per_node=4 -m main_finetune_long \
 --weight_decay 1e-3 \
 --epochs 40 \
 --warmup_epochs 8 \
---batch_size 8 \
---accum_iter 4 \
+--batch_size 4 \
+--accum_iter 8 \
 --num_attn_layer 2 \
 --pos_weight=2.8232 \
 --subset_ratio 1.0 
