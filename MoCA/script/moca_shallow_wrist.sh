@@ -10,7 +10,7 @@ ls -lah
 torchrun --nproc_per_node=4 -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
---checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/SOLps_5_mask_0.5_bs_12_blr_None_epoch_100/2025-07-25_20-16/checkpoint-14.pth" \ 
+--checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/SOLps_5_mask_0.5_bs_12_blr_None_epoch_100/2025-07-25_20-16/checkpoint-14.pth" \
 --remark SOL_mask50_14epoch  \
 --model 'shallow-moca' \
 --blr 1e-3 \
@@ -27,7 +27,7 @@ torchrun --nproc_per_node=4 -m main_finetune_long \
 torchrun --nproc_per_node=4 -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
---checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/SOLps_5_mask_0.75_bs_12_blr_None_epoch_100/2025-07-27_11-47/checkpoint-14.pth" \ 
+--checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/SOLps_5_mask_0.75_bs_12_blr_None_epoch_100/2025-07-27_11-47/checkpoint-14.pth" \
 --remark SOL_mask75_14epoch  \
 --model 'shallow-moca' \
 --blr 1e-3 \
