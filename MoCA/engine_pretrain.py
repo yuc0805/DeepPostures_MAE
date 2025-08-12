@@ -64,8 +64,9 @@ def train_one_epoch(model: torch.nn.Module,
         # FIXME: This might cause NCCL communication error
         if not math.isfinite(loss_value):
             print("Loss is {}, skipping this batch".format(loss_value))
-            optimizer.zero_grad()
-            continue
+            # optimizer.zero_grad()
+            # continue
+            exit(1)
 
         loss /= accum_iter
         loss_scaler(loss, optimizer, parameters=model.parameters(),
