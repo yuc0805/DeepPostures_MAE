@@ -152,17 +152,21 @@ class iWatch(Dataset):
                  root='/niddk-data-central/iWatch/pre_processed_long_seg',
                  set_type='train',
                  transform=None,
+                 std_sampling=False,
                  subset_ratio=1.0):
         
         self.file_path = os.path.join(root, f"10s_{set_type}.h5")
         self.data_file = h5py.File(self.file_path, 'r')
         self.x_data = self.data_file['x']       # shape: (N,window, 100, 3)
         self.y_data = self.data_file['y']       # shape: (N, window)
-        if 'std' in self.data_file:
+        self.std_sampling = std_sampling
+
+        if self.std_sampling and 'std' in self.data_file:
             self.stds = self.data_file['std'][:] # materialized it.  (BS, window)
             self.stds = self.stds.mean(axis=1)
         else:
             self.stds = None
+
         self.timestamp = self.data_file['timestamp'] # shape: (N, window, )
         self.transform = transform
         self.subject_id = np.unique(self.data_file['subject_id'])
@@ -189,7 +193,8 @@ class iWatch(Dataset):
             self.indices_with_std = None
 
     def resample_epoch(self):
-        self.indices = weighted_epoch_sample(self.indices_with_std)
+        if self.std_sampling:
+            self.indices = weighted_epoch_sample(self.indices_with_std)
 
     def __len__(self):
         return len(self.indices)

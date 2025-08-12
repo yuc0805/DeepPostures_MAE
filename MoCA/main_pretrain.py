@@ -42,7 +42,7 @@ def get_args_parser():
                         help='epochs to warmup LR')
     parser.add_argument('--accum_iter', default=1, type=int,
                         help='Accumulate gradient iterations (for increasing the effective batch size under memory constraints)')
-    parser.add_argument('--save_freq', default=5, type=int,
+    parser.add_argument('--save_freq', default=None, type=int,
                         help='save frequency, default 5 epochs')
     parser.add_argument('--window_size',default=42, type=int,
                     help='window size for the attention mechanism') # chap_ds = 42
@@ -127,13 +127,10 @@ def main(args):
 
     cudnn.benchmark =  True
 
-    # dataset_train = iWatch_HDf5(root=args.data_path,
-    #                             set_type='train',
-    #                             transform=data_aug,)
-
     dataset_train = iWatch(root=args.data_path,
                             set_type='train',
-                            transform=data_aug,)
+                            transform=data_aug,
+                            std_sampling=args.std_sampling,)
 
     print('training sample: ',len(dataset_train))
 
@@ -158,9 +155,6 @@ def main(args):
     else:
         log_writer = None
 
-    if args.std_sampling:
-        sampler_train = None
-
     data_loader_train = torch.utils.data.DataLoader(
         dataset_train,
         sampler = sampler_train,
@@ -170,6 +164,7 @@ def main(args):
         pin_memory=args.pin_mem,
         drop_last=True,
         collate_fn=flatten_collate_fn,
+        prefetch_factor=4,  # for faster data loading
     )
 
     model = MaskedAutoencoderViT(img_size=[args.nvar,args.input_size],patch_size=[1,args.patch_size],
@@ -242,12 +237,10 @@ def main(args):
     print(f"Start training for {args.epochs} epochs")
     start_time = time.time()
     for epoch in range(args.start_epoch, args.epochs):
-        if args.distributed:
-            if args.std_sampling:
-                print('Resampling!')
-                dataset_train.resample_epoch()
-            else:
-                data_loader_train.sampler.set_epoch(epoch)
+        if args.distributed:            
+            print('Resampling!')
+            dataset_train.resample_epoch()
+            data_loader_train.sampler.set_epoch(epoch)
 
         train_stats = train_one_epoch(
             model, data_loader_train,
@@ -259,7 +252,8 @@ def main(args):
         if torch.distributed.is_initialized():
             print('Watiing for all processes to finish')
             torch.distributed.barrier()
-        
+
+        args.save_freq = args.epochs // 10 if args.save_freq is None else args.save_freq
         if args.output_dir and (epoch % args.save_freq == 0 or epoch + 1 == args.epochs):
             print('Saving checkpoint')
             misc.save_model(
@@ -274,7 +268,7 @@ def main(args):
                     with torch.cuda.amp.autocast():
                         tmp_loss, tmp_pred, tmp_mask = model_without_ddp(tmp_sample, 
                                                                          mask_ratio=args.mask_ratio,
-                                                                         masking_scheme = args.masking_scheme)
+                                                                         masking_scheme=args.masking_scheme)
 
                 tmp_pred = model_without_ddp.unpatchify(tmp_pred) # bs, 1, nvar, L
                 
@@ -291,12 +285,6 @@ def main(args):
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
                         'epoch': epoch,}
                         
-
-        # if args.output_dir and misc.is_main_process():
-        #     # if log_writer is not None:
-        #     #     log_writer.flush()
-        #     with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
-        #         f.write(json.dumps(log_stats) + "\n")
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
