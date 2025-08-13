@@ -158,8 +158,7 @@ def main(args):
     data_loader_train = torch.utils.data.DataLoader(
         dataset_train,
         sampler = sampler_train,
-        batch_size=args.batch_size,
-        shuffle=True,  
+        batch_size=args.batch_size, 
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
         drop_last=True,
