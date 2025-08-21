@@ -36,7 +36,7 @@ from timm.optim import create_optimizer_v2
 from util.pos_embed import interpolate_pos_embed
 import util.lr_decay as lrd  # for optimizer
 import models_vit
-from models_mae import LinearProbeModel
+from models_mae import LinearProbeModel, MaskedAutoencoderViT
 from engine_finetune_long import train_one_epoch, evaluate
 from util.loss import BinaryFocalLoss
 from models_mae import AttentionProbeModel
@@ -91,6 +91,8 @@ def get_args_parser():
     parser.add_argument('--use_data_aug',default=1,type=int)
     parser.add_argument('--drop_path_rate', type=float, default=0.1,
                         help='Drop path rate')
+    parser.add_argument('--patch_emb', type=str, default='vit', #sundial
+                        help='Patch embedding type')
     # Optimizer parameters
     parser.add_argument('--clip_grad', type=float, default=None, metavar='NORM',
                         help='Clip gradient norm (default: None, no clipping)')
@@ -341,13 +343,16 @@ def main(args):
             interaction_layer=interaction_layer,
             num_classes=args.nb_classes,)
     elif args.model == 'shallow-moca':
-        base_model = models_vit.__dict__['vit_base_patch16'](
-            img_size=[3,100], patch_size=[1, 5], 
-            num_classes=args.nb_classes, in_chans=1, global_pool=False,
-            drop_path_rate = args.drop_path_rate)
-            #global_pool='avg')
+        # base_model = models_vit.__dict__['vit_base_patch16'](
+        #     img_size=[3,100], patch_size=[1, 5], 
+        #     num_classes=args.nb_classes, in_chans=1, global_pool=False,
+        #     drop_path_rate = args.drop_path_rate)
+        #     #global_pool='avg')
         
-
+        model = MaskedAutoencoderViT(img_size=[3,100],
+                                     patch_size=[1,5],
+                                     patch_emb=args.patch_emb)
+        
         if args.checkpoint:
             checkpoint = torch.load(args.checkpoint,map_location='cpu')
             checkpoint_model = checkpoint['model']

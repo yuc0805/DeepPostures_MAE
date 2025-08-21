@@ -37,7 +37,7 @@ class MaskedAutoencoderViT(nn.Module):
                  is_eval=False,
                  norm_pix_loss = False,
                  mask_loss = False,
-                 patch_emb = 'sundial',
+                 patch_emb = 'vit', #sundial
                  ): 
         super().__init__()
 
@@ -49,9 +49,9 @@ class MaskedAutoencoderViT(nn.Module):
         # MAE encoder specifics
         if patch_emb == 'sundial':
             self.patch_embed = SundialPatchEmbedding(hidden_size = embed_dim,
-                                                     intermediate_size=embed_dim*mlp_ratio,
+                                                     intermediate_size=int(embed_dim * mlp_ratio),
                                                      dropout_rate=0.1,
-                                                     patch_size = patch_size[1],
+                                                     patch_size=patch_size,
                                                      hidden_act='silu')
             self.patch_embed.num_patches = img_size[0] * int(img_size[1] / patch_size[1])
         else:
@@ -64,7 +64,7 @@ class MaskedAutoencoderViT(nn.Module):
         num_patches = self.patch_embed.num_patches  
         self.num_patches = num_patches
         self.embed_dim = embed_dim
-        self.head_dim = self.embed_dim // self.num_heads
+        self.head_dim = self.embed_dim // num_heads
         self.is_eval=is_eval
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
 
@@ -104,9 +104,10 @@ class MaskedAutoencoderViT(nn.Module):
         decoder_pos_embed = get_2d_sincos_pos_embed(self.decoder_pos_embed.shape[-1], [1, int(self.patch_embed.num_patches)], cls_token=True)
         self.decoder_pos_embed.data.copy_(torch.from_numpy(decoder_pos_embed).float().unsqueeze(0))
 
-        # initialize patch_embed like nn.Linear (instead of nn.Conv2d)
-        w = self.patch_embed.proj.weight.data
-        torch.nn.init.xavier_uniform_(w.view([w.shape[0], -1]))
+        if hasattr(self.patch_embed, "proj"):
+            # vit init
+            w = self.patch_embed.proj.weight.data
+            torch.nn.init.xavier_uniform_(w.view([w.shape[0], -1]))
 
         # timm's trunc_normal_(std=.02) is effectively normal_(std=0.02) as cutoff is too big (2.)
         torch.nn.init.normal_(self.cls_token, std=.02)
@@ -396,8 +397,7 @@ class MaskedAutoencoderViT(nn.Module):
                         masking_scheme='None',):
 
         # embed patches
-        x = self.patch_embed(x) # bs, num_p,  embed_dim
-
+        x = self.patch_embed(x) # bs, num_p, embed_dim
         # add pos embed w/o cls token
         x = x + self.pos_embed[:, 1:, :]
         
@@ -495,6 +495,25 @@ class MaskedAutoencoderViT(nn.Module):
         loss = self.forward_loss(imgs, pred, mask)
         return loss, pred, mask
 
+
+    def feature_extractor(self, x,):
+        x = self.patch_embed(x) # bs, num_p,  embed_dim
+
+        # add pos embed w/o cls token
+        x = x + self.pos_embed[:, 1:, :]
+    
+        # append cls token
+        cls_token = self.cls_token + self.pos_embed[:, :1, :]
+        cls_tokens = cls_token.expand(x.shape[0], -1, -1)
+        x = torch.cat((cls_tokens, x), dim=1)
+       
+        # apply Transformer blocks
+        for blk in self.blocks:
+            x = blk(x)
+        x = self.norm(x) # BS, num_p+1, embed_dim
+
+        return x
+
 class AttentionProbeModel(nn.Module):
     def __init__(self, base_model, 
                  window_size=42,
@@ -507,7 +526,6 @@ class AttentionProbeModel(nn.Module):
                  learnable_pos_embed=True):
         super(AttentionProbeModel, self).__init__()
         self.base_model = base_model
-        self.base_model.head = nn.Identity()  # Remove the original head
         self.window_size = window_size
         self.proj = nn.Linear(self.base_model.embed_dim, hidden_dim)
         if use_pos_embed:
@@ -543,7 +561,7 @@ class AttentionProbeModel(nn.Module):
         
         # get feature for each window
         x = rearrange(x, 'b w l c -> (b w) c l') # BS*42, 3,100
-        x = x.unsqueeze(1)  # BS*42, 1, 3, 100
+        
         
         x = self.base_model(x).squeeze(1) # BS*42, 768
         x = rearrange(x, '(b w) c -> b w c', b=x.shape[0]//self.window_size, w=self.window_size) # BS, 42, 768
@@ -592,11 +610,9 @@ class LinearProbeModel(nn.Module):
 
 
 if __name__ == "__main__":
-    model = MaskedAutoencoderViT().to('cuda')
-    x = torch.randn(32,1,6,200).to('cuda')
-    loss, pred, mask = model(x,
-                             mask_ratio=0.75,
-                             masking_scheme='spectral')
+    model = MaskedAutoencoderViT(patch_emb='sundial')
+    x = torch.randn(4,1,3,100)
+    loss, pred, mask = model(x,mask_ratio=0.75,)
     print(mask)
 
 

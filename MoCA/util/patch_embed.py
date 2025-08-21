@@ -53,17 +53,17 @@ class SundialPatchEmbedding(nn.Module):
                  hidden_size=768,
                  intermediate_size=3072,
                  dropout_rate=0.1,
-                 patch_size=16,
+                 patch_size=[1,5],
                  hidden_act='silu'):
         super().__init__()
         self.dropout = nn.Dropout(dropout_rate)
         self.hidden_layer = nn.Linear(
-            patch_size * 2, intermediate_size)
+            patch_size[1] * 2, intermediate_size)
         self.act = ACT2FN[hidden_act]
         self.output_layer = nn.Linear(
             intermediate_size, hidden_size)
         self.residual_layer = nn.Linear(
-            patch_size * 2, hidden_size)
+            patch_size[1] * 2, hidden_size)
         self.patch_size = patch_size
 
     def forward(self, x):
@@ -73,19 +73,20 @@ class SundialPatchEmbedding(nn.Module):
 
         '''
 
-        B, C, L = x.shape
-        x = rearrange(x, 'b c l -> (b c) l') 
+        B, _, C, L = x.shape
+        patch_size = self.patch_size[1]
+        x = rearrange(x, 'b 1 c l -> (b c) l') 
 
         mask = torch.ones_like(x, dtype=torch.float32)
         input_length = x.shape[-1]
-        padding_length = (self.patch_size - (input_length %
-                          self.patch_size)) % self.patch_size
+        padding_length = (patch_size - (input_length %
+                          patch_size)) % patch_size
         x = F.pad(x, (padding_length, 0))
         mask = F.pad(mask, (padding_length, 0))
-        x = x.unfold(dimension=-1, size=self.patch_size,
-                     step=self.patch_size)
-        mask = mask.unfold(dimension=-1, size=self.patch_size, 
-                           step=self.patch_size)
+        x = x.unfold(dimension=-1, size=patch_size,
+                     step=patch_size)
+        mask = mask.unfold(dimension=-1, size=patch_size,
+                           step=patch_size)
 
         x = torch.cat([x, mask], dim=-1)
         hid = self.act(self.hidden_layer(x))
@@ -93,7 +94,7 @@ class SundialPatchEmbedding(nn.Module):
         res = self.residual_layer(x)
         out = out + res
 
-        out = rearrange(out, '(b c) p e -> b c p e', b=B, c=C)
+        out = rearrange(out, '(b c) p e -> b (c p) e', b=B, c=C)
 
         return out
     

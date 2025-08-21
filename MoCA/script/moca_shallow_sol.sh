@@ -11,4 +11,5 @@ torchrun --nproc_per_node=4 -m main_finetune_long \
 --weight_decay 5e-2 \
 --subset_ratio 1.0 \
 --pos_weight 1.0 \
---use_data_aug 1 
+--use_data_aug 1 \
+--use_pos_embed \
