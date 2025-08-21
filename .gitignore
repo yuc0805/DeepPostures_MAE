@@ -12,3 +12,4 @@ __pycache__
 .ipynb_checkpoints
 envs
 support_files/
+tmp_result/
