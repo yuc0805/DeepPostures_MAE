@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from timm.models.layers import to_2tuple
 #from util.pos_embed import tAPE
-
+from einops import rearrange
 
 class PatchEmbed_ts(nn.Module):
     """ Flexible Image to Patch Embedding
@@ -44,6 +44,67 @@ class PatchEmbed_ts(nn.Module):
 
         return x
 
+from transformers.activations import ACT2FN # hugging face api map string to activiation class. i.e. ACT2FN["gelu"]
+import torch.nn.functional as F
+class SundialPatchEmbedding(nn.Module):
+    # develop feasible patch tokenization for arbitrary-length input time series
+    # default is Sundial config
+    def __init__(self,
+                 hidden_size=768,
+                 intermediate_size=3072,
+                 dropout_rate=0.1,
+                 patch_size=16,
+                 hidden_act='silu'):
+        super().__init__()
+        self.dropout = nn.Dropout(dropout_rate)
+        self.hidden_layer = nn.Linear(
+            patch_size * 2, intermediate_size)
+        self.act = ACT2FN[hidden_act]
+        self.output_layer = nn.Linear(
+            intermediate_size, hidden_size)
+        self.residual_layer = nn.Linear(
+            patch_size * 2, hidden_size)
+        self.patch_size = patch_size
+
+    def forward(self, x):
+        '''
+        x: input tensor of shape [batch_size, nvar, seq_len]
+        output: tensor of shape [batch_size, nvar, hidden_size]
+
+        '''
+
+        B, C, L = x.shape
+        x = rearrange(x, 'b c l -> (b c) l') 
+
+        mask = torch.ones_like(x, dtype=torch.float32)
+        input_length = x.shape[-1]
+        padding_length = (self.patch_size - (input_length %
+                          self.patch_size)) % self.patch_size
+        x = F.pad(x, (padding_length, 0))
+        mask = F.pad(mask, (padding_length, 0))
+        x = x.unfold(dimension=-1, size=self.patch_size,
+                     step=self.patch_size)
+        mask = mask.unfold(dimension=-1, size=self.patch_size, 
+                           step=self.patch_size)
+
+        x = torch.cat([x, mask], dim=-1)
+        hid = self.act(self.hidden_layer(x))
+        out = self.dropout(self.output_layer(hid))
+        res = self.residual_layer(x)
+        out = out + res
+
+        out = rearrange(out, '(b c) p e -> b c p e', b=B, c=C)
+
+        return out
+    
+    """
+    useage:
+    self.embed_layer = SundialPatchEmbedding(config)
+    input_ids is the input of time series, its shape is [batch_size, seq_len]
+    inputs_embeds = self.embed_layer(input_ids)
+    seq_length = inputs_embeds.shape[1]
+    
+    """
 
 
 
@@ -61,8 +122,13 @@ if __name__ == '__main__':
     # output = patch_emb(input)
     #print(output.shape) # (8,64)
 
-    patch_emb = PatchEmbed_ts(ts_len=387,patch_size=9,stride=9)
-    input = torch.randn(6,387)
-    output = patch_emb(input)
-    print(output.shape)
-    print(patch_emb.patch_size)
+    # patch_emb = PatchEmbed_ts(ts_len=387,patch_size=9,stride=9)
+    # input = torch.randn(6,387)
+    # output = patch_emb(input)
+    # print(output.shape)
+    # print(patch_emb.patch_size)
+
+    patch_embed = SundialPatchEmbedding(patch_size=10)
+    input = torch.randn(6,3,300)
+    output = patch_embed(input) # 6, 3, 30, 768
+    print(output.shape)  
