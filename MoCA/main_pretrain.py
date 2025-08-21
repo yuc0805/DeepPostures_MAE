@@ -64,7 +64,8 @@ def get_args_parser():
                         help='Masking scheme')
     parser.add_argument('--pos_weight', default=None, type=float,
                         help='Positive weight for balanced loss') # use 2.8 if want balance loss
-
+    parser.add_argument('--patch_emb', default='vit', type=str, #sundial
+                        help='Patch embedding type')    
     # Optimizer parameters
     parser.add_argument('--weight_decay', type=float, default=0.05,
                         help='weight decay (default: 0.05)')
@@ -169,8 +170,9 @@ def main(args):
     model = MaskedAutoencoderViT(img_size=[args.nvar,args.input_size],patch_size=[1,args.patch_size],
                                 in_chans=1,embed_dim=768, depth=12, num_heads=12,
                                 decoder_embed_dim=512, decoder_depth=8, decoder_num_heads=16,
-                                mlp_ratio=4, norm_layer=partial(nn.LayerNorm, eps=1e-6))
-    
+                                mlp_ratio=4, norm_layer=partial(nn.LayerNorm, eps=1e-6),
+                                patch_emb=args.patch_emb)
+
     model.to(device)
 
     model_without_ddp = model
