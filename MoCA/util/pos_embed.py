@@ -129,80 +129,62 @@ def interpolate_pos_embed(model, checkpoint_model,orig_size=(6,10),new_size=(3,1
             checkpoint_model['pos_embed'] = new_pos_embed
             
 
-# def interpolate_pos_embed(model, checkpoint_model):
-#     if 'pos_embed' in checkpoint_model:
-#         pos_embed_checkpoint = checkpoint_model['pos_embed']
-#         decode_pos_embed_checkpoint = checkpoint_model['decoder_pos_embed']
 
-#         embedding_size = pos_embed_checkpoint.shape[-1]
-#         num_patches = model.num_patches
-#         num_extra_tokens = model.pos_embed.shape[-2] - num_patches
-#         # height (== width) for the checkpoint position embedding
+class SundialRotaryEmbedding(torch.nn.Module):
+    def __init__(self, dim, max_position_embeddings=10000, base=10000, device=None):
+        super().__init__()
+        self.dim = dim
+        self.max_position_embeddings = max_position_embeddings
+        self.base = base
+        inv_freq = 1.0 / (self.base ** (torch.arange(0, self.dim,
+                          2, dtype=torch.int64).float().to(device) / self.dim))
+        self.register_buffer("inv_freq", inv_freq, persistent=False)
 
-#         #orig_size = int((pos_embed_checkpoint.shape[-2] - num_extra_tokens) ** 0.5)
-#         # orig_size = [0,0]
-#         # orig_size[0] = 1 # height 
-#         # orig_size[1] = int((pos_embed_checkpoint.shape[1] - num_extra_tokens))
-#         orig_size = [3,]
-#         print("pos_embed_checkpoint.shape:", pos_embed_checkpoint.shape)
+        # Build here to make `torch.jit.trace` work.
+        self._set_cos_sin_cache(
+            seq_len=max_position_embeddings, device=self.inv_freq.device, dtype=torch.get_default_dtype()
+        )
 
-#         # height (== width) for the new position embedding
-#         new_size = [0,0]
-#         new_size[0] = 1
-#         new_size[1] = int(num_patches)
-#         # class_token and dist_token are kept unchanged
-#         if orig_size != new_size:
-#             print("Position interpolate from %dx%d to %dx%d" % (orig_size[0], orig_size[1], new_size[0], new_size[1])) #changed orig_size [0] and [1] new_size [0] and [1]
-#             extra_tokens = pos_embed_checkpoint[:, :num_extra_tokens]
-#             decode_extra_tokens = decode_pos_embed_checkpoint[:, :num_extra_tokens]
-#             # only the position tokens are interpolated
-#             pos_tokens = pos_embed_checkpoint[:, num_extra_tokens:]
-#             decode_pos_tokens = decode_pos_embed_checkpoint[:, num_extra_tokens:]
-            
-#             decode_pos_tokens = decode_pos_tokens.reshape(-1, orig_size[0], orig_size[1], 512).permute(0, 3, 1, 2)
-#             pos_tokens = pos_tokens.reshape(-1, orig_size[0], orig_size[1], embedding_size).permute(0, 3, 1, 2) #changed orig_size [0] and [1]
+    def _set_cos_sin_cache(self, seq_len, device, dtype):
+        self.max_seq_len_cached = seq_len
+        t = torch.arange(self.max_seq_len_cached, device=device,
+                         dtype=torch.int64).type_as(self.inv_freq)
 
-#             pos_tokens = torch.nn.functional.interpolate(
-#                 pos_tokens, size=(new_size[0], new_size[1]), mode='bicubic', align_corners=False) #changed new_size [0] and [1]
-#             decode_pos_tokens = torch.nn.functional.interpolate(
-#                 decode_pos_tokens, size=(new_size[0], new_size[1]), mode='bicubic', align_corners=False) #changed new_size [0] and [1]
-             
-            
-#             pos_tokens = pos_tokens.permute(0, 2, 3, 1).flatten(1, 2)
-#             decode_pos_tokens = decode_pos_tokens.permute(0, 2, 3, 1).flatten(1, 2)
+        freqs = torch.outer(t, self.inv_freq)
+        # Different from paper, but it uses a different permutation in order to obtain the same calculation
+        emb = torch.cat((freqs, freqs), dim=-1)
+        self.register_buffer(
+            "cos_cached", emb.cos().to(dtype), persistent=False)
+        self.register_buffer(
+            "sin_cached", emb.sin().to(dtype), persistent=False)
 
-#             new_pos_embed = torch.cat((extra_tokens, pos_tokens), dim=1)
-#             checkpoint_model['pos_embed'] = new_pos_embed
+    def forward(self, x, seq_len=None):
+        # x: [bs, num_attention_heads, seq_len, head_size]
+        if seq_len > self.max_seq_len_cached:
+            self._set_cos_sin_cache(
+                seq_len=seq_len, device=x.device, dtype=x.dtype)
 
-#             new_decode_pos_embed = torch.cat((decode_extra_tokens, decode_pos_tokens), dim=1)
-#             checkpoint_model['decoder_pos_embed'] = new_decode_pos_embed
+        return (
+            self.cos_cached[:seq_len].to(dtype=x.dtype),
+            self.sin_cached[:seq_len].to(dtype=x.dtype),
+        )
 
+# helper function
+def apply_rotary_pos_emb(q, k, cos, sin, position_ids, unsqueeze_dim=1):
+    cos = cos[position_ids].unsqueeze(unsqueeze_dim)
+    sin = sin[position_ids].unsqueeze(unsqueeze_dim)
+    q_embed = (q * cos) + (rotate_half(q) * sin)
+    k_embed = (k * cos) + (rotate_half(k) * sin)
+    return q_embed, k_embed
 
+def rotate_half(x):
+    x1 = x[..., : x.shape[-1] // 2]
+    x2 = x[..., x.shape[-1] // 2:]
+    return torch.cat((-x2, x1), dim=-1)
 
-# changed from below
-#def interpolate_pos_embed(model, checkpoint_model):
-#    if 'pos_embed' in checkpoint_model:
-#        pos_embed_checkpoint = checkpoint_model['pos_embed']
-#        embedding_size = pos_embed_checkpoint.shape[-1]
-#        num_patches = model.patch_embed.num_patches
-#        num_extra_tokens = model.pos_embed.shape[-2] - num_patches
-#        # height (== width) for the checkpoint position embedding
-
-#        orig_size = int((pos_embed_checkpoint.shape[-2] - num_extra_tokens) ** 0.5)
-
-
-
-#        # height (== width) for the new position embedding
-#        new_size = int(num_patches ** 0.5)
-#        # class_token and dist_token are kept unchanged
-#        if orig_size != new_size:
-#            print("Position interpolate from %dx%d to %dx%d" % (orig_size, orig_size, new_size, new_size))
-#            extra_tokens = pos_embed_checkpoint[:, :num_extra_tokens]
-#            # only the position tokens are interpolated
-#            pos_tokens = pos_embed_checkpoint[:, num_extra_tokens:]
-#            pos_tokens = pos_tokens.reshape(-1, orig_size, orig_size, embedding_size).permute(0, 3, 1, 2)
-#            pos_tokens = torch.nn.functional.interpolate(
-#                pos_tokens, size=(new_size, new_size), mode='bicubic', align_corners=False)
-#            pos_tokens = pos_tokens.permute(0, 2, 3, 1).flatten(1, 2)
-#            new_pos_embed = torch.cat((extra_tokens, pos_tokens), dim=1)
-#            checkpoint_model['pos_embed'] = new_pos_embed
+# some example:
+# self.rotary_emb = SundialRotaryEmbedding(
+#             self.head_dim, max_position_embeddings=config.max_position_embeddings)
+# cos, sin = self.rotary_emb(value_states, seq_len=kv_seq_len)
+# query_states, key_states = apply_rotary_pos_emb(
+#     query_states, key_states, cos, sin, position_ids)

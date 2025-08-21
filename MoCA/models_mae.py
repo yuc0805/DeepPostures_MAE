@@ -17,31 +17,57 @@ import torch.nn as nn
 from timm.models.vision_transformer import PatchEmbed, Block
 from timm.models.layers import to_2tuple
 from einops import rearrange
-
+from util.patch_embed import SundialPatchEmbedding
 from util.pos_embed import get_2d_sincos_pos_embed
 
 class MaskedAutoencoderViT(nn.Module):
     """ Masked Autoencoder with VisionTransformer backbone
     """
-    def __init__(self, img_size=[3, 100], patch_size=[1,5], in_chans=1, 
-                 embed_dim=768, depth=24, num_heads=16,
-                 decoder_embed_dim=512, decoder_depth=8, decoder_num_heads=16,
-                 mlp_ratio=4., norm_layer=nn.LayerNorm,
+    def __init__(self, 
+                 img_size=[3, 100], 
+                 patch_size=[1,5], 
+                 in_chans=1, 
+                 embed_dim=768, depth=24, 
+                 num_heads=16,
+                 decoder_embed_dim=512, 
+                 decoder_depth=8, 
+                 decoder_num_heads=16,
+                 mlp_ratio=4., 
+                 norm_layer=nn.LayerNorm,
                  is_eval=False,
-                 ): # changed - added alt
+                 norm_pix_loss = False,
+                 mask_loss = False,
+                 patch_emb = 'sundial',
+                 ): 
         super().__init__()
 
         self.in_chans = 1 # FIXME: Hardcoded, ts has only 1 channel
         self.img_size = img_size
+        self.norm_pix_loss = norm_pix_loss
+        self.mask_loss = mask_loss
         # --------------------------------------------------------------------------
         # MAE encoder specifics
-        self.patch_embed = PatchEmbed(img_size=img_size, patch_size=patch_size, in_chans=in_chans, embed_dim=embed_dim)
-        patch_size = self.patch_embed.patch_size
-        num_patches = self.patch_embed.num_patches
+        if patch_emb == 'sundial':
+            self.patch_embed = SundialPatchEmbedding(hidden_size = embed_dim,
+                                                     intermediate_size=embed_dim*mlp_ratio,
+                                                     dropout_rate=0.1,
+                                                     patch_size = patch_size[1],
+                                                     hidden_act='silu')
+            self.patch_embed.num_patches = img_size[0] * int(img_size[1] / patch_size[1])
+        else:
+            self.patch_embed = PatchEmbed(img_size=img_size, 
+                                      patch_size=patch_size, 
+                                      in_chans=in_chans, 
+                                      embed_dim=embed_dim)
+
+        
+        num_patches = self.patch_embed.num_patches  
         self.num_patches = num_patches
         self.embed_dim = embed_dim
+        self.head_dim = self.embed_dim // self.num_heads
         self.is_eval=is_eval
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
+
         self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + 1, embed_dim), requires_grad=False)  # fixed sin-cos embedding
         
         self.blocks = nn.ModuleList([
@@ -440,15 +466,29 @@ class MaskedAutoencoderViT(nn.Module):
        """
        # calculate loss for all time_step
        target = self.patchify(imgs) # bs x num_patches x patch_size
-       #loss = self.mse_loss(pred, target)
+
+       if self.norm_pix_loss:
+            mean = target.mean(dim=-1, keepdim=True)
+            var = target.var(dim=-1, keepdim=True)
+            target = (target - mean) / (var + 1.e-6).sqrt()
+
        loss = (pred - target) ** 2 # bs x num_patches x patch_size
-       loss = loss.mean(dim=[1, 2]) #(Bs, )
-           
+       loss = loss.mean(dim=-1) 
+       
+       if self.mask_loss:
+           loss = (loss * mask).sum() / mask.sum()
+       else:
+           loss = loss.mean()
+
        return loss
     
-    def forward(self, imgs,  mask_ratio=0.75,
+    def forward(self, 
+                imgs,  
+                mask_ratio=0.75,
                 masking_scheme=None,):
-
+        '''
+        imgs: BS, nvar, L
+        '''
         latent, mask, ids_restore = self.forward_encoder(imgs, mask_ratio,
                                                          masking_scheme,)
         pred = self.forward_decoder(latent, ids_restore)  # [N, L, p*p*3]
@@ -456,8 +496,15 @@ class MaskedAutoencoderViT(nn.Module):
         return loss, pred, mask
 
 class AttentionProbeModel(nn.Module):
-    def __init__(self, base_model, window_size=42,num_classes=2,num_layer=1,
-                 hidden_dim=256,dropout=0.1,use_pos_embed=False,learnable_pos_embed=True):
+    def __init__(self, base_model, 
+                 window_size=42,
+                 num_classes=2,
+                 num_layer=1,
+                 mlp_ratio=4,
+                 hidden_dim=768,
+                 num_heads=16,
+                 use_pos_embed=False,
+                 learnable_pos_embed=True):
         super(AttentionProbeModel, self).__init__()
         self.base_model = base_model
         self.base_model.head = nn.Identity()  # Remove the original head
@@ -468,14 +515,12 @@ class AttentionProbeModel(nn.Module):
         else:
             self.pos_embed = None
         self.learnable_pos_embed = learnable_pos_embed
-        encoder_layer = nn.TransformerEncoderLayer(
-            d_model=hidden_dim,
-            nhead=8,
-            dim_feedforward=hidden_dim*2,
-            batch_first=True,
-            dropout=dropout
-        )
-        self.attn = nn.TransformerEncoder(encoder_layer, num_layers=num_layer)
+
+        self.attn = nn.ModuleList([
+            Block(hidden_dim, num_heads, mlp_ratio, qkv_bias=True, norm_layer=nn.LayerNorm,)
+            for i in range(num_layer)])
+        self.norm = nn.LayerNorm(hidden_dim)
+
         if num_classes == 2:
             self.head = nn.Linear(hidden_dim, 1)    
         else:
@@ -507,7 +552,10 @@ class AttentionProbeModel(nn.Module):
         if self.pos_embed is not None:
             x = x + self.pos_embed
 
-        x = self.attn(x) # BS, 42, 256
+        for blk in self.attn:
+            x = blk(x) # BS, 42, 256
+        x = self.norm(x) # BS, 42, 256
+
         x = self.head(x) # BS, 42, num_classes
 
         return x
