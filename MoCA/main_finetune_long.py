@@ -349,7 +349,7 @@ def main(args):
         #     drop_path_rate = args.drop_path_rate)
         #     #global_pool='avg')
         
-        model = MaskedAutoencoderViT(img_size=[3,100],
+        base_model = MaskedAutoencoderViT(img_size=[3,100],
                                      patch_size=[1,5],
                                      patch_emb=args.patch_emb)
         
