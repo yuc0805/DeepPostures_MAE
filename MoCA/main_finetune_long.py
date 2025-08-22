@@ -226,9 +226,10 @@ def main(args):
     data_loader_train = torch.utils.data.DataLoader(
         dataset_train, sampler=sampler_train,
         batch_size=args.batch_size,
-        num_workers=args.num_workers,
+        num_workers=int(args.num_workers//2),
         pin_memory=args.pin_mem,
         drop_last=True,
+        prefetch_factor=int(args.num_workers//2),
     )
 
     data_loader_val = torch.utils.data.DataLoader(
