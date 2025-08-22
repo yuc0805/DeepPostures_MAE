@@ -37,7 +37,8 @@ class MaskedAutoencoderViT(nn.Module):
                  is_eval=False,
                  norm_pix_loss = False,
                  mask_loss = False,
-                 patch_emb = 'vit', #sundial
+                 patch_emb = 'vit', #sundial,
+                 use_rope = False,
                  ): 
         super().__init__()
 
@@ -45,6 +46,9 @@ class MaskedAutoencoderViT(nn.Module):
         self.img_size = img_size
         self.norm_pix_loss = norm_pix_loss
         self.mask_loss = mask_loss
+
+        num_time_token = int(img_size[1] / patch_size[1])
+        num_chan_token = img_size[0]
         # --------------------------------------------------------------------------
         # MAE encoder specifics
         if patch_emb == 'sundial':
@@ -53,7 +57,7 @@ class MaskedAutoencoderViT(nn.Module):
                                                      dropout_rate=0.1,
                                                      patch_size=patch_size,
                                                      hidden_act='silu')
-            self.patch_embed.num_patches = img_size[0] * int(img_size[1] / patch_size[1])
+            self.patch_embed.num_patches = int(num_time_token * num_chan_token)
         else:
             self.patch_embed = PatchEmbed(img_size=img_size, 
                                       patch_size=patch_size, 
@@ -65,14 +69,34 @@ class MaskedAutoencoderViT(nn.Module):
         self.num_patches = num_patches
         self.embed_dim = embed_dim
         self.head_dim = self.embed_dim // num_heads
-        self.is_eval=is_eval
+        self.is_eval = is_eval
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
+        self.use_rope = use_rope
 
-        self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + 1, embed_dim), requires_grad=False)  # fixed sin-cos embedding
-        
-        self.blocks = nn.ModuleList([
-            Block(embed_dim, num_heads, mlp_ratio, qkv_bias=True, norm_layer=norm_layer)
+        if use_rope:
+            from vision_transformer import BlockWithRoPE
+            self.blocks = nn.ModuleList([
+            BlockWithRoPE(
+                num_time_token=num_time_token,
+                num_chan_token=num_chan_token,
+                embed_dim=embed_dim,
+                num_heads=num_heads,
+                max_time_len=500,
+                max_chan_len=20,
+                base_time=500.0,
+                base_chan=20.0,
+                mlp_ratio=4.0,
+                qkv_bias=True,
+                cls_token=True,
+            )
             for i in range(depth)])
+            self.pos_embed = torch.zeros(1, num_patches + 1, embed_dim)  # place holder.
+        else:
+            self.blocks = nn.ModuleList([
+                Block(embed_dim, num_heads, mlp_ratio, qkv_bias=True, norm_layer=norm_layer)
+                for i in range(depth)])
+            self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + 1, embed_dim), requires_grad=False)  # fixed sin-cos embedding
+            
         self.norm = norm_layer(embed_dim)
         # --------------------------------------------------------------------------
 
@@ -82,11 +106,30 @@ class MaskedAutoencoderViT(nn.Module):
 
         self.mask_token = nn.Parameter(torch.zeros(1, 1, decoder_embed_dim))
 
-        self.decoder_pos_embed = nn.Parameter(torch.zeros(1, num_patches + 1, decoder_embed_dim), requires_grad=False)  # fixed sin-cos embedding
-
-        self.decoder_blocks = nn.ModuleList([
-            Block(decoder_embed_dim, decoder_num_heads, mlp_ratio, qkv_bias=True, norm_layer=norm_layer)
+        
+        if use_rope:
+            self.decoder_blocks = nn.ModuleList([
+            BlockWithRoPE(
+                num_time_token=num_time_token,
+                num_chan_token=num_chan_token,
+                embed_dim=decoder_embed_dim,
+                num_heads=decoder_num_heads,
+                max_time_len=500,
+                max_chan_len=20,
+                base_time=500.0,
+                base_chan=20.0,
+                mlp_ratio=4.0,
+                qkv_bias=True,
+                cls_token=True,
+            )
             for i in range(decoder_depth)])
+            self.decoder_pos_embed = torch.zeros(1, num_patches + 1, decoder_embed_dim)  # place holder.
+
+        else:
+            self.decoder_blocks = nn.ModuleList([
+                Block(decoder_embed_dim, decoder_num_heads, mlp_ratio, qkv_bias=True, norm_layer=norm_layer)
+                for i in range(decoder_depth)])
+            self.decoder_pos_embed = nn.Parameter(torch.zeros(1, num_patches + 1, decoder_embed_dim), requires_grad=False)  # fixed sin-cos embedding
 
         self.decoder_norm = norm_layer(decoder_embed_dim)
         self.decoder_pred = nn.Linear(decoder_embed_dim, patch_size[0] * patch_size[1] * in_chans, bias=True) # decoder to patch
@@ -98,11 +141,12 @@ class MaskedAutoencoderViT(nn.Module):
     def initialize_weights(self):
         # initialization
         # initialize (and freeze) pos_embed by sin-cos embedding
-        pos_embed = get_2d_sincos_pos_embed(self.pos_embed.shape[-1], [1, int(self.patch_embed.num_patches)], cls_token=True)
-        self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
+        if not self.use_rope:
+            pos_embed = get_2d_sincos_pos_embed(self.pos_embed.shape[-1], [1, int(self.patch_embed.num_patches)], cls_token=True)
+            self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
 
-        decoder_pos_embed = get_2d_sincos_pos_embed(self.decoder_pos_embed.shape[-1], [1, int(self.patch_embed.num_patches)], cls_token=True)
-        self.decoder_pos_embed.data.copy_(torch.from_numpy(decoder_pos_embed).float().unsqueeze(0))
+            decoder_pos_embed = get_2d_sincos_pos_embed(self.decoder_pos_embed.shape[-1], [1, int(self.patch_embed.num_patches)], cls_token=True)
+            self.decoder_pos_embed.data.copy_(torch.from_numpy(decoder_pos_embed).float().unsqueeze(0))
 
         if hasattr(self.patch_embed, "proj"):
             # vit init
@@ -184,9 +228,9 @@ class MaskedAutoencoderViT(nn.Module):
         # unshuffle to get the binary mask
         mask = torch.gather(mask, dim=1, index=ids_restore)
 
-            
-        return x_masked, mask, ids_restore
-    
+
+        return x_masked, mask, ids_restore, ids_keep
+
     def chunked_masking(self, x, mask_c_prob=0.8, mask_r_prob=0):
         """
         Perform chunked masking on 2D inputs with consecutive masked regions.
@@ -416,16 +460,20 @@ class MaskedAutoencoderViT(nn.Module):
                 raise ValueError(f"Unknown masking scheme: {masking_scheme}")
             ########################################################################################
         else:
-            x, mask, ids_restore = self.random_masking(x, mask_ratio=mask_ratio)
-        
+            x, mask, ids_restore, ids_keep = self.random_masking(x, mask_ratio=mask_ratio)
+
         # append cls token
         cls_token = self.cls_token + self.pos_embed[:, :1, :]
         cls_tokens = cls_token.expand(x.shape[0], -1, -1)
         x = torch.cat((cls_tokens, x), dim=1)
        
         # apply Transformer blocks
+        
         for blk in self.blocks:
-            x = blk(x)
+            if self.use_rope:
+                x = blk(x, vis_idx=ids_keep)
+            else:
+                x = blk(x)
         x = self.norm(x)
 
         return x, mask, ids_restore
@@ -610,9 +658,10 @@ class LinearProbeModel(nn.Module):
 
 
 if __name__ == "__main__":
-    model = MaskedAutoencoderViT(patch_emb='sundial')
+    model = MaskedAutoencoderViT(patch_emb='sundial',use_rope=True)
     x = torch.randn(4,1,3,100)
     loss, pred, mask = model(x,mask_ratio=0.75,)
-    print(mask)
+    print(mask.shape)
+    print(loss)
 
 
