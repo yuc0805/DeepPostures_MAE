@@ -6,8 +6,8 @@ torchrun --nproc_per_node=4 -m main_finetune_long \
 --model shallow-moca \
 --epochs 20 \
 --warmup_epochs 2 \
---batch_size 8 \
---accum_iter 2 \
+--batch_size 4 \
+--accum_iter 8 \
 --weight_decay 5e-2 \
 --subset_ratio 1.0 \
 --pos_weight 1.0 \
