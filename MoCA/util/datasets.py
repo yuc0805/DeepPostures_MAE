@@ -142,7 +142,7 @@ def data_aug(x):
     x = channel_permute(x)
     x = jittering(x)
     x = scaling(x)
-    x = time_warp(x)
+    #x = time_warp(x)
 
     return x
 
