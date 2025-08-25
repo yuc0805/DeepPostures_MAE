@@ -20,7 +20,7 @@ import torch
 import torch.backends.cudnn as cudnn
 import wandb
 import h5py
-from util.datasets import data_aug,iWatch_HDf5,simple_collate_fn,iWatch,flatten_collate_fn
+from util.datasets import data_aug,iWatch,flatten_collate_fn,long_collate_fn
 
 import timm
 import torch.nn as nn
@@ -46,7 +46,8 @@ def get_args_parser():
                         help='save frequency, default 5 epochs')
     parser.add_argument('--window_size',default=42, type=int,
                     help='window size for the attention mechanism') # chap_ds = 42
-
+    parser.add_argument('--project_name',default='iWatch-MoCA', type=str,
+                    help='project name for wandb logging')
     # Model parameters
     parser.add_argument('--model', default='mae_vit_base_patch16', type=str, metavar='MODEL',
                         help='Name of model to train')
@@ -148,7 +149,7 @@ def main(args):
     if global_rank == 0 and args.log_dir is not None:
         wandb.login(key='32b6f9d5c415964d38bfbe33c6d5c407f7c19743')   
         log_writer = wandb.init(
-            project='iWatch-MoCA',  # Specify your project
+            project=args.project_name,  # Specify your project
             config= vars(args),
             dir=args.log_dir,
             name=args.remark,)
@@ -156,6 +157,7 @@ def main(args):
     else:
         log_writer = None
 
+    collate_fn = flatten_collate_fn if args.input_size < 1000 else long_collate_fn
     data_loader_train = torch.utils.data.DataLoader(
         dataset_train,
         sampler = sampler_train,
@@ -163,8 +165,8 @@ def main(args):
         num_workers=args.num_workers,
         pin_memory=args.pin_mem,
         drop_last=True,
-        collate_fn=flatten_collate_fn,
-        prefetch_factor=4,  # for faster data loading
+        collate_fn=collate_fn,
+        prefetch_factor=2,  # for faster data loading
     )
 
     model = MaskedAutoencoderViT(img_size=[args.nvar,args.input_size],patch_size=[1,args.patch_size],
@@ -209,30 +211,24 @@ def main(args):
 
     misc.load_model(args=args, model_without_ddp=model_without_ddp, optimizer=optimizer, loss_scaler=loss_scaler)
    
-    # fix a sample for plot ###########
-    # if args.data_path == '/niddk-data-central/iWatch/pre_processed_seg/H':
-    #     root = "/niddk-data-central/iWatch/pre_processed_seg/H/train.hdf5"
-    #     idx = 500674
-    # elif args.data_path == '/niddk-data-central/iWatch/pre_processed_seg/W':
-    #     root = "/niddk-data-central/iWatch/pre_processed_seg/W/train.hdf5"
-    #     idx = 500674
-    # else:
-    #     root = "/niddk-data-central/iWatch/pre_processed_seg/HW/10s_train.h5"
-    #     idx = 3883
 
-    # with h5py.File(root, "r") as f:
-    #     tmp_sample = f['x'][idx]  # (100, 3)
-    #     print('the index is', idx)  
-    #     tmp_label = 'sitting' if f['y'][idx] == 0 else 'non-sitting' 
-    #     print('the sample label is', tmp_label)
+    if args.input_size <= 1000:
+        sample_x, sample_y, timestamp = dataset_train[2] # 1, 42, 100, 3
+        sample_x = sample_x[20] # 100,3
+        sample_y = sample_y[20]
+        timestamp = timestamp[20]
+        timestamp = datetime.datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
+        print('the sample label is', sample_y, 'at', timestamp)
+        tmp_sample = sample_x.permute(1,0).unsqueeze(0).unsqueeze(0)  # (1, 1, 3, 100)
 
-    sample_x, sample_y, timestamp = dataset_train[2] # 1, 42, 100, 3
-    sample_x = sample_x[20] # 100,3
-    sample_y = sample_y[20]
-    timestamp = timestamp[20]
-    timestamp = datetime.datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
-    print('the sample label is', sample_y, 'at', timestamp)
-    tmp_sample = sample_x.permute(1,0).unsqueeze(0).unsqueeze(0)  # (1, 1, 3, 100)
+    else:
+        batch_x, batch_y, batch_timestamp = next(iter(data_loader_train))  # x: [bs, 3, win_size*100]
+
+        # Pick a sample from the batch
+        i = 2
+        tmp_sample = batch_x[i].unsqueeze(0)               # [1, 1, 3, win_size*100]
+        sample_y = batch_y[i*42]                
+        timestamp = batch_timestamp[i*42]  
     ############################################
 
     print(f"Start training for {args.epochs} epochs")
@@ -282,10 +278,6 @@ def main(args):
                 plt.close(fig)
                 
                 torch.cuda.empty_cache()
-
-        log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
-                        'epoch': epoch,}
-                        
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))

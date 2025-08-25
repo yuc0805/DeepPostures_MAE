@@ -340,11 +340,46 @@ def flatten_collate_fn(batch):
     if len(clean_x) == 0:
         return None  # or raise error
 
-    x = torch.cat(clean_x, dim=0)  # [bs * win_size, 3, 100]
+    x = torch.cat(clean_x, dim=0)  # [bs * win_size, 1, 3, 100]
     y = torch.cat(clean_y, dim=0)  # [bs * win_size]
     timestamp = torch.cat(clean_timestamp, dim=0)  # [bs * win_size]
 
     return x, y, timestamp
+
+def long_collate_fn(batch):
+    '''
+    Each item:
+    x: [win_size, 100, 3]
+    y: [win_size]
+    timestamp: [win_size]
+
+    Output:
+    x: [bs, 3, win_size * 100]
+    y: [bs * win_size]
+    timestamp: [bs * win_size]
+    '''
+    clean_x, clean_y, clean_timestamp = [], [], []
+
+    for x, y, timestamp in batch:
+        if torch.isnan(x).any() or torch.isinf(x).any():
+            continue
+
+        # x: (win_size, 100, 3) → (3, win_size * 100)
+        x = rearrange(x, 'w l c -> c (w l)')
+        clean_x.append(x)
+        clean_y.append(y)
+        clean_timestamp.append(torch.as_tensor(timestamp))
+
+    if len(clean_x) == 0:
+        return None  # or raise error
+
+    # Stack along batch dimension
+    x = torch.stack(clean_x, dim=0).unsqueeze(1)  # [bs, 1, 3, win_size * 100]
+    y = torch.cat(clean_y, dim=0)    # [bs * win_size]
+    timestamp = torch.cat(clean_timestamp, dim=0)  # [bs * win_size]
+
+    return x, y, timestamp
+
 
 if __name__ == "__main__":
     print("Starting dataset loading and testing...")
