@@ -1,3 +1,5 @@
+pip install transformers
+
 torchrun --nproc_per_node=4 -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/SOL/PASOS/train/SOL_10hz" \
