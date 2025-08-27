@@ -208,10 +208,10 @@ def main(args):
         set_type='val',
         root=args.data_path,
         transform=None,)
-    # dataset_test = iWatch(
-    #     set_type='test_complete',
-    #     root=args.data_path,
-    #     transform=None,)
+    dataset_test = iWatch(
+        set_type='test_complete',
+        root=args.data_path,
+        transform=None,)
 
     print(f"using {args.subset_ratio} of train dataset, {len(dataset_train)} samples")
 
@@ -241,13 +241,13 @@ def main(args):
         shuffle=False,
     )
 
-    # data_loader_test = torch.utils.data.DataLoader(
-    #     dataset_test,
-    #     batch_size=args.batch_size,
-    #     num_workers=args.num_workers,
-    #     pin_memory=args.pin_mem,
-    #     drop_last=False,
-    #     shuffle=False,  )
+    data_loader_test = torch.utils.data.DataLoader(
+        dataset_test,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+        pin_memory=args.pin_mem,
+        drop_last=False,
+        shuffle=False,  )
 
     if args.log_dir is not None and not args.eval and global_rank == 0:  
         wandb.login(key='32b6f9d5c415964d38bfbe33c6d5c407f7c19743')
@@ -473,8 +473,8 @@ def main(args):
         else:
             val_stats = evaluate(args,data_loader_val, model, device)
             print(f"Balanced Accuracy of the network in validation-set: {val_stats['bal_acc']:.5f}% and F1 score of {val_stats['f1']:.5f}%")
-            # test_stats = evaluate(args,data_loader_test, model, device)
-            # print(f"Balanced Accuracy of the network in test-set: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
+            test_stats = evaluate(args,data_loader_test, model, device)
+            print(f"Balanced Accuracy of the network in test-set: {test_stats['bal_acc']:.5f}% and F1 score of {test_stats['f1']:.5f}%")
             train_stats = evaluate(args,data_loader_train, model, device)
             print(f"Balanced Accuracy of the network in training-set: {train_stats['bal_acc']:.5f}% and F1 score of {train_stats['f1']:.5f}%")
 
@@ -894,7 +894,7 @@ python -m main_finetune_long \
 --make_prediction \
 --prediction_dir "/niddk-data-central/leo_workspace/iWatch-Validation/W/CHAP-RandomInit" 
 #######
-
+# MoCA shallow
 python -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
