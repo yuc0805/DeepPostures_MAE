@@ -827,7 +827,7 @@ python -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
 --model CNNBiLSTMModel \
---eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/CHAPset_1.0_blr_0.001_bs_32_input_size_[3, 4200]/2025-07-08_19-52/checkpoint-best.pth" \
+--eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/CHAP-Randomset_0.01_blr_0.001_bs_32_input_size_[3, 4200]/2025-08-26_18-52/checkpoint-best.pth" \
 --remark wrist \
 --batch_size 512 \
 --use_data_aug 0 \
@@ -838,7 +838,7 @@ python -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_long_seg/H" \
 --model CNNBiLSTMModel \
---eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/CHAPset_1.0_blr_0.001_bs_32_input_size_[3, 4200]/2025-07-08_20-55/checkpoint-best.pth" \
+--eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/CHAP-Randomset_0.01_blr_0.001_bs_32_input_size_[3, 4200]/2025-08-26_22-18/checkpoint-best.pth" \
 --remark hip \
 --batch_size 512 \
 --use_data_aug 0 \
@@ -899,7 +899,7 @@ python -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_long_seg/W" \
 --model shallow-moca \
---eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/shallow-moca-ftset_1.0_blr_0.001_bs_8_input_size_[3, 4200]/2025-06-14_12-54/checkpoint-best.pth"  \
+--eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/shallow-moca-ftset_0.1_blr_0.001_bs_8_input_size_[3, 4200]/2025-06-16_17-23/checkpoint-best.pth"  \
 --remark wrist \
 --batch_size 128 \
 --use_data_aug 0 \
@@ -911,7 +911,7 @@ python -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_long_seg/H" \
 --model shallow-moca \
---eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/shallow-moca-ftset_1.0_blr_0.001_bs_8_input_size_[3, 4200]/2025-06-15_08-26/checkpoint-best.pth" \
+--eval "/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt/shallow-moca-ftset_0.1_blr_0.001_bs_8_input_size_[3, 4200]/2025-06-16_17-23/checkpoint-best.pth" \
 --remark hip \
 --batch_size 128 \
 --use_data_aug 0 \
