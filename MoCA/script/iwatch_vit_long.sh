@@ -4,8 +4,9 @@ torchrun --nproc_per_node=4 -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_long_seg/H" \
 --remark vit-long \
---blr 1e-3 \
---weight_decay 1e-1 \
+--blr 5e-4 \
+--weight_decay 5e-2 \
+--layer_decay 1.0 \
 --model vit-long \
 --epochs 200 \
 --warmup_epochs 20 \
