@@ -603,8 +603,14 @@ def main(args):
             args=args, device=device,
         )
 
+
         test_stats = evaluate(args, data_loader_val, model, device)
         print(f"Balanced Accuracy of the network on test images: {test_stats['bal_acc']:.5f} and F1 score of {test_stats['f1']:.5f}%")
+
+        # Avoid NCCL Comm error
+        if torch.distributed.is_initialized():
+            print('Watiing for all processes to finish')
+            torch.distributed.barrier()
 
         if max_accuracy < test_stats["bal_acc"]:
             max_accuracy = test_stats["bal_acc"]
