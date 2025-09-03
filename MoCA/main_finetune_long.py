@@ -36,7 +36,7 @@ from timm.optim import create_optimizer_v2
 from util.pos_embed import interpolate_pos_embed
 import util.lr_decay as lrd  # for optimizer
 import models_vit
-from models_mae import LinearProbeModel, MaskedAutoencoderViT
+from models_mae import ClassiferHeadWrapper, MaskedAutoencoderViT
 from engine_finetune_long import train_one_epoch, evaluate
 from util.loss import BinaryFocalLoss
 from models_mae import AttentionProbeModel
@@ -344,12 +344,6 @@ def main(args):
             interaction_layer=interaction_layer,
             num_classes=args.nb_classes,)
     elif args.model == 'shallow-moca':
-        # base_model = models_vit.__dict__['vit_base_patch16'](
-        #     img_size=[3,100], patch_size=[1, 5], 
-        #     num_classes=args.nb_classes, in_chans=1, global_pool=False,
-        #     drop_path_rate = args.drop_path_rate)
-        #     #global_pool='avg')
-        
         base_model = MaskedAutoencoderViT(img_size=[3,100],
                                      patch_size=[1,5],
                                      patch_emb=args.patch_emb)
@@ -357,9 +351,7 @@ def main(args):
         if args.checkpoint:
             checkpoint = torch.load(args.checkpoint,map_location='cpu')
             checkpoint_model = checkpoint['model']
-            # interpolate_pos_embed(base_model, checkpoint_model,orig_size=(args.in_chans,int(100//args.patch_size)), 
-            #                       new_size=(args.input_size[0],int(args.input_size[1]//args.patch_size)))
-            #print(checkpoint_model.keys())
+
             decoder_keys = [k for k in checkpoint_model.keys() if 'decoder' in k]
             for key in decoder_keys:
                 del checkpoint_model[key]
@@ -367,6 +359,7 @@ def main(args):
             print('shape after interpolate:',checkpoint_model['pos_embed'].shape)
             msg = base_model.load_state_dict(checkpoint_model, strict=False)
             print(msg)
+            
         else:
             print('No checkpoint provided, using random initialization for the model.')
 
@@ -380,6 +373,13 @@ def main(args):
                                     
         
     #######################
+    elif args.model == 'vit-long':
+        base_model = MaskedAutoencoderViT(img_size=[3,args.input_size],
+                                patch_size=[1,args.patch_size],
+                                patch_emb=args.patch_emb)
+        # TODO: No weight to load right now.
+        model = ClassiferHeadWrapper(base_model, num_classes=args.nb_classes)
+
     else:
         backbone = models_vit.__dict__[args.model](
         img_size=args.input_size, patch_size=[1, int(args.patch_size)], 
@@ -404,7 +404,7 @@ def main(args):
             msg = backbone.load_state_dict(checkpoint_model, strict=False)
             print(msg)
 
-        model = LinearProbeModel(backbone, num_classes=args.nb_classes)
+        model = ClassiferHeadWrapper(backbone, num_classes=args.nb_classes)
 
     if args.eval:
         # Evaluate 

@@ -149,7 +149,7 @@ def data_aug(x):
 import h5py
 class iWatch(Dataset):
     def __init__(self, 
-                 root='/niddk-data-central/iWatch/pre_processed_long_seg',
+                 root='/niddk-data-central/iWatch/pre_processed_long_seg/H',
                  set_type='train',
                  transform=None,
                  std_sampling=False,
