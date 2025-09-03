@@ -1,7 +1,6 @@
 pip install transformers
 
-#torchrun --nproc_per_node=4 
-python -m main_finetune_long \
+torchrun --nproc_per_node=4 -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_long_seg/H" \
 --remark vit-long \
