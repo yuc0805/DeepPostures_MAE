@@ -12,7 +12,7 @@ torchrun --nproc_per_node=4 -m main_finetune_long \
 --warmup_epochs 20 \
 --batch_size 64 \
 --subset_ratio 1.0 \
---pos_weight 2.7953 \
+--pos_weight 2.8232  \
 --input_size 4200 \
 --patch_size 100 \
 --use_data_aug 1 \
