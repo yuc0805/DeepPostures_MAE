@@ -66,6 +66,7 @@ class MaskedAutoencoderViT(nn.Module):
 
         
         num_patches = self.patch_embed.num_patches  
+        print('number of patches', num_patches)
         self.num_patches = num_patches
         self.embed_dim = embed_dim
         self.head_dim = self.embed_dim // num_heads
@@ -630,7 +631,7 @@ class ClassiferHeadWrapper(nn.Module):
     def __init__(self, backbone, num_classes=2):
         super(ClassiferHeadWrapper, self).__init__()
         # make sure head is clean
-        num_feats = backbone.head.in_features 
+        num_feats = backbone.blocks[0].norm1.normalized_shape[0]
         backbone.head = nn.Identity()
         self.backbone = backbone
         if num_classes == 2:

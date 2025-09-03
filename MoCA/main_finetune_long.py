@@ -377,6 +377,7 @@ def main(args):
         base_model = MaskedAutoencoderViT(img_size=[3,args.input_size],
                                 patch_size=[1,args.patch_size],
                                 patch_emb=args.patch_emb)
+        
         # TODO: No weight to load right now.
         model = ClassiferHeadWrapper(base_model, num_classes=args.nb_classes)
 
@@ -525,6 +526,12 @@ def main(args):
     n_total_parameters = sum(p.numel() for p in model.parameters())
     print('Total number of parameters: %.2f' % (n_total_parameters))
 
+    # Print non-trainable layers
+    print("\nLayers with requires_grad=False:")
+    for name, param in model.named_parameters():
+        if not param.requires_grad:
+            print(f" - {name}: shape={tuple(param.shape)}")
+            
     model.to(device)
     eff_batch_size = args.batch_size * args.accum_iter * misc.get_world_size()
     model_without_ddp = model
