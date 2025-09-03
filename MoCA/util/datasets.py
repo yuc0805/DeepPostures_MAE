@@ -213,7 +213,7 @@ class iWatch(Dataset):
         else:
             x_aug = x.copy()
 
-        x_aug = torch.from_numpy(x_aug).to(dtype=torch.float32)
+        x_aug = torch.from_numpy(x_aug).to(dtype=torch.float32) # (42, 100, 3)
         y = torch.tensor(y, dtype=torch.long)
 
         return x_aug, y, timestamp
@@ -404,7 +404,7 @@ if __name__ == "__main__":
 
     # Iterate through the train DataLoader
     print("Training DataLoader:")
-    for i, (images, labels) in enumerate(train_loader):
+    for i, (images, labels,_) in enumerate(train_loader):
         print(f"Batch {i + 1}:")
         print(f"Images shape: {images.shape}") # bs x nvar x 1 x L
         print(f"Labels shape: {labels.shape}") # bs 
@@ -413,7 +413,7 @@ if __name__ == "__main__":
 
     # Iterate through the test DataLoader
     print("\nTesting DataLoader:")
-    for i, (images, labels) in enumerate(test_loader):
+    for i, (images, labels,_) in enumerate(test_loader):
         print(f"Batch {i + 1}:")
         print(f"Images shape: {images.shape}")
         print(f"Labels shape: {labels.shape}")
