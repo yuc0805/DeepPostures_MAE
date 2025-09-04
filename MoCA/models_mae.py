@@ -59,7 +59,7 @@ class MaskedAutoencoderViT(nn.Module):
             self.patch_embed = SundialPatchEmbedding(hidden_size = embed_dim,
                                                      intermediate_size=int(embed_dim * mlp_ratio),
                                                      dropout_rate=0.1,
-                                                     patch_size=patch_size,
+                                                     patch_size=patch_size[1],
                                                      hidden_act='silu')
             self.patch_embed.num_patches = int(num_time_token * num_chan_token)
         else:

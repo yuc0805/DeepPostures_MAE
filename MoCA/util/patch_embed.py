@@ -49,23 +49,25 @@ import torch.nn.functional as F
 class SundialPatchEmbedding(nn.Module):
     # develop feasible patch tokenization for arbitrary-length input time series
     # default is Sundial config
+    '''
+    fixed number of patches, but make patch size flexible.
+    '''
     def __init__(self,
                  hidden_size=768,
                  intermediate_size=3072,
                  dropout_rate=0.1,
-                 patch_size=[1,5],
+                 patch_size=10, # iwatch config
                  hidden_act='silu'):
         super().__init__()
         self.dropout = nn.Dropout(dropout_rate)
         self.hidden_layer = nn.Linear(
-            patch_size[1] * 2, intermediate_size)
+            patch_size * 2, intermediate_size) # *2 because need to input the mask too.
         self.act = ACT2FN[hidden_act]
         self.output_layer = nn.Linear(
             intermediate_size, hidden_size)
         self.residual_layer = nn.Linear(
-            patch_size[1] * 2, hidden_size)
+            patch_size * 2, hidden_size)
         self.patch_size = patch_size
-
     def forward(self, x):
         '''
         x: input tensor of shape [batch_size, nvar, seq_len]
@@ -74,19 +76,19 @@ class SundialPatchEmbedding(nn.Module):
         '''
 
         B, _, C, L = x.shape
-        patch_size = self.patch_size[1]
         x = rearrange(x, 'b 1 c l -> (b c) l') 
 
         mask = torch.ones_like(x, dtype=torch.float32)
         input_length = x.shape[-1]
-        padding_length = (patch_size - (input_length %
-                          patch_size)) % patch_size
+        padding_length = (self.patch_size - (input_length %
+                          self.patch_size)) % self.patch_size
         x = F.pad(x, (padding_length, 0))
         mask = F.pad(mask, (padding_length, 0))
-        x = x.unfold(dimension=-1, size=patch_size,
-                     step=patch_size)
-        mask = mask.unfold(dimension=-1, size=patch_size,
-                           step=patch_size)
+        # patchify x and mask
+        x = x.unfold(dimension=-1, size=self.patch_size,
+                     step=self.patch_size) # (b*c, num_patches, patch_size)
+        mask = mask.unfold(dimension=-1, size=self.patch_size,
+                           step=self.patch_size)
 
         x = torch.cat([x, mask], dim=-1)
         hid = self.act(self.hidden_layer(x))
@@ -108,10 +110,6 @@ class SundialPatchEmbedding(nn.Module):
     """
 
 
-
-
-
-
 if __name__ == '__main__':
     # patch_emb = PatchEmbed_new(img_size=(387,65), patch_size=(9,5), in_chans=3, embed_dim=64, stride=(9,5))
     # input = torch.rand(8,3,387,65)
@@ -130,6 +128,6 @@ if __name__ == '__main__':
     # print(patch_emb.patch_size)
 
     patch_embed = SundialPatchEmbedding(patch_size=10)
-    input = torch.randn(6,3,300)
-    output = patch_embed(input) # 6, 3, 30, 768
+    input = torch.randn(6,1,3,300)
+    output = patch_embed(input) # 6,90, 768
     print(output.shape)  
