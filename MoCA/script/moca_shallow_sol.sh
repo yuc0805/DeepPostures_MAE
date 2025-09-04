@@ -3,7 +3,8 @@ pip install transformers
 torchrun --nproc_per_node=4 -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/SOL/PASOS/train/SOL_10hz" \
---remark moca-shallow-random-init \
+--remark moca-shallow \
+--checkpoint "/niddk-data-central/leo_workspace/MoCA_result/ckpt/SOLps_5_mask_0.5_bs_12_blr_None_epoch_100/2025-08-22_03-32/checkpoint-99.pth" \
 --blr 1e-3 \
 --model shallow-moca \
 --epochs 20 \
