@@ -346,8 +346,9 @@ def main(args):
     elif args.model == 'shallow-moca':
         base_model = MaskedAutoencoderViT(img_size=[3,100],
                                      patch_size=[1,5],
-                                     patch_emb=args.patch_emb)
-        
+                                     patch_emb=args.patch_emb,
+                                     learnable_pos_embed=args.learnable_pos_embed)
+
         if args.checkpoint:
             checkpoint = torch.load(args.checkpoint,map_location='cpu')
             checkpoint_model = checkpoint['model']
@@ -376,7 +377,8 @@ def main(args):
     elif args.model == 'vit-long':
         base_model = MaskedAutoencoderViT(img_size=[3,args.input_size],
                                 patch_size=[1,args.patch_size],
-                                patch_emb=args.patch_emb)
+                                patch_emb=args.patch_emb,
+                                learnable_pos_embed=args.learnable_pos_embed)
         
         # TODO: No weight to load right now.
         model = ClassiferHeadWrapper(base_model, num_classes=args.nb_classes)
@@ -385,8 +387,9 @@ def main(args):
         # channel-mixing
         base_model = MaskedAutoencoderViT(img_size=[3,args.input_size],
                                 patch_size=[3,args.patch_size],
-                                patch_emb=args.patch_emb)
-        
+                                patch_emb=args.patch_emb,
+                                learnable_pos_embed=args.learnable_pos_embed)
+
         # TODO: No weight to load right now.
         model = ClassiferHeadWrapper(base_model, num_classes=args.nb_classes)
 

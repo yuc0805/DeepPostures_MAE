@@ -38,6 +38,7 @@ class MaskedAutoencoderViT(nn.Module):
                  norm_pix_loss = False,
                  mask_loss = False,
                  patch_emb = 'vit', #sundial,
+                 learnable_pos_embed = False,
                  use_rope = False,
                  ): 
         super().__init__()
@@ -46,6 +47,9 @@ class MaskedAutoencoderViT(nn.Module):
         self.img_size = img_size
         self.norm_pix_loss = norm_pix_loss
         self.mask_loss = mask_loss
+
+        self.num_h_patch = int(img_size[0] / patch_size[0])
+        self.num_l_patch = int(img_size[1] / patch_size[1])
 
         num_time_token = int(img_size[1] / patch_size[1])
         num_chan_token = img_size[0]
@@ -96,7 +100,7 @@ class MaskedAutoencoderViT(nn.Module):
             self.blocks = nn.ModuleList([
                 Block(embed_dim, num_heads, mlp_ratio, qkv_bias=True, norm_layer=norm_layer)
                 for i in range(depth)])
-            self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + 1, embed_dim), requires_grad=False)  # fixed sin-cos embedding
+            self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + 1, embed_dim), requires_grad=learnable_pos_embed)  # fixed sin-cos embedding
             
         self.norm = norm_layer(embed_dim)
         # --------------------------------------------------------------------------
@@ -130,7 +134,7 @@ class MaskedAutoencoderViT(nn.Module):
             self.decoder_blocks = nn.ModuleList([
                 Block(decoder_embed_dim, decoder_num_heads, mlp_ratio, qkv_bias=True, norm_layer=norm_layer)
                 for i in range(decoder_depth)])
-            self.decoder_pos_embed = nn.Parameter(torch.zeros(1, num_patches + 1, decoder_embed_dim), requires_grad=False)  # fixed sin-cos embedding
+            self.decoder_pos_embed = nn.Parameter(torch.zeros(1, num_patches + 1, decoder_embed_dim), requires_grad=learnable_pos_embed)  # fixed sin-cos embedding
 
         self.decoder_norm = norm_layer(decoder_embed_dim)
         self.decoder_pred = nn.Linear(decoder_embed_dim, patch_size[0] * patch_size[1] * in_chans, bias=True) # decoder to patch
@@ -143,10 +147,10 @@ class MaskedAutoencoderViT(nn.Module):
         # initialization
         # initialize (and freeze) pos_embed by sin-cos embedding
         if not self.use_rope:
-            pos_embed = get_2d_sincos_pos_embed(self.pos_embed.shape[-1], [1, int(self.patch_embed.num_patches)], cls_token=True)
+            pos_embed = get_2d_sincos_pos_embed(self.pos_embed.shape[-1], [self.num_h_patch, self.num_l_patch], cls_token=True)
             self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
 
-            decoder_pos_embed = get_2d_sincos_pos_embed(self.decoder_pos_embed.shape[-1], [1, int(self.patch_embed.num_patches)], cls_token=True)
+            decoder_pos_embed = get_2d_sincos_pos_embed(self.decoder_pos_embed.shape[-1], [self.num_h_patch, self.num_l_patch], cls_token=True)
             self.decoder_pos_embed.data.copy_(torch.from_numpy(decoder_pos_embed).float().unsqueeze(0))
 
         if hasattr(self.patch_embed, "proj"):
