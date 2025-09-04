@@ -643,11 +643,12 @@ class ClassiferHeadWrapper(nn.Module):
         '''
         input: x: (BS, 42,100,3)
         '''
+        b,w,l,c = x.shape
         x = rearrange(x, 'b w l c -> b c (w l)') # BS, 3, 4200
         x = x.unsqueeze(1)  # BS, 1, 3, 4200
-        b,_,c,_ = x.shape
+
         x = self.backbone.feature_extractor(x)[:,1:,:] # BS, nvar*42, 768
-        x = rearrange(x, 'b (c w) d -> b w c d',c=c) # BS, 42, nvar,768
+        x = rearrange(x, 'b (c w) d -> b w c d',w=w) # BS, 42, nvar,768
         x = x.mean(dim=2) # BS, 42, 768
         # do I need to normalize feature here?
         x = self.head(x) # BS, 42, 1
