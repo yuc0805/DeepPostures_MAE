@@ -17,7 +17,8 @@ torchrun --nproc_per_node=4 -m main_finetune_long \
 --patch_size 100 \
 --use_data_aug 1 \
 --use_pos_embed \
---patch_emb 'sundial'
+--patch_emb 'sundial' \
+--use_rope 
 
-# chmod +x script/iwatch_vit_long.sh
-# ./script/iwatch_vit_long.sh
+# chmod +x script/iwatch_vit_long_wrist.sh
+# ./script/iwatch_vit_long_wrist.sh

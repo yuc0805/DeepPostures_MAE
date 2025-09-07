@@ -27,7 +27,8 @@ class MaskedAutoencoderViT(nn.Module):
                  img_size=[3, 100], 
                  patch_size=[1,5], 
                  in_chans=1, 
-                 embed_dim=768, depth=24, 
+                 embed_dim=768, 
+                 depth=24, 
                  num_heads=16,
                  decoder_embed_dim=512, 
                  decoder_depth=8, 
@@ -95,7 +96,11 @@ class MaskedAutoencoderViT(nn.Module):
                 cls_token=True,
             )
             for i in range(depth)])
-            self.pos_embed = torch.zeros(1, num_patches + 1, embed_dim)  # place holder.
+            self.register_buffer(
+                "pos_embed",
+                torch.zeros(1, num_patches + 1, embed_dim),
+                persistent=True,  
+            ) # place holder
         else:
             self.blocks = nn.ModuleList([
                 Block(embed_dim, num_heads, mlp_ratio, qkv_bias=True, norm_layer=norm_layer)
@@ -128,7 +133,11 @@ class MaskedAutoencoderViT(nn.Module):
                 cls_token=True,
             )
             for i in range(decoder_depth)])
-            self.decoder_pos_embed = torch.zeros(1, num_patches + 1, decoder_embed_dim)  # place holder.
+            self.register_buffer(
+                "decoder_pos_embed",
+                torch.zeros(1, num_patches + 1, decoder_embed_dim),
+                persistent=True,
+            )  # place holder
 
         else:
             self.decoder_blocks = nn.ModuleList([

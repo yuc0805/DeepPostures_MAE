@@ -93,6 +93,8 @@ def get_args_parser():
                         help='Drop path rate')
     parser.add_argument('--patch_emb', type=str, default='vit', #sundial
                         help='Patch embedding type')
+    parser.add_argument('--use_rope', action='store_true',
+                        help='Use rotary position embedding')
     # Optimizer parameters
     parser.add_argument('--clip_grad', type=float, default=None, metavar='NORM',
                         help='Clip gradient norm (default: None, no clipping)')
@@ -347,6 +349,7 @@ def main(args):
         base_model = MaskedAutoencoderViT(img_size=[3,100],
                                      patch_size=[1,5],
                                      patch_emb=args.patch_emb,
+                                     use_rope = args.use_rope,
                                      learnable_pos_embed=args.learnable_pos_embed)
 
         if args.checkpoint:
@@ -378,6 +381,7 @@ def main(args):
         base_model = MaskedAutoencoderViT(img_size=[3,args.input_size],
                                 patch_size=[1,args.patch_size],
                                 patch_emb=args.patch_emb,
+                                use_rope = args.use_rope,
                                 learnable_pos_embed=args.learnable_pos_embed)
         
         # TODO: No weight to load right now.
@@ -388,6 +392,7 @@ def main(args):
         base_model = MaskedAutoencoderViT(img_size=[3,args.input_size],
                                 patch_size=[3,args.patch_size],
                                 patch_emb=args.patch_emb,
+                                use_rope = args.use_rope,
                                 learnable_pos_embed=args.learnable_pos_embed)
 
         # TODO: No weight to load right now.
