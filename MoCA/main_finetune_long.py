@@ -377,12 +377,28 @@ def main(args):
                                     
         
     #######################
-    elif args.model == 'vit-long':
+    elif args.model == 'vit-base':
         base_model = MaskedAutoencoderViT(img_size=[3,args.input_size],
                                 patch_size=[1,args.patch_size],
                                 patch_emb=args.patch_emb,
                                 use_rope = args.use_rope,
-                                learnable_pos_embed=args.learnable_pos_embed)
+                                learnable_pos_embed=args.learnable_pos_embed,
+                                embed_dim=768,
+                                depth=12,
+                                num_heads=12)
+        
+        # TODO: No weight to load right now.
+        model = ClassiferHeadWrapper(base_model, num_classes=args.nb_classes)
+
+    elif args.model == 'vit-small':
+        base_model = MaskedAutoencoderViT(img_size=[3,args.input_size],
+                                patch_size=[1,args.patch_size],
+                                patch_emb=args.patch_emb,
+                                use_rope = args.use_rope,
+                                learnable_pos_embed=args.learnable_pos_embed,
+                                embed_dim=384,
+                                depth=12,
+                                num_heads=6)
         
         # TODO: No weight to load right now.
         model = ClassiferHeadWrapper(base_model, num_classes=args.nb_classes)
