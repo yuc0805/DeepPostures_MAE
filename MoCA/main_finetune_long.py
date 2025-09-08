@@ -313,38 +313,6 @@ def main(args):
                                           ffn_multiplier=cfg.model.ffn_multiplier,
                                           drop_path_rate=cfg.model.drop_path_rate,
                                           learnable_pos_embed=cfg.model.learnable_pos_embed,)
-    elif args.model == 'MoCABiLSTMModel':
-        # prepare interaction layer
-        base_model = CNNBiLSTMModel(2,42,2) # hidden_size=256*2 = 512
-        if cfg.interaction_layer.transfer_learning_model_path:
-            msg = load_model_weights(base_model, cfg.interaction_layer.transfer_learning_model_path, weights_only=False)
-            print(msg)
-        interaction_layer = base_model.bil_lstm
-
-        # prepare feature extractor
-        feature_extractor = models_vit.__dict__['vit_base_patch16'](
-            img_size=[cfg.feature_extractor.nvar,cfg.feature_extractor.length],  #[3,100]
-            patch_size=[1, cfg.feature_extractor.patch_size],  #[1,5]
-            num_classes=args.nb_classes, 
-            in_chans=1, 
-            global_pool=False)
-        if cfg.feature_extractor.transfer_learning_model_path:
-            print('Loading transfer learning model for interaction layer from', cfg.interaction_layer.transfer_learning_model_path)
-            checkpoint = torch.load(cfg.feature_extractor.transfer_learning_model_path,map_location='cpu',weights_only=False)
-            checkpoint_model = checkpoint['model']
-            decoder_keys = [k for k in checkpoint_model.keys() if 'decoder' in k]
-            for key in decoder_keys:
-                del checkpoint_model[key]
-            msg = feature_extractor.load_state_dict(checkpoint_model, strict=False)
-            print('msg')
-        feature_extractor.head = nn.Identity()  # remove the head
-
-        # assemble model
-        # TODO: Add a assert that make sure feature extractor has same window-size as interaction layer
-        model = MoCABiLSTMModel(
-            feature_extractor=feature_extractor,
-            interaction_layer=interaction_layer,
-            num_classes=args.nb_classes,)
     elif args.model == 'shallow-moca':
         base_model = MaskedAutoencoderViT(img_size=[3,100],
                                      patch_size=[1,5],
@@ -403,22 +371,15 @@ def main(args):
         # TODO: No weight to load right now.
         model = ClassiferHeadWrapper(base_model, num_classes=args.nb_classes)
 
-    elif args.model == 'vit-long2':
-        # channel-mixing
-        base_model = MaskedAutoencoderViT(img_size=[3,args.input_size],
-                                patch_size=[3,args.patch_size],
-                                patch_emb=args.patch_emb,
-                                use_rope = args.use_rope,
-                                learnable_pos_embed=args.learnable_pos_embed)
-
-        # TODO: No weight to load right now.
-        model = ClassiferHeadWrapper(base_model, num_classes=args.nb_classes)
-
-    else:
+    elif args.model == 'channel-mixing-vit':
+        # vit channel mixing.
         backbone = models_vit.__dict__[args.model](
-        img_size=args.input_size, patch_size=[1, int(args.patch_size)], 
-        num_classes=args.nb_classes, in_chans=1, 
-        global_pool=False,use_cls=False)
+                img_size=[3,args.input_size], 
+                patch_size=[3, int(args.patch_size)],
+                in_chans=1,
+                num_classes=args.nb_classes,
+                drop_path_rate=0.1,
+                global_pool=True,)
 
         # # load weight
         if not args.eval:
