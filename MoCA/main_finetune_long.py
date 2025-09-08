@@ -373,7 +373,7 @@ def main(args):
 
     elif args.model == 'channel-mixing-vit':
         # vit channel mixing.
-        backbone = models_vit.__dict__[args.model](
+        backbone = models_vit.__dict__['vit_base_patch16'](
                 img_size=[3,args.input_size], 
                 patch_size=[3, int(args.patch_size)],
                 in_chans=1,
