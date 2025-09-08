@@ -8,7 +8,7 @@ import datetime
 import torch.nn as nn
 import numpy as np
 
-import main_finetune as finetune
+import MoCA.archive.main_finetune as finetune
 from config import DATASET_CONFIG
 # Import your dataset functions here
 # For example:
