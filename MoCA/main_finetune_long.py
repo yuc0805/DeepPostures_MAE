@@ -37,7 +37,7 @@ from util.pos_embed import interpolate_pos_embed
 import util.lr_decay as lrd  # for optimizer
 import models_vit
 from models_mae import ClassiferHeadWrapper, MaskedAutoencoderViT
-from engine_finetune_long import train_one_epoch, evaluate
+from MoCA.archive.engine_finetune_long import train_one_epoch, evaluate
 from util.loss import BinaryFocalLoss
 from models_mae import AttentionProbeModel
 import pandas as pd

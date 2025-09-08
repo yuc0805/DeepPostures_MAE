@@ -37,7 +37,7 @@ from util.pos_embed import interpolate_pos_embed
 import util.lr_decay as lrd  # for optimizer
 import models_vit
 from models_mae import AttentionProbeModel
-from engine_finetune_long import train_one_epoch, evaluate
+from MoCA.archive.engine_finetune_long import train_one_epoch, evaluate
 
 # if os.path.exists('/DeepPostures_MAE/MSSE-2021pt'):
 #     sys.path.append('/DeepPostures_MAE/MSSE-2021-pt')
