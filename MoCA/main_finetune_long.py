@@ -371,6 +371,19 @@ def main(args):
         # TODO: No weight to load right now.
         model = ClassiferHeadWrapper(base_model, num_classes=args.nb_classes)
 
+    elif args.model == 'vit-tiny':
+        base_model = MaskedAutoencoderViT(img_size=[3,args.input_size],
+                                patch_size=[1,args.patch_size],
+                                patch_emb=args.patch_emb,
+                                use_rope = args.use_rope,
+                                learnable_pos_embed=args.learnable_pos_embed,
+                                embed_dim=192,
+                                depth=12,
+                                num_heads=3)
+        
+        # TODO: No weight to load right now.
+        model = ClassiferHeadWrapper(base_model, num_classes=args.nb_classes)
+
     elif args.model == 'channel-mixing-vit':
         # vit channel mixing.
         backbone = models_vit.__dict__['vit_base_patch16'](
