@@ -37,3 +37,6 @@ torchrun --nproc_per_node=4 -m main_finetune_long \
 --use_data_aug 1 \
 --use_pos_embed \
 --patch_emb 'sundial' 
+
+# chmod +x script/iwatch_vit_tiny.sh
+# ./script/iwatch_vit_tiny.sh
