@@ -28,7 +28,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 import timm
-from config import FT_LONG_DATASET_CONFIG
+# from config import FT_LONG_DATASET_CONFIG
 from util.datasets import data_aug, iWatch 
 import util.misc as misc
 from util.misc import NativeScalerWithGradNormCount as NativeScaler
@@ -37,21 +37,18 @@ from util.pos_embed import interpolate_pos_embed
 import util.lr_decay as lrd  # for optimizer
 import models_vit
 from models_mae import ClassiferHeadWrapper, MaskedAutoencoderViT
-from MoCA.archive.engine_finetune_long import train_one_epoch, evaluate
+from engine_finetune_long import train_one_epoch, evaluate
 from util.loss import BinaryFocalLoss
 from models_mae import AttentionProbeModel
 import pandas as pd
 
 import pickle
 import sys
-# if os.path.exists('/DeepPostures_MAE/MSSE_2021_pt'):
-#     sys.path.append('/DeepPostures_MAE/MSSE_2021_pt')
-# elif os.path.exists('/app/DeepPostures_MAE/MSSE_2021_pt'):
-#     sys.path.append('/app/DeepPostures_MAE/MSSE_2021_pt')
+
 path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 print('Adding path to sys.path:', path)
 sys.path.append(path)
-#from MSSE_2021_pt.commons import get_dataloaders,get_dataloaders_dist 
+ 
 import random
 from einops import rearrange
 from tqdm import tqdm
@@ -65,7 +62,7 @@ def get_args_parser():
     parser = argparse.ArgumentParser('MAE linear probing for image classification', add_help=False)
     parser.add_argument('--config', default=None, type=str,
                         help='path to config file (default: None, use default config)')
-    parser.add_argument('--batch_size', default=None, type=int,
+    parser.add_argument('--batch_size', default=64, type=int,
                         help='Batch size per GPU (effective batch size is batch_size * accum_iter * # gpus')
     parser.add_argument('--epochs', default=20, type=int)
     parser.add_argument('--accum_iter', default=1, type=int,
@@ -77,14 +74,14 @@ def get_args_parser():
     # Model parameters
     parser.add_argument('--model', default='vit_base_patch16', type=str, metavar='MODEL',
                         help='Name of model to train')
-    parser.add_argument('--input_size', type=int, default=None, 
+    parser.add_argument('--input_size', type=int, default=4200, 
                         help='Input size "')
     parser.add_argument('--patch_size', type=int, default=100, 
                         help='Patch size')
     parser.add_argument('--use_pos_embed', action='store_true', default=False,)
     parser.add_argument('--no_use_pos_embed', action='store_false', dest='use_pos_embed',)
 
-    parser.add_argument('--in_chans', default=None, type=int,  # changed - added
+    parser.add_argument('--in_chans', default=3, type=int,  # changed - added
                         help='number of channels')
     parser.add_argument('--remark', default='Debug',type=str,
                         help='model_remark')
@@ -98,13 +95,13 @@ def get_args_parser():
     # Optimizer parameters
     parser.add_argument('--clip_grad', type=float, default=None, metavar='NORM',
                         help='Clip gradient norm (default: None, no clipping)')
-    parser.add_argument('--weight_decay', type=float, default=None,
+    parser.add_argument('--weight_decay', type=float, default=5e-2,
                         help='weight decay (default: 0 for linear probe following MoCo v1)')
     parser.add_argument('--num_attn_layer', type=int, default=2,
                         help='number of attention layers in the AttentionProbeModel')
     parser.add_argument('--lr', type=float, default=None, metavar='LR',
                         help='learning rate (absolute lr)')
-    parser.add_argument('--blr', type=float, default=None, metavar='LR', # default 1e-2
+    parser.add_argument('--blr', type=float, default=5e-4, metavar='LR', # default 1e-2
                         help='base learning rate: absolute_lr = base_lr * total_batch_size / 256')
     parser.add_argument('--layer_decay', type=float, default=0.75,
                         help='layer-wise lr decay from ELECTRA/BEiT')
@@ -132,7 +129,7 @@ def get_args_parser():
     parser.add_argument('--data_path', default='/niddk-data-central/iWatch/pre_processed_seg/W', type=str, # changed
                         help='dataset path')
     
-    parser.add_argument('--nb_classes', default=None, type=int, # changed
+    parser.add_argument('--nb_classes', default=2, type=int, # changed
                         help='number of the classification types')
 
     parser.add_argument('--output_dir', default='/niddk-data-central/leo_workspace/MoCA_result/LP/ckpt',
@@ -701,20 +698,18 @@ if __name__ == '__main__':
 
     initial_timestamp = datetime.datetime.now()
     
-    if args.in_chans is None:
-        args.in_chans = FT_LONG_DATASET_CONFIG[args.ds_name]['in_chans']
-    if args.nb_classes is None:
-        args.nb_classes = FT_LONG_DATASET_CONFIG[args.ds_name]['nb_classes']
-    if args.blr is None:
-        args.blr = FT_LONG_DATASET_CONFIG[args.ds_name]["blr"]
-    if args.batch_size is None:
-        args.batch_size = FT_LONG_DATASET_CONFIG[args.ds_name]["bs"]
-    if args.input_size is None:
-        args.input_size = FT_LONG_DATASET_CONFIG[args.ds_name]["input_size"]
-    if args.weight_decay is None:
-        args.weight_decay = FT_LONG_DATASET_CONFIG[args.ds_name]["weight_decay"]
-
-
+    # if args.in_chans is None:
+    #     args.in_chans = FT_LONG_DATASET_CONFIG[args.ds_name]['in_chans']
+    # if args.nb_classes is None:
+    #     args.nb_classes = FT_LONG_DATASET_CONFIG[args.ds_name]['nb_classes']
+    # if args.blr is None:
+    #     args.blr = FT_LONG_DATASET_CONFIG[args.ds_name]["blr"]
+    # if args.batch_size is None:
+    #     args.batch_size = FT_LONG_DATASET_CONFIG[args.ds_name]["bs"]
+    # if args.input_size is None:
+    #     args.input_size = FT_LONG_DATASET_CONFIG[args.ds_name]["input_size"]
+    # if args.weight_decay is None:
+    #     args.weight_decay = FT_LONG_DATASET_CONFIG[args.ds_name]["weight_decay"]
     #if args.CHAP:
         # args.lr = 1e-4
         # args.batch_size = 4
