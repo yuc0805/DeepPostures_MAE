@@ -78,6 +78,8 @@ def get_args_parser():
                         help='Input size "')
     parser.add_argument('--patch_size', type=int, default=100, 
                         help='Patch size')
+    parser.add_argument('--patch_nvar', type=int, default=1, 
+                    help='Patch size')
     parser.add_argument('--use_pos_embed', action='store_true', default=False,)
     parser.add_argument('--no_use_pos_embed', action='store_false', dest='use_pos_embed',)
 
@@ -344,7 +346,7 @@ def main(args):
     #######################
     elif args.model == 'vit-base':
         base_model = MaskedAutoencoderViT(img_size=[3,args.input_size],
-                                patch_size=[1,args.patch_size],
+                                patch_size=[args.patch_nvar,args.patch_size],
                                 patch_emb=args.patch_emb,
                                 use_rope = args.use_rope,
                                 learnable_pos_embed=args.learnable_pos_embed,
@@ -357,7 +359,7 @@ def main(args):
 
     elif args.model == 'vit-small':
         base_model = MaskedAutoencoderViT(img_size=[3,args.input_size],
-                                patch_size=[1,args.patch_size],
+                                patch_size=[args.patch_nvar,args.patch_size],
                                 patch_emb=args.patch_emb,
                                 use_rope = args.use_rope,
                                 learnable_pos_embed=args.learnable_pos_embed,
@@ -370,7 +372,7 @@ def main(args):
 
     elif args.model == 'vit-tiny':
         base_model = MaskedAutoencoderViT(img_size=[3,args.input_size],
-                                patch_size=[1,args.patch_size],
+                                patch_size=[args.patch_nvar,args.patch_size],
                                 patch_emb=args.patch_emb,
                                 use_rope = args.use_rope,
                                 learnable_pos_embed=args.learnable_pos_embed,
@@ -380,16 +382,6 @@ def main(args):
         
         # TODO: No weight to load right now.
         model = ClassiferHeadWrapper(base_model, num_classes=args.nb_classes)
-
-    elif args.model == 'channel-mixing-vit':
-        # vit channel mixing.
-        backbone = models_vit.__dict__['vit_base_patch16'](
-                img_size=[3,args.input_size], 
-                patch_size=[3, int(args.patch_size)],
-                in_chans=1,
-                num_classes=args.nb_classes,
-                drop_path_rate=0.1,
-                global_pool=True,)
 
         # # load weight
         if not args.eval:
