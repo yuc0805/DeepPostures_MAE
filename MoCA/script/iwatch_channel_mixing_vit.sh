@@ -17,8 +17,8 @@ torchrun --nproc_per_node=4 -m main_finetune_long \
 --input_size 4200 \
 --patch_size 100 \
 --use_data_aug 1 \
---use_pos_embed \
---patch_emb 'sundial' 
+--use_pos_embed 
+
 # --use_rope 
 
 torchrun --nproc_per_node=4 -m main_finetune_long \
@@ -38,8 +38,8 @@ torchrun --nproc_per_node=4 -m main_finetune_long \
 --input_size 4200 \
 --patch_size 100 \
 --use_data_aug 1 \
---use_pos_embed \
---patch_emb 'sundial' 
+--use_pos_embed 
+
 
 
 torchrun --nproc_per_node=4 -m main_finetune_long \
@@ -59,8 +59,8 @@ torchrun --nproc_per_node=4 -m main_finetune_long \
 --input_size 4200 \
 --patch_size 100 \
 --use_data_aug 1 \
---use_pos_embed \
---patch_emb 'sundial' 
+--use_pos_embed 
+
 
 torchrun --nproc_per_node=4 -m main_finetune_long \
 --ds_name iwatch \
@@ -79,8 +79,8 @@ torchrun --nproc_per_node=4 -m main_finetune_long \
 --input_size 4200 \
 --patch_size 100 \
 --use_data_aug 1 \
---use_pos_embed \
---patch_emb 'sundial' 
+--use_pos_embed 
 
-# chmod +x script/iwatch_vit_long_wrist.sh
-# ./script/iwatch_vit_long_wrist.sh
+
+# chmod +x script/iwatch_channel_mixing_vit.sh
+# ./script/iwatch_channel_mixing_vit.sh
