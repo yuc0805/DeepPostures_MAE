@@ -4,8 +4,8 @@ torchrun --nproc_per_node=2 -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_long_seg/H" \
 --remark vit-base \
---blr 5e-4 \
---weight_decay 5e-2 \
+--blr 1e-3 \
+--weight_decay 1e-3 \
 --layer_decay 1.0 \
 --model vit-base \
 --epochs 40 \
@@ -24,8 +24,8 @@ torchrun --nproc_per_node=2 -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_long_seg/H" \
 --remark vit-small \
---blr 5e-4 \
---weight_decay 5e-2 \
+--blr 1e-3 \
+--weight_decay 1e-3 \
 --layer_decay 1.0 \
 --model vit-small \
 --epochs 40 \
@@ -43,8 +43,8 @@ torchrun --nproc_per_node=2 -m main_finetune_long \
 --ds_name iwatch \
 --data_path "/niddk-data-central/iWatch/pre_processed_long_seg/H" \
 --remark vit-small \
---blr 5e-4 \
---weight_decay 5e-2 \
+--blr 1e-3 \
+--weight_decay 1e-3 \
 --layer_decay 1.0 \
 --model vit-tiny \
 --epochs 40 \
