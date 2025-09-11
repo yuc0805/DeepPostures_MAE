@@ -383,25 +383,6 @@ def main(args):
         # TODO: No weight to load right now.
         model = ClassiferHeadWrapper(base_model, num_classes=args.nb_classes)
 
-        # # load weight
-        if not args.eval:
-            print('Loading pre-trained checkpoint from',args.checkpoint)
-            checkpoint = torch.load(args.checkpoint,map_location='cpu')
-            checkpoint_model = checkpoint['model']
-            interpolate_pos_embed(backbone, checkpoint_model,orig_size=(3,42),
-                                new_size=(args.input_size[0],int(args.input_size[1]//args.patch_size)))
-            
-
-            #print(checkpoint_model.keys())
-            decoder_keys = [k for k in checkpoint_model.keys() if 'decoder' in k]
-            for key in decoder_keys:
-                del checkpoint_model[key]
-
-            print('shape after interpolate:',checkpoint_model['pos_embed'].shape)
-            msg = backbone.load_state_dict(checkpoint_model, strict=False)
-            print(msg)
-
-        model = ClassiferHeadWrapper(backbone, num_classes=args.nb_classes)
 
     if args.eval:
         # Evaluate 
