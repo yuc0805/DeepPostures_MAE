@@ -17,8 +17,7 @@ pip install transformers
 # --patch_size 100 \
 # --use_data_aug 1 \
 # --use_pos_embed \
-# --patch_emb 'sundial' 
-# # --use_rope 
+# --patch_emb 'sundial'  
 
 torchrun --nproc_per_node=2 -m main_finetune_long \
 --ds_name iwatch \
