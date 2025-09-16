@@ -404,16 +404,6 @@ def main(args):
         print(model)
 
         if args.subject_level_analysis:
-            # dataset_train = iWatch(
-            #     set_type='train',
-            #     root=args.data_path,
-            #     transform=None,
-            #     subset_ratio=args.subset_ratio,)
-            # dataset_val = iWatch(
-            #     set_type='val',
-            #     root=args.data_path,
-            #     transform=None,)
-
             train_subject_list = list(dataset_train.subject_id)
             val_subject_list = list(dataset_val.subject_id)
 
